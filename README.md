@@ -169,14 +169,6 @@ AI-wellness-Buddy/
 ├── requirements.txt       # Python dependencies
 └── README.md             # This file
 ```
-├── pattern_tracker.py      # Emotional pattern tracking
-├── alert_system.py         # Distress alert management
-├── conversation_handler.py # Conversation flow management
-├── user_profile.py         # User profile for personalized support
-├── config.py              # Configuration settings
-├── requirements.txt       # Python dependencies
-└── README.md             # This file
-```
 
 ## 🛠️ Configuration
 

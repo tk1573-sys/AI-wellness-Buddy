@@ -82,10 +82,11 @@ class DataStore:
     def _restore_from_serialization(self, data):
         """Restore datetime objects from ISO format strings"""
         if isinstance(data, dict):
-            # Check if this dict has a timestamp field to restore
+            # Check if this dict has datetime fields to restore
             result = {}
+            datetime_fields = ['timestamp', 'created_at', 'last_session', 'added_at', 'marked_at']
             for k, v in data.items():
-                if k == 'timestamp' and isinstance(v, str):
+                if k in datetime_fields and isinstance(v, str):
                     try:
                         result[k] = datetime.fromisoformat(v)
                     except (ValueError, TypeError):

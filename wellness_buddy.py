@@ -153,6 +153,10 @@ class WellnessBuddy:
     
     def process_message(self, user_message):
         """Process user message and generate response"""
+        # Ensure profile is loaded
+        if not self.user_profile:
+            return "⚠️ Profile not initialized. Please restart the session."
+        
         # Handle special commands
         if user_message.lower() == 'quit':
             return self._end_session()
@@ -321,6 +325,13 @@ class WellnessBuddy:
     def _end_session(self):
         """End the wellness buddy session"""
         self.session_active = False
+        
+        # Ensure profile exists before trying to save
+        if not self.user_profile:
+            message = "\n" + "="*70 + "\n"
+            message += "Session ended.\n"
+            message += "="*70 + "\n"
+            return message
         
         # Save emotional snapshot to long-term history
         pattern_summary = self.pattern_tracker.get_pattern_summary()
