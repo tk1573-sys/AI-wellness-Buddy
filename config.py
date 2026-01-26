@@ -22,6 +22,25 @@ WOMEN_SUPPORT_RESOURCES = {
     "safety_planning": "Visit thehotline.org for safety planning resources"
 }
 
+# Trusted support resources (non-family for toxic situations)
+TRUSTED_SUPPORT_RESOURCES = {
+    "women_organizations": [
+        "National Coalition Against Domestic Violence: 1-303-839-1852",
+        "National Organization for Women: 202-628-8669",
+        "Women's Resource Center (check local listings)"
+    ],
+    "friend_support_tips": [
+        "Reach out to trusted friends outside your household",
+        "Consider confiding in a colleague or mentor you trust",
+        "Connect with support groups where you can meet safe people"
+    ],
+    "professional_support": [
+        "Contact a therapist or counselor (confidential)",
+        "Reach out to women's shelters for guidance",
+        "Speak with a social worker who specializes in family situations"
+    ]
+}
+
 # Conversation settings
 MAX_CONVERSATION_HISTORY = 50
 GREETING_MESSAGES = [

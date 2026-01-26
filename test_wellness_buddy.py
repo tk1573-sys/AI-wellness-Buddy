@@ -8,6 +8,9 @@ from pattern_tracker import PatternTracker
 from alert_system import AlertSystem
 from conversation_handler import ConversationHandler
 from user_profile import UserProfile
+from data_store import DataStore
+import tempfile
+import shutil
 
 
 def test_emotion_analysis():
@@ -82,7 +85,7 @@ def test_alert_system():
     
     if alert_system.should_trigger_alert(summary):
         print("\n✓ Alert triggered successfully!")
-        profile = UserProfile()
+        profile = UserProfile('test_user')
         profile.set_gender('female')
         
         alert = alert_system.trigger_distress_alert(summary, profile.get_profile())
@@ -123,28 +126,80 @@ def test_user_profile():
     print("TEST 5: User Profile & Specialized Support")
     print("="*70)
     
-    profile = UserProfile()
+    profile = UserProfile('test_user')
     profile.set_gender('female')
     profile.set_relationship_status('married')
     
+    # Test trusted contacts
+    profile.add_trusted_contact('Sarah', 'best friend', '555-1234')
+    profile.add_unsafe_contact('family/guardians')
+    
     print(f"\nUser Profile Created:")
+    print(f"  User ID: {profile.get_profile()['user_id']}")
     print(f"  Gender: {profile.get_profile()['gender']}")
     print(f"  Is female: {profile.is_female()}")
     print(f"  Needs women support: {profile.needs_women_support()}")
+    print(f"  Has unsafe family: {profile.has_unsafe_family()}")
+    print(f"  Trusted contacts: {len(profile.get_trusted_contacts())}")
+
+
+def test_data_persistence():
+    """Test data storage and retrieval"""
+    print("\n" + "="*70)
+    print("TEST 6: Data Persistence")
+    print("="*70)
+    
+    # Create temporary directory for testing
+    temp_dir = tempfile.mkdtemp()
+    
+    try:
+        # Create and save profile
+        data_store = DataStore(temp_dir)
+        profile = UserProfile('test_user_123')
+        profile.set_gender('female')
+        profile.add_trusted_contact('Jane', 'friend')
+        
+        data_store.save_user_data('test_user_123', profile.get_profile())
+        print("\n✓ Profile saved")
+        
+        # Check if user exists
+        exists = data_store.user_exists('test_user_123')
+        print(f"✓ User exists check: {exists}")
+        
+        # Load profile
+        loaded_data = data_store.load_user_data('test_user_123')
+        if loaded_data:
+            print(f"✓ Profile loaded")
+            print(f"  Gender: {loaded_data.get('gender')}")
+            print(f"  Trusted contacts: {len(loaded_data.get('trusted_contacts', []))}")
+        
+        # List users
+        users = data_store.list_users()
+        print(f"✓ Users in store: {users}")
+        
+        # Delete user
+        deleted = data_store.delete_user_data('test_user_123')
+        print(f"✓ User deleted: {deleted}")
+        
+    finally:
+        # Clean up temp directory
+        shutil.rmtree(temp_dir)
 
 
 def test_full_workflow():
     """Test complete workflow with abuse detection"""
     print("\n" + "="*70)
-    print("TEST 6: Full Workflow - Abuse Detection & Alert")
+    print("TEST 7: Full Workflow - Abuse Detection & Alert")
     print("="*70)
     
     analyzer = EmotionAnalyzer()
     tracker = PatternTracker()
     alert_system = AlertSystem()
     handler = ConversationHandler()
-    profile = UserProfile()
+    profile = UserProfile('test_user')
     profile.set_gender('female')
+    profile.add_unsafe_contact('family/guardians')
+    profile.add_trusted_contact('Sarah', 'best friend', '555-0123')
     
     # Simulate conversation with abuse indicators
     messages = [
@@ -169,7 +224,7 @@ def test_full_workflow():
         if alert_system.should_trigger_alert(summary):
             print("\n🚨 ALERT TRIGGERED 🚨")
             alert = alert_system.trigger_distress_alert(summary, profile.get_profile())
-            alert_message = alert_system.format_alert_message(alert)
+            alert_message = alert_system.format_alert_message(alert, profile.get_trusted_contacts())
             print(alert_message)
             tracker.reset_consecutive_distress()
 
@@ -186,6 +241,7 @@ def run_all_tests():
         test_alert_system()
         test_conversation_handler()
         test_user_profile()
+        test_data_persistence()
         test_full_workflow()
         
         print("\n" + "="*70)
