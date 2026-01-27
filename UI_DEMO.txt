@@ -1,0 +1,228 @@
+╔══════════════════════════════════════════════════════════════════════╗
+║          AI WELLNESS BUDDY - WEB UI DEMONSTRATION                    ║
+╔══════════════════════════════════════════════════════════════════════╗
+
+STEP 1: Launch the Web UI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Method A: Using launcher script
+$ ./start_ui.sh
+
+Method B: Direct command
+$ streamlit run ui_app.py
+
+Result: Browser opens automatically to http://localhost:8501
+
+STEP 2: Profile Setup Screen (First Time)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌────────────────────────────────────────────────────────────────┐
+│  🌟 AI Wellness Buddy                                          │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  Welcome! Let's set up your profile                           │
+│                                                                │
+│  ℹ️ No existing profiles found. Let's create one!            │
+│                                                                │
+│  ┌──────────────────────────────────────────────────────┐    │
+│  │ Choose a username (private): [sarah_________]        │    │
+│  │                                                       │    │
+│  │ How do you identify?         [Female ▼]             │    │
+│  │                                                       │    │
+│  │ ℹ️ 💙 Specialized support resources for women       │    │
+│  │    are available.                                    │    │
+│  │                                                       │    │
+│  │ Do you feel safe with your family/guardians?        │    │
+│  │   ○ Skip   ○ Yes   ● No                             │    │
+│  │                                                       │    │
+│  │ ⚠️ 🛡️ I understand. Your safety is paramount.      │    │
+│  │    I will guide you toward trusted friends and      │    │
+│  │    women's organizations.                            │    │
+│  │                                                       │    │
+│  │               [Create Profile]                       │    │
+│  └──────────────────────────────────────────────────────┘    │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+
+STEP 3: Main Chat Interface (After Login)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌────────────────────────────────────────────────────────────────┐
+│  🌟 AI Wellness Buddy                                          │
+├──────────────────┬─────────────────────────────────────────────┤
+│ SIDEBAR          │ CHAT AREA                                   │
+│                  │                                             │
+│ User: sarah      │ 👤 You                                      │
+│ Session: #3      │ I'm feeling really stressed today          │
+│                  │                                             │
+│ ───────────      │ 🤖 Wellness Buddy                           │
+│ Commands         │ I can sense you're going through a          │
+│                  │ difficult time. I'm here to support you. 💙│
+│ [📞 Help &       │                                             │
+│  Resources]      │ 👤 You                                      │
+│                  │ My family doesn't understand me             │
+│ [📊 Emotional    │                                             │
+│  Status]         │ 🤖 Wellness Buddy                           │
+│                  │ I hear you. Would you like to talk more    │
+│ [⚙️ Manage       │ about what's on your mind?                  │
+│  Profile]        │                                             │
+│                  │                                             │
+│ [🚪 End Session] │                                             │
+│                  │ ─────────────────────────────────────────  │
+│                  │ Share how you're feeling...                │
+│                  │ [Type your message here_____________] [►]   │
+└──────────────────┴─────────────────────────────────────────────┘
+
+STEP 4: Click "Help & Resources" Button
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Result in chat:
+
+🤖 Wellness Buddy
+
+📞 SUPPORT RESOURCES 📞
+══════════════════════════════════════════════════════════════════
+
+General Support:
+  • Crisis Hotline: 988 (Suicide & Crisis Lifeline)
+  • Text Line: Text HOME to 741741 (Crisis Text Line)
+  • Mental Health: SAMHSA National Helpline: 1-800-662-4357
+
+🛡️ Specialized Resources for Women:
+  • Domestic Violence Hotline: 1-800-799-7233
+  • Domestic Violence Text: Text START to 88788
+  • Women Safety: 1-800-656-4673 (RAINN)
+
+💚 Your Trusted Contacts:
+  (None added yet - use Profile Manager to add)
+
+══════════════════════════════════════════════════════════════════
+
+STEP 5: Click "Emotional Status" Button
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Result in chat:
+
+🤖 Wellness Buddy
+
+📊 EMOTIONAL PATTERN SUMMARY 📊
+══════════════════════════════════════════════════════════════════
+
+Current Session:
+  Messages analyzed: 5
+  Emotional trend: STABLE
+  Average sentiment: 0.10 (positive)
+
+Last 7 Days:
+  Check-ins: 3
+  Overall sentiment: -0.05 (negative)
+
+══════════════════════════════════════════════════════════════════
+
+STEP 6: Click "Manage Profile" Button
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Sidebar expands with:
+
+┌──────────────────┐
+│ Profile Mgmt     │
+│                  │
+│ Trusted contacts:│
+│ 0                │
+│                  │
+│ Choose action:   │
+│ [Add Trusted   ▼]│
+│  Contact         │
+│                  │
+│ Form appears:    │
+│ Name: [Emma___]  │
+│ Relationship:    │
+│ [friend________] │
+│ Contact:         │
+│ [555-1234_____]  │
+│                  │
+│    [Add]         │
+└──────────────────┘
+
+STEP 7: Distress Alert (Automatic)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After 3+ distress messages, system automatically displays:
+
+🤖 Wellness Buddy
+
+I hear that you're really struggling right now. Please know that you 
+don't have to go through this alone. 💙
+
+⚠️ EMOTIONAL DISTRESS ALERT ⚠️
+
+I've noticed you've been experiencing sustained emotional distress. 
+Your wellbeing is important, and you don't have to face this alone.
+
+Please consider reaching out to professional support:
+
+📞 General Support Resources:
+  • Crisis Hotline: 988 (Suicide & Crisis Lifeline)
+  • Text Line: Text HOME to 741741 (Crisis Text Line)
+  • Mental Health: SAMHSA National Helpline: 1-800-662-4357
+
+🛡️ SPECIALIZED SUPPORT FOR WOMEN 🛡️
+
+🤝 SAFE SUPPORT NETWORK 🤝
+
+Since family may not be safe, consider these trusted resources:
+
+Women's Organizations:
+  • National Coalition Against Domestic Violence: 1-303-839-1852
+  • National Organization for Women: 202-628-8669
+
+Building Safe Support:
+  • Reach out to trusted friends outside your household
+  • Consider confiding in a colleague or mentor you trust
+
+💚 Your Trusted Contacts:
+  • Emma (friend)
+    Contact: 555-1234
+
+💙 Remember: You are not alone, and help is available 24/7.
+💙 You are in control - reach out to people YOU trust.
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                         KEY ADVANTAGES                               ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+✅ Visual Interface       - Easy to read and navigate
+✅ Button Commands        - No need to remember text commands
+✅ Chat History           - Scroll through conversation
+✅ Formatted Display      - Resources shown clearly
+✅ Form Fields            - Easy data entry
+✅ Responsive Design      - Works on desktop/tablet
+✅ Same Privacy           - All data stays local
+✅ Same Features          - Everything CLI has + more
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                      QUICK START COMMANDS                            ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+1. Install: pip install -r requirements.txt
+2. Launch: streamlit run ui_app.py (or ./start_ui.sh)
+3. Access: http://localhost:8501 (opens automatically)
+4. Use:    Point, click, type, and chat!
+5. Stop:   Press Ctrl+C in terminal
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                         TROUBLESHOOTING                              ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+Issue: Browser doesn't open
+→ Manually visit: http://localhost:8501
+
+Issue: Port already in use
+→ Run: streamlit run ui_app.py --server.port 8502
+
+Issue: Streamlit not installed
+→ Run: pip install streamlit
+
+Issue: UI doesn't load
+→ Check Python version (need 3.7+)
+→ Reinstall: pip install --upgrade streamlit
+
