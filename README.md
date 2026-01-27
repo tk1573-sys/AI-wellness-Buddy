@@ -48,10 +48,18 @@ python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
 
 ### Running the Application
 
-Start the AI Wellness Buddy:
+**Option 1: Command Line Interface (CLI)**
 ```bash
 python wellness_buddy.py
 ```
+
+**Option 2: Web UI (Browser-based)** ✨ New!
+```bash
+streamlit run ui_app.py
+```
+Opens in your browser at `http://localhost:8501` with a visual, point-and-click interface.
+
+**See `UI_GUIDE.md` for complete Web UI instructions and screenshots.**
 
 ### First Time Setup
 
