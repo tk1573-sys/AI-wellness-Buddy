@@ -72,13 +72,23 @@ The application includes several built-in keyword databases for emotion detectio
 
 1. **Distress Keywords Dataset** (24 keywords)
    - Location: `emotion_analyzer.py`
-   - Keywords include: 'sad', 'depressed', 'hopeless', 'worthless', 'alone', 'lonely', 'anxious', 'scared', 'afraid', 'helpless', 'trapped', 'stuck', 'hurt', 'pain', 'suffering', 'abuse', 'abused', 'victim', 'can\'t take it', 'give up', 'end it', 'suicide', 'die', 'tired of living'
    - Purpose: Detect emotional distress in user messages
+   - Keywords include:
+     - Emotional states: 'sad', 'depressed', 'hopeless', 'worthless', 'alone', 'lonely'
+     - Anxiety/fear: 'anxious', 'scared', 'afraid', 'helpless', 'trapped', 'stuck'
+     - Physical/emotional pain: 'hurt', 'pain', 'suffering'
+     - Abuse-related: 'abuse', 'abused', 'victim'
+     - Crisis indicators: 'can\'t take it', 'give up', 'end it', 'suicide', 'die', 'tired of living'
 
 2. **Abuse Indicator Keywords Dataset** (16 keywords/phrases)
    - Location: `emotion_analyzer.py`
-   - Keywords include: 'abuse', 'abused', 'abusive', 'controlling', 'manipulative', 'gaslighting', 'threatened', 'intimidated', 'belittled', 'humiliated', 'isolated', 'trapped', 'toxic relationship', 'emotional abuse', 'verbal abuse', 'domestic violence'
    - Purpose: Detect potential abuse situations
+   - Keywords include:
+     - Direct abuse terms: 'abuse', 'abused', 'abusive', 'domestic violence'
+     - Manipulation tactics: 'controlling', 'manipulative', 'gaslighting'
+     - Emotional harm: 'threatened', 'intimidated', 'belittled', 'humiliated'
+     - Isolation: 'isolated', 'trapped'
+     - Relationship types: 'toxic relationship', 'emotional abuse', 'verbal abuse'
 
 3. **Support Resources Database**
    - Location: `config.py`
