@@ -172,11 +172,26 @@ AI-wellness-Buddy/
 ├── alert_system.py         # Distress alert management with safety features
 ├── conversation_handler.py # Conversation flow management
 ├── user_profile.py         # User profile with trusted contacts
-├── data_store.py          # Persistent data storage (NEW)
+├── data_store.py          # Persistent data storage
 ├── config.py              # Configuration settings
+├── ui_app.py              # Streamlit web interface
 ├── requirements.txt       # Python dependencies
-└── README.md             # This file
+├── README.md              # This file
+├── USAGE.md               # Quick start guide
+├── UI_GUIDE.md            # Web UI guide
+└── TECHNOLOGIES_AND_DATASETS.md  # Technologies and datasets documentation
 ```
+
+## 🛠️ Technologies & Datasets
+
+**For a complete overview of all technologies, libraries, frameworks, and datasets used in this project, see [TECHNOLOGIES_AND_DATASETS.md](TECHNOLOGIES_AND_DATASETS.md).**
+
+### Quick Summary
+- **NLP Libraries**: NLTK (>=3.8.1), TextBlob (>=0.17.1)
+- **Web Framework**: Streamlit (>=1.28.0)
+- **NLTK Datasets**: Brown Corpus, Punkt Tokenizer Models
+- **Storage**: Local JSON files (`~/.wellness_buddy/`)
+- **Privacy**: All processing done locally, no external APIs
 
 ## 🛠️ Configuration
 
