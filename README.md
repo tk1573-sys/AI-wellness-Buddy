@@ -53,13 +53,19 @@ python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
 python wellness_buddy.py
 ```
 
-**Option 2: Web UI (Browser-based)** ✨ New!
+**Option 2: Web UI - Local Access** ✨
 ```bash
 streamlit run ui_app.py
 ```
 Opens in your browser at `http://localhost:8501` with a visual, point-and-click interface.
 
-**See `UI_GUIDE.md` for complete Web UI instructions and screenshots.**
+**Option 3: Web UI - Network Access** 🌐 New!
+```bash
+bash start_ui_network.sh
+```
+Accessible from any device on your network. The script displays both local and network URLs.
+
+**See `UI_GUIDE.md` for Web UI instructions and `NETWORK_DEPLOYMENT.md` for network/internet deployment options.**
 
 ### First Time Setup
 
@@ -175,10 +181,15 @@ AI-wellness-Buddy/
 ├── data_store.py          # Persistent data storage
 ├── config.py              # Configuration settings
 ├── ui_app.py              # Streamlit web interface
+├── start_ui.sh            # Local UI launcher script
+├── start_ui_network.sh    # Network UI launcher script (NEW)
+├── .streamlit/
+│   └── config.toml        # Streamlit network configuration (NEW)
 ├── requirements.txt       # Python dependencies
 ├── README.md              # This file
 ├── USAGE.md               # Quick start guide
 ├── UI_GUIDE.md            # Web UI guide
+├── NETWORK_DEPLOYMENT.md  # Network deployment guide (NEW)
 └── TECHNOLOGIES_AND_DATASETS.md  # Technologies and datasets documentation
 ```
 
@@ -192,6 +203,29 @@ AI-wellness-Buddy/
 - **NLTK Datasets**: Brown Corpus, Punkt Tokenizer Models
 - **Storage**: Local JSON files (`~/.wellness_buddy/`)
 - **Privacy**: All processing done locally, no external APIs
+
+## 🌐 Network Deployment
+
+**For detailed network deployment instructions, see [NETWORK_DEPLOYMENT.md](NETWORK_DEPLOYMENT.md).**
+
+### Quick Network Access
+
+Access the UI from any device on your network:
+```bash
+bash start_ui_network.sh
+```
+
+The app will be available at:
+- **Local**: `http://localhost:8501`
+- **Network**: `http://YOUR-IP:8501` (displayed when app starts)
+
+### Deployment Options
+- **Local Network**: Access from devices on same Wi-Fi/LAN
+- **Streamlit Cloud**: Free cloud deployment for internet access
+- **VPS/Cloud Server**: Self-hosted with custom domain
+- **Docker**: Containerized deployment
+
+⚠️ **Security Note**: When enabling network access, ensure you're on a trusted network. See [NETWORK_DEPLOYMENT.md](NETWORK_DEPLOYMENT.md) for security best practices.
 
 ## 🛠️ Configuration
 
