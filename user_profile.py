@@ -13,10 +13,11 @@ class UserProfile:
     
     def __init__(self, user_id=None):
         self.user_id = user_id
+        current_time = datetime.now()  # Calculate once for consistency
         self.profile_data = {
             'user_id': user_id,
-            'created_at': datetime.now(),
-            'last_session': datetime.now(),
+            'created_at': current_time,
+            'last_session': current_time,
             'gender': None,
             'support_preferences': {},
             'demographics': {},
@@ -29,7 +30,7 @@ class UserProfile:
             'salt': None,  # Salt for password hashing
             'failed_login_attempts': 0,
             'lockout_until': None,
-            'last_activity': datetime.now(),
+            'last_activity': current_time,  # Set at creation time
             'security_enabled': config.ENABLE_PROFILE_PASSWORD
         }
     

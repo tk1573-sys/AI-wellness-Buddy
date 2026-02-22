@@ -75,9 +75,16 @@ class DataStore:
             encrypted_bytes = base64.b64decode(encrypted_data.encode())
             decrypted = self.cipher.decrypt(encrypted_bytes)
             return json.loads(decrypted.decode())
-        except Exception:
-            # If decryption fails, assume it's unencrypted legacy data
+        except (base64.binascii.Error, json.JSONDecodeError) as e:
+            # Likely legacy unencrypted data - return as is
+            import logging
+            logging.debug(f"Data appears to be unencrypted legacy format: {e}")
             return encrypted_data
+        except Exception as e:
+            # Genuine decryption error (wrong key, corrupted data, etc.)
+            import logging
+            logging.error(f"Decryption failed: {e}")
+            raise ValueError(f"Failed to decrypt data. The encryption key may be incorrect or the data may be corrupted: {e}")
     
     def _get_user_file(self, user_id):
         """Get the file path for a user's data"""
