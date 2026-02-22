@@ -7,6 +7,19 @@ DISTRESS_THRESHOLD = -0.3  # Negative sentiment threshold
 SUSTAINED_DISTRESS_COUNT = 3  # Number of consecutive distress messages to trigger alert
 PATTERN_TRACKING_WINDOW = 10  # Number of recent messages to analyze for patterns
 
+# Data retention settings (EXTENDED TRACKING)
+EMOTIONAL_HISTORY_DAYS = 365  # Keep emotional history for 1 year (was 90 days)
+CONVERSATION_ARCHIVE_DAYS = 180  # Archive conversations after 6 months
+MAX_EMOTIONAL_SNAPSHOTS = 365  # Maximum number of emotional snapshots to keep
+
+# Security settings
+ENABLE_PROFILE_PASSWORD = True  # Require password for profile access
+SESSION_TIMEOUT_MINUTES = 30  # Auto-logout after inactivity
+ENABLE_DATA_ENCRYPTION = True  # Encrypt sensitive data at rest
+MIN_PASSWORD_LENGTH = 8  # Minimum password length
+MAX_LOGIN_ATTEMPTS = 3  # Maximum failed login attempts before lockout
+LOCKOUT_DURATION_MINUTES = 15  # Duration of account lockout
+
 # Support resources
 GENERAL_SUPPORT_RESOURCES = {
     "crisis_hotline": "988 (Suicide & Crisis Lifeline)",
