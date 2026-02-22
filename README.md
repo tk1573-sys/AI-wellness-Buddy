@@ -6,12 +6,21 @@ An AI-based emotional wellness support system that provides continuous text-base
 
 ### Core Capabilities
 - **Persistent User Profiles**: Private profiles with secure local storage for continuous support across sessions
-- **Multi-Day Emotional History**: Tracks emotional patterns over days/weeks, not just single sessions
+- **Extended Emotional History**: **NEW: 365-day tracking** (upgraded from 90 days) for comprehensive long-term pattern analysis
 - **Text-based Emotional Interaction**: Continuous conversational support with emotion-aware responses
 - **Emotion Analysis**: Advanced sentiment analysis and emotion classification using natural language processing
 - **Pattern Tracking**: Monitors emotional trends over time to identify concerning patterns
 - **Distress Alert System**: Automatically triggers alerts when sustained emotional distress is detected (3+ consecutive distress messages)
 - **Resource Connection**: Provides immediate access to crisis hotlines and support resources
+
+### Enhanced Security Features 🔒 NEW
+- **Password Protection**: Secure profile access with password/PIN (SHA-256 hashing)
+- **Data Encryption**: AES-256 encryption for all stored data
+- **Session Timeout**: Automatic logout after inactivity (default: 30 minutes)
+- **Account Lockout**: Protection against brute force attacks (3 attempts, 15-minute lockout)
+- **Data Integrity**: SHA-256 hashing for data verification
+- **Automatic Backups**: Timestamped backups before critical operations
+- **File Permissions**: Owner-only access to data files (Unix/Linux)
 
 ### Specialized Support for Women
 - **Safe Support Network**: Avoid harmful family contacts in toxic situations; guide toward trusted friends and organizations
@@ -98,19 +107,37 @@ The system remembers you! When you return:
 
 ### Commands
 - `help` - Display support resources, hotlines, and your trusted contacts
-- `status` - Show emotional pattern summary (current session + last 7 days)
-- `profile` - Manage trusted contacts and safety settings
+- `status` - Show emotional pattern summary (current session + last 7 days, or full year)
+- `profile` - Manage trusted contacts, security settings, and delete data
 - `quit` - End the session and save your progress
 
-## 🔒 Privacy & Safety
+## 🔒 Privacy & Security
 
+### Enhanced Security Features (NEW)
+- **Password Protection**: Set a password to protect your profile from unauthorized access
+- **AES-256 Encryption**: All data encrypted at rest with industry-standard encryption
+- **Session Timeout**: Automatic logout after 30 minutes of inactivity
+- **Account Lockout**: Protection against brute force password attempts
+- **Secure Storage**: Encryption keys and data files with restricted permissions (owner-only)
+
+### Data Privacy
 - **Local Storage Only**: All data is stored privately on your device in `~/.wellness_buddy/`
 - **No External Sharing**: Your conversations and profile are never shared externally
 - **Full User Control**: Delete your data anytime via the profile menu
-- **Encryption Ready**: Data files use JSON format (can be encrypted if needed)
+- **Encrypted Files**: Data files use JSON format with optional AES-256 encryption
 - **Safe Support**: For women in toxic situations, family contacts are avoided; trusted friends prioritized
+- **Automatic Backups**: System creates timestamped backups before critical operations
 - This is a support tool, not a replacement for professional mental health care
 - Emergency services (911) should be contacted for immediate danger
+
+### Security Best Practices
+- Set a strong password (minimum 8 characters, recommended 12+)
+- Keep your device secure with device password/lock
+- Use only on trusted networks
+- Backup your encryption key to a secure location
+- Enable all security features for maximum protection
+
+📖 **For detailed security information, see [SECURITY.md](SECURITY.md)**
 
 ## 📞 Crisis Resources
 
@@ -184,12 +211,15 @@ AI-wellness-Buddy/
 ├── start_ui.sh            # Local UI launcher script
 ├── start_ui_network.sh    # Network UI launcher script (NEW)
 ├── .streamlit/
-│   └── config.toml        # Streamlit network configuration (NEW)
+│   └── config.toml        # Streamlit network configuration
 ├── requirements.txt       # Python dependencies
 ├── README.md              # This file
 ├── USAGE.md               # Quick start guide
 ├── UI_GUIDE.md            # Web UI guide
-├── NETWORK_DEPLOYMENT.md  # Network deployment guide (NEW)
+├── NETWORK_DEPLOYMENT.md  # Network deployment guide
+├── SECURITY.md            # Security features guide (NEW)
+├── DATA_RETENTION.md      # Data tracking and retention guide (NEW)
+├── COMPLETE_FEATURE_GUIDE.md  # Complete feature documentation (NEW)
 └── TECHNOLOGIES_AND_DATASETS.md  # Technologies and datasets documentation
 ```
 
@@ -200,9 +230,29 @@ AI-wellness-Buddy/
 ### Quick Summary
 - **NLP Libraries**: NLTK (>=3.8.1), TextBlob (>=0.17.1)
 - **Web Framework**: Streamlit (>=1.28.0)
+- **Security**: cryptography (>=41.0.0) for AES-256 encryption
 - **NLTK Datasets**: Brown Corpus, Punkt Tokenizer Models
-- **Storage**: Local JSON files (`~/.wellness_buddy/`)
+- **Storage**: Local JSON files (`~/.wellness_buddy/`) with optional encryption
 - **Privacy**: All processing done locally, no external APIs
+
+## 📊 Extended Tracking & Data Retention
+
+**The system now tracks your emotional wellbeing for a full year (365 days) instead of 90 days.**
+
+### What's Tracked
+- **365 Days**: Full year of emotional history snapshots
+- **Long-term Patterns**: Seasonal variations, monthly trends, annual progress
+- **Progress Milestones**: Track improvement from significant life events
+- **Comprehensive Analytics**: Better insights with more historical data
+
+### Benefits
+- See your full year emotional journey
+- Identify seasonal patterns (e.g., winter blues, summer highs)
+- Track long-term progress and improvements
+- More accurate trend detection
+- Better understanding of your mental health patterns
+
+📖 **For detailed information on data retention and tracking, see [DATA_RETENTION.md](DATA_RETENTION.md)**
 
 ## 🌐 Network Deployment
 
@@ -245,6 +295,34 @@ This AI Wellness Buddy is a support tool designed to provide emotional support a
 - For mental health emergencies, call 988 or your local emergency services
 - For domestic violence emergencies, call 911 or 1-800-799-7233
 - Always consult with qualified mental health professionals for ongoing support
+
+## 📚 Complete Documentation
+
+### Core Documentation
+- **[README.md](README.md)** - This file, overview and quick start
+- **[USAGE.md](USAGE.md)** - Quick start guide for basic usage
+- **[UI_GUIDE.md](UI_GUIDE.md)** - Web interface guide with screenshots
+
+### Feature Documentation
+- **[COMPLETE_FEATURE_GUIDE.md](COMPLETE_FEATURE_GUIDE.md)** - ⭐ **NEW**: Comprehensive guide to all features (21KB)
+- **[SECURITY.md](SECURITY.md)** - ⭐ **NEW**: Complete security features guide (11KB)
+- **[DATA_RETENTION.md](DATA_RETENTION.md)** - ⭐ **NEW**: Extended tracking and data management (13KB)
+
+### Technical Documentation
+- **[TECHNOLOGIES_AND_DATASETS.md](TECHNOLOGIES_AND_DATASETS.md)** - Technologies and datasets used
+- **[NETWORK_DEPLOYMENT.md](NETWORK_DEPLOYMENT.md)** - Network and cloud deployment guide
+- **[NETWORK_QUICK_START.md](NETWORK_QUICK_START.md)** - Quick network access guide
+- **[NETWORK_UI_VISUAL_GUIDE.md](NETWORK_UI_VISUAL_GUIDE.md)** - Visual network UI guide
+
+### Quick Reference
+| Document | Topic | Size |
+|----------|-------|------|
+| COMPLETE_FEATURE_GUIDE.md | All features explained | 21KB |
+| SECURITY.md | Security features and best practices | 11KB |
+| DATA_RETENTION.md | Extended tracking (365 days) | 13KB |
+| NETWORK_DEPLOYMENT.md | Deployment options | 9KB |
+
+📖 **Start with [COMPLETE_FEATURE_GUIDE.md](COMPLETE_FEATURE_GUIDE.md) for a full overview of all capabilities.**
 
 ## 📄 License
 
