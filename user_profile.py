@@ -157,7 +157,6 @@ class UserProfile:
         lockout_until = self.profile_data.get('lockout_until')
         if lockout_until:
             if isinstance(lockout_until, str):
-                from datetime import datetime
                 lockout_until = datetime.fromisoformat(lockout_until)
             if datetime.now() < lockout_until:
                 return True
@@ -181,7 +180,6 @@ class UserProfile:
             return False
         
         if isinstance(last_activity, str):
-            from datetime import datetime
             last_activity = datetime.fromisoformat(last_activity)
         
         from datetime import timedelta
