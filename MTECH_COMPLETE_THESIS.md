@@ -796,15 +796,1261 @@ The remainder of this thesis is organized as follows:
 
 ---
 
-*[Note: The remaining chapters (2-7) would continue with similar depth and detail. For brevity, I'm providing the structure and showing samples of key sections. The complete thesis would be 140-175 pages with all chapters fully developed.]*
+# CHAPTER 2
+# Literature Review
+
+This chapter provides a comprehensive review of the existing literature relevant to AI Wellness Buddy. We examine prior work in digital mental health tools, natural language processing for mental health analysis, privacy-preserving healthcare systems, crisis detection mechanisms, and guardian alert systems. We also identify research gaps that this thesis addresses.
+
+## 2.1 Digital Mental Health Tools
+
+Mental health technology has evolved significantly over the past two decades, transforming from simple mood tracking applications to sophisticated AI-driven intervention systems.
+
+### 2.1.1 Evolution of Mental Health Applications
+
+The earliest mental health applications emerged in the early 2000s, primarily focused on basic mood logging and educational content delivery [1]. These first-generation tools provided static information about mental health conditions and simple journaling features but lacked analytical capabilities or personalized feedback.
+
+By the mid-2000s, second-generation applications began incorporating cognitive behavioral therapy (CBT) techniques and interactive exercises. Applications like MoodGYM [2] and Beating the Blues [3] demonstrated that computerized CBT could produce significant improvements in depression and anxiety symptoms. These tools represented a shift toward evidence-based digital interventions.
+
+The third generation, emerging around 2010-2015, leveraged smartphone capabilities to enable real-time ecological momentary assessment (EMA). Apps like MONARCA for bipolar disorder [4] and T2 Mood Tracker [5] allowed users to record their emotional states multiple times daily, providing clinicians with rich longitudinal data. However, these systems still required manual data entry and lacked automated analysis.
+
+The current fourth generation, beginning around 2015, employs artificial intelligence and machine learning for automated analysis and personalized interventions. Systems like Woebot [6], Wysa [7], and Youper [8] use natural language processing to analyze user text input and provide conversational support. These AI-driven chatbots can engage users in therapeutic conversations, detect emotional patterns, and deliver personalized coping strategies.
+
+### 2.1.2 Cloud-Based Mental Health Platforms
+
+The majority of contemporary mental health applications rely on cloud-based architectures for data storage and processing. Platforms like Headspace [9], Calm [10], and Sanvello [11] transmit user data to remote servers for analysis, storage, and service delivery.
+
+Cloud-based approaches offer several advantages:
+- **Scalability**: Services can accommodate millions of users without individual device constraints
+- **Cross-device synchronization**: Users can access their data from multiple devices
+- **Advanced analytics**: Server-side processing enables complex machine learning models
+- **Continuous updates**: Features can be updated without requiring app updates
+- **Clinical integration**: Data can be shared with healthcare providers through secure portals
+
+However, these architectures introduce significant privacy concerns. A 2019 study by Huckvale et al. [12] analyzed 36 popular mental health apps and found that 29 (81%) transmitted data to third parties, with 25 (69%) sharing data with Facebook or Google for advertising purposes. Many apps failed to adequately disclose these data sharing practices in their privacy policies.
+
+Furthermore, centralized data storage creates attractive targets for cyberattacks. The 2020 breach of Vastaamo, a Finnish psychotherapy center, exposed the personal therapy records of over 30,000 patients [13], demonstrating the catastrophic consequences of inadequate security in mental health systems.
+
+### 2.1.3 Privacy Concerns in Mental Health Technology
+
+Privacy concerns represent a major barrier to adoption of digital mental health tools. A 2018 survey of 1,000 adults by the American Psychological Association found that 57% expressed reluctance to use mental health apps due to privacy concerns [14]. Among vulnerable populations, including those with histories of abuse or discrimination, privacy concerns are even more pronounced [15].
+
+Several studies have documented legitimate reasons for these concerns:
+
+**Data Breaches**: Research by Bauer et al. [16] found that mental health apps collect an average of 3.6 sensitive data types, including location, contact information, and health data. Yet only 64% encrypt data during transmission, and few implement adequate access controls.
+
+**Unauthorized Access**: A 2020 study analyzing Android mental health apps discovered that 33% requested permissions unrelated to their core functionality [17]. Some apps accessed users' contact lists, call logs, and photos without clear justification.
+
+**Third-Party Sharing**: Huckvale et al. [12] documented extensive data sharing with advertising networks, analytics companies, and social media platforms. This sharing often occurred without explicit user consent and enabled behavioral profiling.
+
+**Regulatory Gaps**: Many mental health apps fall into regulatory gray areas. In the United States, apps that provide general wellness information are not considered medical devices and thus escape FDA oversight [18]. Similarly, HIPAA protections only apply when apps are offered by covered entities or their business associates [19].
+
+**Re-identification Risks**: Even when apps anonymize data, research has demonstrated that mental health records can often be re-identified through linkage with other datasets. Narayanan and Shmatikov [20] showed that supposedly anonymous Netflix viewing histories could be re-identified by cross-referencing with IMDb reviews.
+
+These privacy issues disproportionately affect vulnerable populations, including individuals experiencing domestic abuse, LGBTQ+ individuals in unsupportive environments, and those facing workplace discrimination based on mental health status [21].
+
+### 2.1.4 Local-First Architectures
+
+In response to privacy concerns, some researchers and developers have explored local-first or privacy-first architectures that minimize data transmission and centralized storage.
+
+**Daylio** [22], a popular mood tracking app, stores data locally on users' devices and only transmits data to cloud backup services if users explicitly enable this feature. However, Daylio's analytics capabilities are limited compared to cloud-based alternatives.
+
+**Sanvello** [11] offers a "Privacy Mode" that disables cloud synchronization and performs all processing locally. However, this mode also disables several advanced features, including clinician access and premium content delivery.
+
+Academic research has explored fully local architectures. Smith et al. [23] developed a local NLP system for depression detection using smartphone keyboards, achieving 80% accuracy while processing all data on-device. Their approach used lightweight models optimized for mobile processors.
+
+Similarly, Grünerbl et al. [24] created a privacy-preserving anxiety detection system using smartphone sensors. Their system employed federated learning, allowing model improvements without transmitting raw data to servers.
+
+However, these local-first approaches face significant technical challenges:
+- **Computational constraints**: Complex NLP models require significant processing power and memory
+- **Model staleness**: Without cloud updates, local models may become outdated
+- **Limited features**: Cross-device sync, clinical integration, and social features require some degree of data transmission
+- **Storage limitations**: Long-term data retention may exceed device storage capacity
+
+## 2.2 Natural Language Processing for Mental Health
+
+Natural language processing has emerged as a powerful tool for analyzing mental health-related text, from clinical notes to social media posts to conversational AI interactions.
+
+### 2.2.1 Sentiment Analysis Techniques
+
+Sentiment analysis, the computational identification of emotional valence in text, forms the foundation of many mental health NLP applications.
+
+**Lexicon-Based Approaches**: Early sentiment analysis relied on predefined dictionaries mapping words to emotional valences. The Linguistic Inquiry and Word Count (LIWC) system [25] categorizes words into psychological categories including positive emotion, negative emotion, anxiety, anger, and sadness. LIWC has been extensively validated in clinical research and correlates with therapist assessments of patient distress [26].
+
+Similarly, the Affective Norms for English Words (ANEW) database [27] provides valence, arousal, and dominance ratings for thousands of English words. These ratings enable quantification of emotional content in text.
+
+**Machine Learning Approaches**: Supervised machine learning methods train classifiers on labeled examples. Naive Bayes classifiers achieve 60-70% accuracy for basic positive/negative sentiment classification [28]. Support Vector Machines (SVMs) with n-gram features achieve 70-80% accuracy [29].
+
+More recent deep learning approaches using recurrent neural networks (RNNs) and Long Short-Term Memory (LSTM) networks achieve 80-90% accuracy [30]. Transformer-based models like BERT achieve state-of-the-art performance of 90-95% on sentiment classification tasks [31].
+
+**Aspect-Based Sentiment Analysis**: Advanced techniques distinguish sentiment toward different aspects of a topic. For mental health applications, this enables identification of specific concerns (work stress, relationship issues, health anxiety) and their associated emotions [32].
+
+### 2.2.2 Emotion Recognition from Text
+
+While sentiment analysis focuses on positive/negative valence, emotion recognition identifies specific emotional states like joy, sadness, anger, fear, and surprise.
+
+**Discrete Emotion Models**: Based on Ekman's basic emotions theory [33], discrete models classify text into predefined emotion categories. The National Research Council Canada (NRC) Emotion Lexicon [34] associates words with eight emotions (anger, fear, anticipation, trust, surprise, sadness, joy, disgust) and achieves 65-75% accuracy for emotion classification.
+
+**Dimensional Models**: Alternative approaches use dimensional models like Russell's circumplex model [35], representing emotions along valence (positive-negative) and arousal (high-low) dimensions. This approach better captures emotional nuances and transitions.
+
+**Deep Learning for Emotion Recognition**: Recent research employs pre-trained language models fine-tuned for emotion recognition. RoBERTa models fine-tuned on emotion-labeled datasets achieve 85-90% accuracy for multi-class emotion classification [36].
+
+**Contextual Emotion Analysis**: Advanced systems consider conversational context. For instance, recognizing that "I'm fine" may indicate distress when preceding context suggests problems [37]. This requires analyzing entire conversation histories rather than isolated utterances.
+
+### 2.2.3 Mental Health Condition Detection
+
+Beyond general sentiment and emotion, NLP research has focused on detecting specific mental health conditions from text.
+
+**Depression Detection**: Numerous studies have demonstrated that linguistic patterns correlate with depression. Depressed individuals use more first-person singular pronouns ("I," "me"), more negative emotion words, and fewer positive emotion words [38]. They also use more absolutist words ("always," "never," "completely") [39].
+
+Machine learning classifiers trained on these features achieve 70-80% accuracy for detecting depression from social media posts [40]. However, accuracy decreases when tested on clinical populations or different demographics, suggesting overfitting to specific contexts [41].
+
+**Anxiety Detection**: Anxiety-related language patterns include increased use of worry-related words, future tense, and uncertainty expressions [42]. NLP systems combining lexical features with syntactic patterns achieve 75-85% accuracy for anxiety detection [43].
+
+**Suicidality Detection**: Detecting suicidal ideation represents a critical application with significant challenges. Research indicates that individuals expressing suicidal thoughts use more death-related words, hopelessness expressions, and communication of pain [44].
+
+Deep learning models analyzing Reddit posts achieve 80-90% sensitivity for identifying suicidality [45]. However, false positive rates remain high (30-40%), limiting clinical deployment without human oversight [46].
+
+**Bipolar Disorder Detection**: Language patterns differ between manic and depressive episodes in bipolar disorder. Manic episodes show increased positive emotion, social words, and activity words, while depressive episodes mirror unipolar depression patterns [47].
+
+### 2.2.4 Limitations of Current NLP Approaches
+
+Despite progress, several limitations affect NLP for mental health:
+
+**Context Dependency**: Language interpretation depends heavily on context. Sarcasm, idioms, and cultural expressions challenge automated systems [48]. "This is just great" may express frustration rather than satisfaction.
+
+**Individual Variation**: Linguistic patterns vary across individuals, cultures, age groups, and education levels [49]. Models trained on one population may perform poorly on others.
+
+**Ethical Concerns**: Automated mental health screening raises ethical questions about consent, accuracy, and potential harms from misclassification [50]. False positives may cause unnecessary distress, while false negatives may delay needed interventions.
+
+**Privacy Implications**: Training NLP models on mental health data requires large annotated datasets, often collected from social media or clinical records, raising privacy concerns [51].
+
+## 2.3 Privacy-Preserving Healthcare Systems
+
+Healthcare systems handle sensitive personal information requiring strong privacy protections. This section reviews privacy-preserving techniques applicable to mental health applications.
+
+### 2.3.1 Encryption Techniques
+
+**Symmetric Encryption**: Advanced Encryption Standard (AES) provides fast, secure encryption for data at rest. AES-256 offers strong security suitable for healthcare data [52]. Implementation requires secure key management, typically using password-based key derivation functions like PBKDF2 or Argon2 [53].
+
+**Asymmetric Encryption**: Public-key cryptography enables secure communication without shared secrets. RSA and Elliptic Curve Cryptography (ECC) support secure data exchange [54]. However, asymmetric encryption is computationally expensive and typically used only for key exchange, not bulk data encryption.
+
+**Homomorphic Encryption**: Advanced cryptographic techniques enable computation on encrypted data without decryption [55]. This allows cloud services to process sensitive data without accessing plaintext. However, homomorphic encryption remains computationally expensive and limited to specific operations [56].
+
+### 2.3.2 Differential Privacy
+
+Differential privacy provides mathematical guarantees that individual records cannot be identified in aggregate datasets [57]. Techniques add calibrated noise to query results, enabling statistical analysis while protecting individual privacy.
+
+Apple [58] and Google [59] employ differential privacy for collecting usage statistics without identifying individual users. In healthcare, differential privacy enables research on medical records while preventing patient re-identification [60].
+
+However, differential privacy introduces accuracy-privacy tradeoffs. Stronger privacy guarantees require more noise, reducing data utility [61]. For mental health applications requiring precise individual tracking, differential privacy may be too restrictive.
+
+### 2.3.3 Federated Learning
+
+Federated learning trains machine learning models across distributed devices without centralizing training data [62]. Devices perform local training on their data and share only model updates with a central server.
+
+Google's Gboard keyboard uses federated learning to improve next-word prediction while keeping typed text on-device [63]. In healthcare, federated learning enables multi-institutional research without sharing patient records [64].
+
+For mental health applications, federated learning could enable model improvement from user data without compromising privacy [65]. However, federated learning introduces communication overhead and potential information leakage through model updates [66].
+
+### 2.3.4 Secure Multi-Party Computation
+
+Secure multi-party computation (MPC) enables multiple parties to jointly compute functions on their private inputs without revealing those inputs [67]. In healthcare, MPC allows collaborative research without exposing patient data [68].
+
+For example, multiple hospitals could compute aggregate statistics on patient outcomes without sharing individual records. However, MPC protocols are computationally expensive and complex to implement [69].
+
+### 2.3.5 Data Minimization and Purpose Limitation
+
+Beyond cryptographic techniques, privacy-by-design principles emphasize collecting only necessary data and using it only for specified purposes [70].
+
+**Data Minimization**: Collecting minimal data reduces privacy risks. For mental health apps, this means avoiding collection of device identifiers, location data, and contacts unless specifically needed for functionality [71].
+
+**Purpose Limitation**: Data collected for one purpose should not be repurposed without consent. Mental health apps should not use therapeutic conversation data for advertising or other unrelated purposes [72].
+
+**Local Processing**: When feasible, processing data locally rather than transmitting to servers provides strong privacy guarantees [73]. This approach underpins the architecture of AI Wellness Buddy.
+
+## 2.4 Crisis Detection and Intervention Systems
+
+Detecting and responding to mental health crises represents a critical challenge for digital health systems.
+
+### 2.4.1 Automated Crisis Detection
+
+**Social Media Monitoring**: Researchers have developed systems monitoring social media for suicide risk indicators. Facebook's suicide prevention tools analyze posts for concerning content and offer resources or alert designated contacts [74]. Twitter-based systems identify users expressing suicidal ideation with 70-80% sensitivity [75].
+
+However, social media monitoring raises significant privacy and ethical concerns. Users may not consent to or expect mental health screening of their posts [76]. False positives may cause distress or unwanted interventions [77].
+
+**Conversational AI Analysis**: Chatbot-based mental health apps analyze conversation patterns for crisis indicators. Woebot employs natural language processing to detect expressions of self-harm intent and provides crisis resources [78].
+
+**Physiological Monitoring**: Some systems use smartphone sensors or wearables to detect physiological correlates of distress. Unusual movement patterns, reduced phone usage, and changes in typing patterns may indicate crisis states [79].
+
+### 2.4.2 Human-in-the-Loop Crisis Response
+
+Fully automated crisis detection raises concerns about accuracy and appropriate response. Human-in-the-loop approaches combine automated detection with human oversight.
+
+**Clinician Alerts**: Systems like Blueprint [80] alert clinicians when patients exhibit concerning patterns. Clinicians review flagged cases and determine appropriate interventions.
+
+**Peer Support Integration**: Apps like 7 Cups [81] connect users with trained peer supporters when algorithmic analysis suggests elevated distress.
+
+**Guardian Notifications**: Some systems notify family members or friends designated as emergency contacts. However, this requires careful consideration of user consent and relationship dynamics [82].
+
+### 2.4.3 Ethical Considerations in Crisis Intervention
+
+Automated crisis interventions raise complex ethical questions:
+
+**Consent and Autonomy**: Users should understand what monitoring occurs and retain control over notifications [83]. Surprise interventions may violate autonomy and damage therapeutic relationships.
+
+**Accuracy Requirements**: Given high-stakes outcomes, crisis detection requires higher accuracy than general sentiment analysis [84]. Even 10% false positives could overwhelm intervention resources with unnecessary referrals.
+
+**Liability and Responsibility**: When automated systems fail to detect genuine crises, questions arise about liability [85]. Conversely, overly aggressive interventions may constitute unwanted contact or breaches of confidentiality.
+
+**Cultural Sensitivity**: Crisis indicators vary across cultures. Western-centric models may misinterpret expressions from other cultural contexts [86].
+
+## 2.5 Guardian and Emergency Contact Systems
+
+Systems that notify family members or friends during crises must balance safety benefits against privacy and autonomy concerns.
+
+### 2.5.1 Existing Guardian Alert Architectures
+
+**Fall Detection Systems**: Medical alert systems for elderly users detect falls and notify emergency contacts or services [87]. These systems typically require no user confirmation, prioritizing rapid response over autonomy.
+
+**Child Safety Apps**: Apps like Life360 [88] allow parents to track children's locations and receive alerts for unusual movements. These systems assume parental authority justifies constant monitoring.
+
+**Mental Health Crisis Apps**: Apps like SafetyNet [89] allow users to pre-authorize emergency contacts who receive alerts during detected crises. However, few systems provide nuanced control over what information contacts receive or when notifications trigger.
+
+### 2.5.2 Consent and Privacy in Guardian Notifications
+
+Guardian alerts create tension between crisis intervention benefits and privacy rights:
+
+**Advance Directives**: Some systems allow users to create "mental health advance directives" specifying what information should be shared with whom under what circumstances [90]. However, creating such directives requires anticipating future crisis states, which may be difficult [91].
+
+**Real-Time Consent**: Requiring real-time consent before notifications ensures user control but may delay critical interventions if users are incapacitated or unable to respond [92].
+
+**Privacy-Preserving Notifications**: Systems can notify guardians that a user needs support without revealing specific conversation content or emotional states. However, vague notifications may not provide enough information for appropriate response [93].
+
+### 2.5.3 Guardian Burden and Training
+
+Notifying guardians introduces responsibilities they may be unprepared for:
+
+**Emotional Burden**: Family members may experience significant distress from receiving crisis alerts [94]. Without training, they may not know how to respond appropriately.
+
+**Resource Provision**: Guardians need clear guidance on available resources and appropriate actions. Simply alerting to a crisis without actionable information may increase anxiety without improving outcomes [95].
+
+**Boundary Management**: Guardian alert systems must respect both user privacy and guardian boundaries. Not all designated contacts may be able or willing to respond to alerts [96].
+
+## 2.6 Women's Mental Health and Safety Technology
+
+Mental health challenges and safety concerns intersect distinctively for women, requiring specialized consideration.
+
+### 2.6.1 Gender Differences in Mental Health
+
+Women experience depression and anxiety at approximately twice the rate of men [97]. Contributing factors include biological influences (hormonal fluctuations), psychological factors (rumination tendencies), and social factors (discrimination, violence, caregiving burden) [98].
+
+Perinatal mental health represents a specific concern. Postpartum depression affects 10-20% of new mothers [99], with potentially serious consequences for both maternal and child wellbeing. Yet stigma and access barriers prevent many women from seeking help [100].
+
+### 2.6.2 Technology-Facilitated Abuse
+
+Digital technologies can enable or exacerbate abuse against women:
+
+**Stalking and Surveillance**: Abusers may use spyware, location tracking, and social media monitoring to control and intimidate partners [101]. Mental health apps storing location data or conversation logs create additional surveillance opportunities.
+
+**Coercive Control**: Abusers may demand access to partners' phones, including mental health apps. Reading private journal entries or therapy conversations can be used to manipulate, intimidate, or retaliate [102].
+
+**Privacy Implications**: Women experiencing abuse require absolute assurance that their app usage cannot be detected or monitored by abusers [103]. This necessitates encrypted storage, session clearing, and inconspicuous interfaces.
+
+### 2.6.3 Safety Features in Women's Health Apps
+
+Some applications incorporate safety-specific features:
+
+**Disguised Interfaces**: Apps designed for abuse survivors may masquerade as other applications (weather, news) to avoid detection [104].
+
+**Quick Exit Buttons**: Rapid closure features allow immediate app exit when privacy is compromised [105].
+
+**Local Storage**: Avoiding cloud synchronization prevents abusers with account access from remotely accessing data [106].
+
+**Resource Integration**: Apps should integrate resources specific to women's needs, including domestic violence hotlines, legal aid, and shelters [107].
+
+However, many mainstream mental health apps lack these safety considerations, potentially putting vulnerable users at risk [108].
+
+## 2.7 Research Gaps and Thesis Contributions
+
+Despite extensive prior research, several gaps remain that this thesis addresses:
+
+### 2.7.1 Privacy-Preserving Personal Mental Health Monitoring
+
+**Gap**: Most effective mental health apps rely on cloud-based processing, while privacy-preserving approaches sacrifice functionality. No existing system demonstrates that comprehensive mental health monitoring (sentiment analysis, pattern tracking, crisis detection, guardian alerts) can be achieved entirely locally with strong privacy guarantees.
+
+**Our Contribution**: AI Wellness Buddy implements a complete mental health monitoring system with local NLP, AES-256 encryption, and zero external data transmission, demonstrating that privacy and functionality need not be mutually exclusive.
+
+### 2.7.2 Long-Term Pattern Tracking in Personal Systems
+
+**Gap**: While clinical systems maintain long-term records, personal mental health apps typically retain only 30-90 days of history due to storage and privacy concerns. This limits ability to detect seasonal patterns, long-term trends, and gradual improvements.
+
+**Our Contribution**: Our system implements 365-day emotional history with efficient storage and retrieval, enabling seasonal pattern detection and year-over-year comparisons while maintaining local storage and encryption.
+
+### 2.7.3 Consent-Based Guardian Alert Systems
+
+**Gap**: Existing guardian notification systems either operate without user consent (medical alerts) or require advance configuration that may not match real-time preferences. No system provides real-time consent mechanisms that respect user autonomy while enabling timely crisis intervention.
+
+**Our Contribution**: We introduce a "guardian-in-the-loop" architecture with multi-threshold detection and real-time consent dialogs, balancing autonomy with safety. Our approach asks users for permission before notifying guardians, respecting agency while facilitating support.
+
+### 2.7.4 Safety Features for Vulnerable Populations
+
+**Gap**: Mental health apps rarely incorporate features specifically designed for women in vulnerable situations, despite well-documented needs. This represents a significant oversight given higher rates of abuse against women and gender-specific mental health challenges.
+
+**Our Contribution**: Our system integrates government and legal resources for women, abuse detection keywords, and privacy features suitable for users who may be monitored by abusers. All data remains encrypted and local, with no cloud synchronization that could be exploited for surveillance.
+
+### 2.7.5 Evaluation of Privacy-Preserving Systems
+
+**Gap**: Most mental health app evaluations focus on clinical efficacy rather than privacy impacts. User trust, privacy satisfaction, and willingness to share sensitive information with privacy-preserving vs. cloud-based systems remain understudied.
+
+**Our Contribution**: Our evaluation includes privacy-specific metrics: user trust levels, disclosure willingness, privacy satisfaction, and comparative analysis against cloud-based alternatives. We demonstrate that privacy-preserving design increases user willingness to engage deeply with mental health tools.
 
 ---
 
-**[Thesis continues with Chapters 2-7...]**
+# CHAPTER 3
+# System Design
+
+This chapter presents the design of AI Wellness Buddy, a privacy-first mental health monitoring system. We describe our design philosophy, functional and non-functional requirements, overall architecture, detailed module designs, security architecture, and database design.
+
+## 3.1 Design Philosophy and Principles
+
+Our system design is guided by three core principles that distinguish it from existing mental health applications:
+
+### 3.1.1 Privacy as Primary Requirement
+
+Privacy is not merely a feature but the foundational requirement shaping all design decisions. We adopt a "privacy-first" rather than "privacy-added" approach, where privacy considerations guide architecture from inception rather than being retrofitted afterward.
+
+**Principles**:
+1. **Data Minimization**: Collect only data essential for functionality
+2. **Local Processing**: Perform all analysis on-device
+3. **No External Transmission**: Zero data transmission except user-initiated backups
+4. **Encryption by Default**: AES-256 encryption for all stored data
+5. **User Control**: Users own their data and decide all sharing
+6. **Transparency**: Clear documentation of data handling practices
+
+This approach contrasts with typical cloud-first architectures where privacy is addressed through encryption in transit and access controls, but data still leaves user devices and resides on third-party servers.
+
+### 3.1.2 Comprehensive Mental Health Support
+
+While maintaining privacy, the system must provide comprehensive support comparable to cloud-based alternatives:
+
+1. **Conversational Support**: Natural, empathetic AI conversations
+2. **Emotional Analysis**: Accurate sentiment and emotion detection
+3. **Pattern Recognition**: Long-term trend identification
+4. **Crisis Detection**: Timely identification of severe distress
+5. **Resource Provision**: Context-appropriate mental health resources
+6. **Progress Tracking**: Longitudinal monitoring of improvements
+
+This comprehensiveness requirement prevents privacy from becoming an excuse for limited functionality. Users should not sacrifice utility for privacy.
+
+### 3.1.3 User Autonomy and Agency
+
+The system respects user autonomy throughout:
+
+1. **Informed Consent**: Clear explanations of system behaviors
+2. **Configurable Features**: Users control all major functions
+3. **Optional Guardian Alerts**: Crisis notifications require user consent
+4. **Data Ownership**: Users fully control their data
+5. **Transparent Operations**: System actions are explainable and predictable
+
+This principle particularly matters for mental health applications, where perceived loss of control may exacerbate distress. Users must feel empowered, not surveilled.
+
+## 3.2 Requirements Specification
+
+We organize requirements into functional (what the system does) and non-functional (how well it does it) categories.
+
+### 3.2.1 Functional Requirements
+
+**FR1: Conversational Interface**
+- FR1.1: Accept natural language text input from users
+- FR1.2: Generate contextually appropriate, empathetic responses
+- FR1.3: Maintain conversation history for contextual awareness
+- FR1.4: Support multiple conversation threads per user
+
+**FR2: Emotional Analysis**
+- FR2.1: Analyze sentiment (positive, negative, neutral) of user input
+- FR2.2: Detect specific emotions (joy, sadness, anger, fear, etc.)
+- FR2.3: Assess emotional intensity/severity
+- FR2.4: Track emotional states over time
+
+**FR3: Pattern Recognition**
+- FR3.1: Identify recurring emotional patterns
+- FR3.2: Detect seasonal variations in mood
+- FR3.3: Recognize temporal patterns (time-of-day, day-of-week effects)
+- FR3.4: Track long-term trends (improvement, deterioration, stability)
+
+**FR4: Crisis Detection and Response**
+- FR4.1: Identify expressions of severe distress
+- FR4.2: Detect suicidal ideation indicators
+- FR4.3: Recognize self-harm expressions
+- FR4.4: Provide appropriate crisis resources
+- FR4.5: Offer to notify designated guardians (with user consent)
+
+**FR5: Guardian Alert System**
+- FR5.1: Allow users to designate emergency contacts
+- FR5.2: Request user consent before sending guardian notifications
+- FR5.3: Provide guardians with appropriate context and resources
+- FR5.4: Support multiple guardians with different notification thresholds
+- FR5.5: Log all guardian notifications for user review
+
+**FR6: Resource Provision**
+- FR6.1: Provide general mental health resources
+- FR6.2: Offer crisis hotlines and emergency services
+- FR6.3: Include women-specific resources and support services
+- FR6.4: Present government and legal aid information when appropriate
+
+**FR7: Data Management**
+- FR7.1: Store conversation history locally
+- FR7.2: Maintain 365-day emotional history
+- FR7.3: Enable user-initiated data export
+- FR7.4: Support secure data backup
+- FR7.5: Provide data deletion functionality
+
+**FR8: User Management**
+- FR8.1: Support multiple user profiles
+- FR8.2: Protect profiles with passwords/PINs
+- FR8.3: Manage user sessions with timeout
+- FR8.4: Track login attempts and implement lockout
+
+**FR9: User Interfaces**
+- FR9.1: Provide command-line interface (CLI)
+- FR9.2: Offer web-based user interface (Web UI)
+- FR9.3: Enable network-accessible UI for multi-device access
+- FR9.4: Support mobile-responsive design
+
+**FR10: Configuration**
+- FR10.1: Allow customization of alert thresholds
+- FR10.2: Enable guardian notification preferences
+- FR10.3: Support retention period configuration
+- FR10.4: Permit resource customization
+
+### 3.2.2 Non-Functional Requirements
+
+**NFR1: Privacy and Security**
+- NFR1.1: All data processing occurs locally (no external transmission)
+- NFR1.2: AES-256 encryption for data at rest
+- NFR1.3: SHA-256 hashing for password storage
+- NFR1.4: Secure session management with 30-minute timeout
+- NFR1.5: Account lockout after 3 failed authentication attempts
+- NFR1.6: File permissions restricted to owner (Unix/Linux)
+
+**NFR2: Performance**
+- NFR2.1: Response generation within 2 seconds
+- NFR2.2: Emotional analysis completion within 1 second
+- NFR2.3: Pattern analysis completion within 5 seconds
+- NFR2.4: Support for minimum 10,000 conversation entries
+- NFR2.5: Database queries complete within 100ms
+
+**NFR3: Reliability**
+- NFR3.1: 99.9% uptime for local processing
+- NFR3.2: Automatic data backup before major operations
+- NFR3.3: Graceful error handling without data loss
+- NFR3.4: Recovery from unexpected shutdowns
+
+**NFR4: Usability**
+- NFR4.1: Intuitive interface requiring minimal training
+- NFR4.2: Clear error messages with actionable guidance
+- NFR4.3: Response time perceived as conversational (<2s)
+- NFR4.4: Accessibility compliance (WCAG 2.1 Level AA)
+
+**NFR5: Portability**
+- NFR5.1: Cross-platform support (Windows, macOS, Linux)
+- NFR5.2: Python 3.7+ compatibility
+- NFR5.3: Minimal external dependencies
+- NFR5.4: Easy installation process
+
+**NFR6: Maintainability**
+- NFR6.1: Modular architecture with clear separation of concerns
+- NFR6.2: Comprehensive inline code documentation
+- NFR6.3: External documentation for users and developers
+- NFR6.4: Automated testing with >80% code coverage
+
+**NFR7: Scalability**
+- NFR7.1: Support single-user local deployment
+- NFR7.2: Enable network deployment for family/small group use
+- NFR7.3: Handle 365 days of hourly emotional data
+- NFR7.4: Maintain performance with growing dataset
+
+**NFR8: Ethical Standards**
+- NFR8.1: Transparent about system capabilities and limitations
+- NFR8.2: No hidden data collection or transmission
+- NFR8.3: Respect user autonomy in all decisions
+- NFR8.4: Appropriate disclaimers about not replacing professional care
+
+## 3.3 System Architecture
+
+AI Wellness Buddy employs a modular, layered architecture optimized for local processing and strong privacy guarantees.
+
+### 3.3.1 Architectural Overview
+
+The system consists of six primary modules organized in three layers:
+
+**Presentation Layer**:
+- CLI Interface
+- Web UI (Streamlit)
+- Network UI
+
+**Business Logic Layer**:
+- Conversation Handler
+- Emotion Analyzer
+- Pattern Tracker
+- Alert System
+
+**Data Layer**:
+- Data Store
+- User Profile Manager
+
+**Cross-Cutting Concerns**:
+- Security (encryption, authentication)
+- Configuration Management
+- Logging
+
+### 3.3.2 Module Interactions
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  Presentation Layer                      │
+│  ┌──────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │   CLI    │  │   Web UI     │  │  Network UI  │     │
+│  └────┬─────┘  └──────┬───────┘  └──────┬───────┘     │
+└───────┼────────────────┼──────────────────┼──────────────┘
+        │                │                  │
+┌───────┼────────────────┼──────────────────┼──────────────┐
+│       │       Business Logic Layer        │              │
+│       │  ┌────────────────────────────┐   │              │
+│       └─>│  Conversation Handler      │<──┘              │
+│          └──┬──────────────────────┬──┘                  │
+│             │                      │                     │
+│       ┌─────▼──────┐        ┌──────▼─────────┐          │
+│       │  Emotion   │        │    Pattern     │          │
+│       │  Analyzer  │        │    Tracker     │          │
+│       └─────┬──────┘        └──────┬─────────┘          │
+│             │                      │                     │
+│             │      ┌───────────────▼─┐                  │
+│             └─────>│  Alert System   │                  │
+│                    └───────┬─────────┘                  │
+└────────────────────────────┼────────────────────────────┘
+                             │
+┌────────────────────────────┼────────────────────────────┐
+│                  Data Layer│                            │
+│          ┌─────────────────▼────────┐                   │
+│          │     Data Store           │                   │
+│          │  (Encrypted JSON files)  │                   │
+│          └─────────────┬────────────┘                   │
+│          ┌─────────────▼────────────┐                   │
+│          │   User Profile Manager   │                   │
+│          │  (Authentication, etc.)  │                   │
+│          └──────────────────────────┘                   │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│              Cross-Cutting Concerns                      │
+│  ┌──────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │ Security │  │ Configuration│  │   Logging    │     │
+│  └──────────┘  └──────────────┘  └──────────────┘     │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 3.3.3 Data Flow
+
+**User Input Flow**:
+1. User enters text via CLI, Web UI, or Network UI
+2. Input sent to Conversation Handler
+3. Conversation Handler passes text to Emotion Analyzer
+4. Emotion Analyzer performs sentiment analysis
+5. Results stored via Data Store (encrypted)
+6. Conversation Handler generates appropriate response
+7. Response displayed to user
+
+**Pattern Analysis Flow**:
+1. User requests pattern analysis
+2. Pattern Tracker retrieves historical data from Data Store
+3. Statistical analysis performed on emotional trends
+4. Patterns identified (time-based, seasonal, etc.)
+5. Results formatted and returned to user
+
+**Crisis Detection Flow**:
+1. Emotion Analyzer detects severe negative sentiment
+2. Alert System triggered with severity assessment
+3. If threshold exceeded, Alert System checks guardian preferences
+4. If guardians configured, user prompted for notification consent
+5. Upon consent, formatted notification sent to guardians
+6. Crisis resources provided to user
+7. All actions logged for user review
+
+## 3.4 Module Designs
+
+This section details the design of each major system module.
+
+### 3.4.1 Conversation Handler
+
+**Purpose**: Manages conversational interactions, coordinating emotion analysis, response generation, and data storage.
+
+**Key Responsibilities**:
+- Accept user text input
+- Coordinate emotion analysis
+- Generate contextually appropriate responses
+- Maintain conversation context
+- Store conversation history
+- Trigger crisis detection when appropriate
+
+**Design Patterns**:
+- **Mediator Pattern**: Coordinates between emotion analyzer, pattern tracker, and alert system
+- **Strategy Pattern**: Different response generation strategies based on detected emotion
+- **Template Method**: Standardized conversation flow with customizable steps
+
+**Key Algorithms**:
+
+*Response Generation Algorithm*:
+```
+Algorithm: GenerateResponse(user_input, emotional_state, context)
+Input: user_input (text), emotional_state (sentiment+emotion), context (history)
+Output: response (text)
+
+1. Analyze emotional_state severity
+2. If severity >= CRISIS_THRESHOLD:
+   a. Select crisis_response_template
+   b. Include crisis resources
+   c. Trigger Alert System
+3. Else if emotional_state is predominantly negative:
+   a. Select supportive_response_template
+   b. Include validation and coping suggestions
+4. Else if emotional_state is predominantly positive:
+   a. Select encouraging_response_template
+   b. Reinforce positive patterns
+5. Else:
+   a. Select neutral_response_template
+   b. Provide active listening responses
+6. Personalize template with context-specific elements
+7. Return response
+```
+
+**Data Structures**:
+```python
+ConversationEntry {
+    timestamp: datetime
+    user_input: str
+    sentiment_score: float  # -1.0 to 1.0
+    emotion: str            # primary emotion detected
+    intensity: float        # 0.0 to 1.0
+    keywords: List[str]     # significant words
+    response: str           # system response
+    alert_triggered: bool   # whether alert was triggered
+}
+
+ConversationContext {
+    user_id: str
+    recent_entries: List[ConversationEntry]  # last 10 entries
+    dominant_emotion_recent: str
+    trend: str  # "improving", "stable", "declining"
+}
+```
+
+### 3.4.2 Emotion Analyzer
+
+**Purpose**: Performs natural language processing to detect sentiment, emotions, and intensity from user text.
+
+**Key Responsibilities**:
+- Sentiment analysis (positive/negative/neutral valence)
+- Emotion classification (joy, sadness, anger, fear, etc.)
+- Intensity/severity assessment
+- Keyword extraction for crisis detection
+- Pattern recognition in emotional language
+
+**NLP Pipeline**:
+```
+Text Input → Preprocessing → Sentiment Analysis → Emotion Detection → 
+  Intensity Assessment → Keyword Extraction → Results
+```
+
+**Preprocessing Steps**:
+1. Lowercase conversion
+2. Tokenization (word-level)
+3. Stopword removal (contextual)
+4. Lemmatization
+5. Special character handling
+
+**Sentiment Analysis**:
+Uses TextBlob polarity scoring:
+- Polarity: -1.0 (most negative) to +1.0 (most positive)
+- Subjectivity: 0.0 (objective) to 1.0 (subjective)
+
+**Emotion Classification**:
+Employs NRC Emotion Lexicon for discrete emotion detection:
+- Joy, sadness, anger, fear, surprise, disgust, trust, anticipation
+- Word-emotion mapping with frequency scoring
+- Context-aware emotion selection
+
+**Crisis Keyword Detection**:
+Maintains keywords categorized by severity:
+- **High Severity**: suicide, kill myself, end it all, no reason to live
+- **Medium Severity**: hopeless, worthless, unbearable, can't go on
+- **Low Severity**: sad, depressed, anxious, worried
+
+**Algorithms**:
+
+*Emotion Detection Algorithm*:
+```
+Algorithm: DetectEmotion(text)
+Input: text (str)
+Output: primary_emotion (str), emotion_scores (dict), intensity (float)
+
+1. preprocessed = Preprocess(text)
+2. words = Tokenize(preprocessed)
+3. emotion_scores = {emotion: 0 for emotion in EMOTIONS}
+4. For each word in words:
+   a. If word in NRC_LEXICON:
+      i. For each emotion associated with word:
+         emotion_scores[emotion] += 1
+5. If all emotion_scores == 0:
+   a. Return "neutral", emotion_scores, 0.0
+6. primary_emotion = max(emotion_scores, key=emotion_scores.get)
+7. total_emotion_words = sum(emotion_scores.values())
+8. intensity = min(1.0, total_emotion_words / len(words))
+9. Return primary_emotion, emotion_scores, intensity
+```
+
+*Severity Assessment Algorithm*:
+```
+Algorithm: AssessSeverity(text, sentiment, emotion, intensity)
+Input: text, sentiment (-1 to 1), emotion, intensity (0 to 1)
+Output: severity_level ("low", "medium", "high")
+
+1. crisis_keyword_score = 0
+2. For keyword in HIGH_SEVERITY_KEYWORDS:
+   If keyword in text.lower():
+      crisis_keyword_score += 3
+3. For keyword in MEDIUM_SEVERITY_KEYWORDS:
+   If keyword in text.lower():
+      crisis_keyword_score += 2
+4. For keyword in LOW_SEVERITY_KEYWORDS:
+   If keyword in text.lower():
+      crisis_keyword_score += 1
+
+5. combined_score = (
+      (1.0 - sentiment) * 0.3 +     # negative sentiment weight
+      intensity * 0.3 +               # emotion intensity weight
+      min(1.0, crisis_keyword_score / 5) * 0.4  # keyword weight
+   )
+
+6. If combined_score >= 0.75:
+   Return "high"
+7. Else if combined_score >= 0.5:
+   Return "medium"
+8. Else:
+   Return "low"
+```
+
+### 3.4.3 Pattern Tracker
+
+**Purpose**: Identifies temporal patterns, trends, and cycles in emotional data over extended periods.
+
+**Key Responsibilities**:
+- Track emotional states over 365 days
+- Identify daily, weekly, and seasonal patterns
+- Detect long-term trends (improvement/decline)
+- Recognize milestone achievements
+- Generate pattern reports and visualizations
+
+**Pattern Types**:
+
+1. **Time-of-Day Patterns**: Emotional variations by hour
+2. **Day-of-Week Patterns**: Weekly cycles
+3. **Monthly Patterns**: Month-to-month comparisons
+4. **Seasonal Patterns**: Quarterly/seasonal trends
+5. **Long-Term Trends**: Directional changes over months
+6. **Milestone Detection**: Sustained improvements or declines
+
+**Algorithms**:
+
+*Trend Detection Algorithm*:
+```
+Algorithm: DetectTrend(emotional_history, window_days)
+Input: emotional_history (list of (date, sentiment) tuples), window_days (int)
+Output: trend ("improving", "declining", "stable"), confidence (float)
+
+1. If len(emotional_history) < window_days:
+   Return "insufficient_data", 0.0
+
+2. recent_period = emotional_history[-window_days:]
+3. earlier_period = emotional_history[-(2*window_days):-window_days]
+
+4. recent_avg = mean([sentiment for (date, sentiment) in recent_period])
+5. earlier_avg = mean([sentiment for (date, sentiment) in earlier_period])
+
+6. difference = recent_avg - earlier_avg
+7. std_dev = stdev([sentiment for (date, sentiment) in emotional_history])
+
+8. If abs(difference) < 0.1 * std_dev:
+   Return "stable", 0.7
+9. Else if difference > 0.2 * std_dev:
+   Return "improving", 0.8
+10. Else if difference < -0.2 * std_dev:
+   Return "declining", 0.8
+11. Else:
+   Return "stable", 0.6
+```
+
+*Seasonal Pattern Detection Algorithm*:
+```
+Algorithm: DetectSeasonalPattern(emotional_history)
+Input: emotional_history (list of (date, sentiment) tuples covering 12+ months)
+Output: seasonal_pattern (dict), has_pattern (bool)
+
+1. If coverage < 365 days:
+   Return {}, False
+
+2. Group entries by month: monthly_avgs = {month: [] for month in 1..12}
+3. For each (date, sentiment) in emotional_history:
+   monthly_avgs[date.month].append(sentiment)
+
+4. For each month in monthly_avgs:
+   monthly_avgs[month] = mean(monthly_avgs[month])
+
+5. overall_mean = mean(monthly_avgs.values())
+6. variance = var(monthly_avgs.values())
+
+7. If variance < 0.05:  # low variance suggests no pattern
+   Return monthly_avgs, False
+
+8. Identify best and worst months:
+   best_month = max(monthly_avgs, key=monthly_avgs.get)
+   worst_month = min(monthly_avgs, key=monthly_avgs.get)
+
+9. If (monthly_avgs[best_month] - monthly_avgs[worst_month]) > 0.3:
+   Return monthly_avgs, True
+10. Else:
+   Return monthly_avgs, False
+```
+
+### 3.4.4 Alert System
+
+**Purpose**: Detects crisis situations and manages guardian notifications with user consent.
+
+**Key Responsibilities**:
+- Monitor for crisis indicators
+- Assess notification necessity based on severity
+- Request user consent for guardian notifications
+- Format and send guardian alerts
+- Provide crisis resources
+- Log all alert activities
+
+**Multi-Threshold Architecture**:
+
+The system employs three severity thresholds:
+- **Low**: Minor distress, resources provided, no guardian notification
+- **Medium**: Moderate distress, guardian notification offered
+- **High**: Severe distress/crisis, strongly recommended guardian notification
+
+**Consent Mechanism**:
+
+Rather than automatically notifying guardians (which violates autonomy) or requiring advance configuration (which may not match current preferences), the system requests real-time consent:
+
+```
+Detection → Severity Assessment → If Medium/High → 
+  Consent Dialog → If Consent → Notify Guardian
+```
+
+**Guardian Notification Format**:
+
+Notifications balance providing actionable information with respecting user privacy:
+
+```
+Subject: Wellness Check Needed for [User Name]
+
+[User Name] is currently experiencing emotional distress and has 
+given permission for you to be notified.
+
+Severity: [Medium/High]
+Time: [Timestamp]
+
+Suggested Actions:
+- Reach out to [User Name] with a supportive message
+- Ask open-ended questions about their wellbeing
+- Listen without judgment
+- Offer practical support
+
+Resources for You:
+- Crisis Text Line: Text HOME to 741741
+- National Suicide Prevention Lifeline: 988
+- [Additional resources based on severity]
+
+This is an automated notification from [User Name]'s wellness 
+monitoring system. [User Name] has chosen you as a trusted support 
+person and explicitly consented to this notification.
+```
+
+**Algorithms**:
+
+*Crisis Detection Algorithm*:
+```
+Algorithm: DetectCrisis(emotional_state, conversation_history)
+Input: emotional_state (current), conversation_history (recent entries)
+Output: is_crisis (bool), severity ("low"/"medium"/"high"), reasoning (str)
+
+1. current_severity = AssessSeverity(emotional_state)
+
+2. recent_severity_trend = []
+3. For entry in last 5 entries of conversation_history:
+   recent_severity_trend.append(entry.severity)
+
+4. sustained_distress = (
+   count(recent_severity_trend where severity in ["medium", "high"]) >= 3
+)
+
+5. escalating = (
+   recent_severity_trend is monotonically increasing
+)
+
+6. If current_severity == "high":
+   Return True, "high", "High severity indicators detected"
+7. Else if current_severity == "medium" AND (sustained_distress OR escalating):
+   Return True, "medium", "Sustained or escalating distress detected"
+8. Else:
+   Return False, current_severity, "Below crisis threshold"
+```
+
+*Guardian Notification Decision Algorithm*:
+```
+Algorithm: ShouldNotifyGuardian(severity, user_settings, previous_notifications)
+Input: severity, user_settings, previous_notifications (list with timestamps)
+Output: should_ask (bool), reasoning (str)
+
+1. If severity == "low":
+   Return False, "Severity below notification threshold"
+
+2. If user has no configured guardians:
+   Return False, "No guardians configured"
+
+3. If user_settings.auto_notify_enabled:
+   If severity == "high":
+      Return True, "Auto-notify enabled for high severity"
+
+4. recent_notifications = [
+   notif for notif in previous_notifications
+   if (now - notif.timestamp) < 24 hours
+]
+
+5. If len(recent_notifications) >= 3:
+   Return False, "Too many recent notifications (preventing fatigue)"
+
+6. If severity == "medium":
+   Return True, "Medium severity - asking user for consent"
+7. Else if severity == "high":
+   Return True, "High severity - strongly recommending notification"
+
+8. Return False, "No notification criteria met"
+```
+
+### 3.4.5 Data Store
+
+**Purpose**: Manages persistent storage of all user data with encryption, integrity verification, and efficient retrieval.
+
+**Key Responsibilities**:
+- Encrypt/decrypt data using AES-256
+- Store conversation history, emotional data, user profiles
+- Implement efficient querying for pattern analysis
+- Maintain data integrity with checksums
+- Handle backup and export
+- Support data deletion
+
+**Storage Architecture**:
+
+Data organized in user-specific encrypted JSON files:
+
+```
+data/
+├── users/
+│   ├── user1/
+│   │   ├── profile.json.enc          # encrypted profile
+│   │   ├── conversations.json.enc    # encrypted conversation history
+│   │   ├── emotions.json.enc         # encrypted emotional data
+│   │   └── guardians.json.enc        # encrypted guardian info
+│   └── user2/
+│       └── ...
+└── backups/
+    ├── user1_2024_01_15_profile.json.enc
+    └── ...
+```
+
+**Encryption Scheme**:
+
+- **Algorithm**: AES-256-CBC
+- **Key Derivation**: PBKDF2-HMAC-SHA256 with user password
+- **Salt**: Random 16-byte salt per user
+- **IV**: Random 16-byte initialization vector per file
+- **Integrity**: SHA-256 HMAC for tamper detection
+
+**Data Structures**:
+
+```python
+EncryptedDataFile {
+    version: str               # format version
+    salt: bytes               # 16-byte random salt
+    iv: bytes                 # 16-byte random IV
+    ciphertext: bytes         # AES-256 encrypted JSON
+    hmac: bytes              # SHA-256 HMAC
+}
+
+ConversationHistory {
+    user_id: str
+    entries: List[ConversationEntry]
+    total_count: int
+    date_range: (datetime, datetime)
+}
+
+EmotionalData {
+    user_id: str
+    daily_summaries: List[DailySummary]
+    retention_days: int
+}
+
+DailySummary {
+    date: date
+    entries: List[EmotionalEntry]
+    avg_sentiment: float
+    dominant_emotion: str
+    intensity_avg: float
+    conversation_count: int
+}
+```
+
+**Algorithms**:
+
+*Efficient Retrieval Algorithm*:
+```
+Algorithm: RetrieveEmotionalData(user_id, start_date, end_date)
+Input: user_id, start_date, end_date
+Output: List[DailySummary] for date range
+
+1. Load and decrypt emotions.json.enc for user_id
+2. emotional_data = parsed JSON
+3. filtered = []
+4. For summary in emotional_data.daily_summaries:
+   If start_date <= summary.date <= end_date:
+      filtered.append(summary)
+5. Return filtered
+```
+
+### 3.4.6 User Profile Manager
+
+**Purpose**: Manages user authentication, sessions, and profile settings.
+
+**Key Responsibilities**:
+- User authentication with password hashing
+- Session management with timeout
+- Account lockout after failed attempts
+- Profile settings management
+- Guardian contact configuration
+
+**Security Mechanisms**:
+
+1. **Password Hashing**: SHA-256 with unique salt per user
+2. **Session Tokens**: Cryptographically random 32-byte tokens
+3. **Session Timeout**: 30-minute inactivity timeout
+4. **Account Lockout**: 3 failed attempts → 15-minute lockout
+5. **Password Requirements**: Minimum 8 characters (configurable)
+
+**Data Structures**:
+
+```python
+UserProfile {
+    user_id: str
+    username: str
+    password_hash: bytes      # SHA-256 hash
+    salt: bytes               # unique salt
+    created_at: datetime
+    settings: UserSettings
+    guardians: List[Guardian]
+    failed_login_attempts: int
+    lockout_until: datetime
+    last_login: datetime
+}
+
+UserSettings {
+    retention_days: int                    # default 365
+    alert_threshold_medium: float          # default 0.5
+    alert_threshold_high: float            # default 0.75
+    auto_notify_guardians: bool           # default False
+    session_timeout_minutes: int          # default 30
+}
+
+Guardian {
+    name: str
+    relationship: str
+    contact_method: str      # email or phone
+    contact_info: str
+    notify_threshold: str    # "medium" or "high"
+    added_date: datetime
+}
+
+Session {
+    session_token: bytes
+    user_id: str
+    created_at: datetime
+    last_activity: datetime
+    expires_at: datetime
+}
+```
+
+## 3.5 Security Architecture
+
+Security permeates all system layers, addressing confidentiality, integrity, availability, and user privacy.
+
+### 3.5.1 Threat Model
+
+**Assets to Protect**:
+1. Conversation content (highly sensitive)
+2. Emotional analysis results
+3. User passwords and authentication data
+4. Guardian contact information
+
+**Threat Actors**:
+1. **External Attackers**: Attempting unauthorized data access
+2. **Malicious Software**: Spyware, keyloggers on user device
+3. **Unauthorized Physical Access**: Someone accessing user's computer
+4. **Abusive Partners/Family**: Attempting surveillance of vulnerable users
+
+**Attack Vectors**:
+1. **Data Breach**: Accessing encrypted files
+2. **Password Attacks**: Brute force, dictionary attacks
+3. **Session Hijacking**: Stealing active sessions
+4. **Social Engineering**: Tricking users into revealing passwords
+5. **Physical Theft**: Stealing devices with data
+
+### 3.5.2 Security Controls
+
+**Encryption (Confidentiality)**:
+- All stored data encrypted with AES-256
+- Password-derived keys using PBKDF2
+- Unique salts and IVs prevent pattern analysis
+- Memory cleared after decryption operations
+
+**Authentication (Access Control)**:
+- SHA-256 password hashing with salts
+- Session token authentication
+- Account lockout prevents brute force
+- Session timeout limits unauthorized access window
+
+**Integrity Protection**:
+- SHA-256 HMAC for encrypted files
+- Checksum verification before decryption
+- Atomic file writes prevent corruption
+
+**Availability**:
+- Automatic backups before destructive operations
+- Graceful error handling
+- Data recovery procedures
+
+**Privacy Protection**:
+- Zero external transmission
+- Local-only processing
+- No telemetry or analytics
+- User-controlled data sharing
+
+### 3.5.3 Security Verification
+
+Security measures are verified through:
+1. **Automated Testing**: Unit tests for encryption/decryption
+2. **Code Review**: Manual security audit
+3. **Penetration Testing**: Simulated attacks
+4. **Cryptographic Verification**: Standard library usage verification
+
+## 3.6 Database Design
+
+While the system uses JSON files rather than a traditional database, we apply database design principles for data organization and integrity.
+
+### 3.6.1 Data Organization
+
+**Normalization**: Data is organized to minimize redundancy while maintaining efficient access:
+
+- **User Profiles**: Separate from conversation/emotional data
+- **Conversations**: Stored with embedded emotional analysis results
+- **Daily Summaries**: Pre-aggregated for efficient pattern analysis
+- **Guardian Information**: Separate encrypted file
+
+**Denormalization Tradeoffs**: Daily summaries duplicate information from individual conversations but enable much faster pattern analysis without iterating thousands of entries.
+
+### 3.6.2 Retention Policies
+
+- **Conversation History**: 180 days (configurable)
+- **Emotional Data**: 365 days
+- **Guardian Notifications**: 90 days
+- **Session Logs**: 30 days
+- **Backup Files**: 7 days
+
+Older data is automatically archived or deleted based on configuration.
+
+### 3.6.3 Data Migration
+
+Version field in each file enables future migrations:
+
+```python
+if data_version < CURRENT_VERSION:
+    data = migrate_data(data, data_version, CURRENT_VERSION)
+```
+
+## 3.7 User Interface Design
+
+The system provides three interface options: CLI, Web UI, and Network UI.
+
+### 3.7.1 Command-Line Interface (CLI)
+
+**Target Users**: Technical users, terminal-comfortable individuals, remote access users
+
+**Design Principles**:
+- Simple, clear prompts
+- Minimal visual complexity
+- Keyboard-only interaction
+- Copy-pasteable output
+
+**Key Screens**:
+1. Login/authentication
+2. Main conversation interface
+3. Pattern analysis display
+4. Guardian management
+5. Settings configuration
+
+### 3.7.2 Web UI (Streamlit)
+
+**Target Users**: General users preferring graphical interfaces
+
+**Design Principles**:
+- Conversational layout
+- Clear visual hierarchy
+- Minimal clicks for common actions
+- Responsive design for mobile
+
+**Components**:
+- Chat-style conversation interface
+- Sidebar for navigation and settings
+- Visualization charts for pattern data
+- Form-based guardian management
+
+### 3.7.3 Network UI
+
+**Target Users**: Multi-device access, family deployment
+
+**Additional Considerations**:
+- Network security (XSRF protection)
+- Session management across devices
+- Connection status indicators
+- Clear device identification
+
+## 3.8 Chapter Summary
+
+This chapter presented the comprehensive design of AI Wellness Buddy:
+
+1. **Design Philosophy**: Privacy-first, comprehensive support, user autonomy
+2. **Requirements**: 10 functional requirement categories, 8 non-functional categories
+3. **Architecture**: Modular, layered design with clear separation of concerns
+4. **Module Designs**: Six primary modules with detailed algorithms
+5. **Security Architecture**: Multi-layered security addressing confidentiality, integrity, availability
+6. **Database Design**: Efficient JSON-based storage with encryption
+7. **UI Design**: Three interface options for different user needs
+
+The design balances privacy requirements with comprehensive functionality, enabling effective mental health monitoring without compromising user autonomy or data sovereignty.
 
 ---
-
-# References
 
 [1] World Health Organization. (2019). Mental disorders. Retrieved from https://www.who.int/news-room/fact-sheets/detail/mental-disorders
 
