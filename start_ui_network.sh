@@ -7,19 +7,29 @@ echo "AI Wellness Buddy - Network UI Launcher"
 echo "=========================================="
 echo ""
 
-# Check if streamlit is installed
-if ! python -c "import streamlit" 2>/dev/null; then
+# Check if streamlit is installed (using python3 explicitly)
+if ! python3 -c "import streamlit" 2>/dev/null; then
     echo "⚠️ Streamlit not found. Installing..."
-    pip install streamlit>=1.28.0
+    pip3 install streamlit>=1.28.0
     echo ""
 fi
 
-# Get local IP address
-if command -v ip &> /dev/null; then
-    LOCAL_IP=$(ip route get 1 | awk '{print $7}' | head -n1)
+# Get local IP address using more reliable methods
+if command -v hostname &> /dev/null; then
+    # Most reliable method across distributions
+    LOCAL_IP=$(hostname -I | awk '{print $1}')
+elif command -v ip &> /dev/null; then
+    # Alternative using ip command with more robust parsing
+    LOCAL_IP=$(ip route get 1 2>/dev/null | grep -oP 'src \K[^ ]+' | head -n1)
 elif command -v ifconfig &> /dev/null; then
+    # Fallback for systems without ip command
     LOCAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -n1)
 else
+    LOCAL_IP="your-ip-address"
+fi
+
+# Fallback if IP detection failed
+if [ -z "$LOCAL_IP" ]; then
     LOCAL_IP="your-ip-address"
 fi
 
@@ -38,5 +48,5 @@ echo "To stop: Press Ctrl+C"
 echo "=========================================="
 echo ""
 
-# Launch streamlit with network access
-streamlit run ui_app.py --server.address 0.0.0.0 --server.port $PORT --server.headless true
+# Launch streamlit with network access (using explicit python3)
+python3 -m streamlit run ui_app.py --server.address 0.0.0.0 --server.port $PORT --server.headless true

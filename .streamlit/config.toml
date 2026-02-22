@@ -5,8 +5,10 @@
 # Enable CORS for network access
 enableCORS = true
 
-# Allow websocket connections from any origin
-enableXsrfProtection = false
+# SECURITY: XSRF protection enabled for better security
+# This protects against cross-site request forgery attacks
+# Note: For local network use, this provides good security balance
+enableXsrfProtection = true
 
 # Server address - 0.0.0.0 makes it accessible from network
 # Change to 'localhost' for local-only access

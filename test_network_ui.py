@@ -38,6 +38,12 @@ def test_streamlit_config():
             print(f"❌ FAIL: '{setting}' not found in config")
             return False
     
+    # Check that XSRF protection is enabled for security
+    if 'enableXsrfProtection = true' in content:
+        print("✅ PASS: XSRF protection enabled (secure)")
+    elif 'enableXsrfProtection = false' in content:
+        print("⚠️  WARNING: XSRF protection disabled (less secure)")
+    
     return True
 
 def test_network_script():
