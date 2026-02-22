@@ -106,18 +106,20 @@ Input:
 
 ### Streamlit Config (.streamlit/config.toml)
 
-The configuration enables network access:
+The configuration enables secure network access:
 
 ```toml
 [server]
-enableCORS = true           # Allow cross-origin requests
-enableXsrfProtection = false # Allow network connections
-headless = true             # Don't auto-open browser
-port = 8501                 # Default port
+enableCORS = true            # Allow cross-origin requests for network access
+enableXsrfProtection = true  # Protect against cross-site attacks (SECURE)
+headless = true              # Don't auto-open browser
+port = 8501                  # Default port
 
 [browser]
-gatherUsageStats = false    # Privacy
+gatherUsageStats = false     # Privacy - don't send usage data
 ```
+
+**Security Note**: XSRF protection is enabled to protect against cross-site request forgery attacks, ensuring safer network access.
 
 ### Network Startup Script (start_ui_network.sh)
 
