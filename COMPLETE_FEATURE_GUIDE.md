@@ -1,958 +1,724 @@
-# Complete Feature Guide
+# AI Wellness Buddy — Complete Feature Guide
 
-## 🌟 AI Wellness Buddy - Complete Feature Documentation
+> **Last updated**: Feb 2026 — reflects the six-module agent-based architecture.
+> 
+> Quick links: [README](README.md) · [Security](SECURITY.md) · [Data Retention](DATA_RETENTION.md) · [Deployment](NETWORK_DEPLOYMENT.md)
 
-This comprehensive guide covers ALL features available in the AI Wellness Buddy, from basic to advanced functionality.
+---
 
 ## Table of Contents
-1. [Overview](#overview)
-2. [Core Features](#core-features)
-3. [Extended Tracking Features](#extended-tracking-features)
-4. [Security Features](#security-features)
-5. [Specialized Support Features](#specialized-support-features)
-6. [User Interface Options](#user-interface-options)
-7. [Data Management](#data-management)
-8. [Advanced Configuration](#advanced-configuration)
-9. [Feature Comparison](#feature-comparison)
-10. [Frequently Asked Questions](#frequently-asked-questions)
+
+1. [Project Summary](#1-project-summary)
+2. [Module 1 — Emotion Analysis Agent](#2-module-1--emotion-analysis-agent)
+3. [Module 2 — Distress Monitoring Agent](#3-module-2--distress-monitoring-agent)
+4. [Module 3 — Pattern Prediction Agent](#4-module-3--pattern-prediction-agent)
+5. [Module 4 — Response Generation Agent](#5-module-4--response-generation-agent)
+6. [Module 5 — Guardian Alert Agent](#6-module-5--guardian-alert-agent)
+7. [Module 6 — Visualization & UI Agent](#7-module-6--visualization--ui-agent)
+8. [User Profile — Full Personal Details](#8-user-profile--full-personal-details)
+9. [Security & Privacy Features](#9-security--privacy-features)
+10. [Specialized Support for Women](#10-specialized-support-for-women)
+11. [Data Management](#11-data-management)
+12. [Configuration Reference](#12-configuration-reference)
+13. [Testing & Research Metrics](#13-testing--research-metrics)
+14. [Complete Feature Checklist](#14-complete-feature-checklist)
 
 ---
 
-## Overview
+## 1. Project Summary
 
-The AI Wellness Buddy is a comprehensive emotional support system with the following capabilities:
+**AI Wellness Buddy** is a privacy-first emotional support application that builds a personal profile for each user, analyses the emotional tone of every message they type, tracks trends across sessions, predicts future emotional states, and can alert a trusted guardian when sustained distress is detected.
 
-### Quick Feature List
+### Why it is different from a simple chatbot
 
-✅ **Core Emotional Support**
-- Real-time emotion analysis
-- Pattern tracking and trend detection
-- Distress alert system
-- Crisis resource connections
-
-✅ **Extended Tracking (NEW)**
-- 365-day emotional history (up from 90 days)
-- Long-term pattern analysis
-- Seasonal trend detection
-- Progress milestone tracking
-
-✅ **Enhanced Security (NEW)**
-- Password-protected profiles
-- AES-256 data encryption
-- Session timeout protection
-- Account lockout security
-- Data integrity verification
-
-✅ **Specialized Support**
-- Women's safety features
-- Trusted contact management
-- Abuse detection and resources
-- Personalized support networks
-
-✅ **Multiple Interfaces**
-- Command-line interface (CLI)
-- Web browser UI (Streamlit)
-- Network-accessible UI
-- Mobile-friendly design
+| Ordinary chatbot | AI Wellness Buddy |
+|---|---|
+| Replies to one message at a time | Tracks patterns across the entire conversation and across sessions |
+| Generic replies | Personalized replies using your name, occupation, and primary concerns |
+| One emotion (positive / negative) | Five emotion categories with confidence scores |
+| Fixed alert (on/off) | Five-level severity with auto-escalation and consent mechanism |
+| No prediction | Predicts your next emotional state with early-warning |
+| No dashboard | Six-tab analytics UI with live charts |
 
 ---
 
-## Core Features
+## 2. Module 1 — Emotion Analysis Agent
 
-### 1. Emotion Analysis
+**File**: `emotion_analyzer.py`
 
-**Real-time sentiment analysis** using natural language processing:
+### 2.1 Multi-Label Emotion Classification
 
-**Technologies:**
-- TextBlob for sentiment analysis
-- NLTK for text processing
-- Custom keyword detection
+Every message is scored across **five emotion categories** using a fusion of:
+- Keyword-frequency counting (curated word lists per category)
+- TextBlob polarity to weight the scores
 
-**What It Analyzes:**
-```python
+| Category | Trigger words (examples) |
+|---|---|
+| 😢 Sadness | sad, depressed, hopeless, lonely, heartbroken, grief, crying, numb, despair |
+| 😰 Anxiety | anxious, worried, stressed, panic, overwhelmed, scared, insomnia, racing thoughts |
+| 😠 Anger | angry, furious, frustrated, resentment, rage, disgusted, fed up |
+| 😊 Joy | happy, grateful, excited, wonderful, content, peaceful, relieved, elated |
+| 😐 Neutral | Anything that doesn't match the above |
+
+### 2.2 Full Output Schema
+
+```json
 {
-  "polarity": 0.5,           # -1 (negative) to +1 (positive)
-  "subjectivity": 0.6,       # 0 (objective) to 1 (subjective)
-  "emotion": "positive",     # Category: positive, neutral, negative, distress
-  "severity": "low",         # Severity: low, medium, high
-  "distress_keywords": [],   # 24 distress indicators detected
-  "abuse_indicators": []     # 16 abuse-related keywords detected
+  "emotion_scores": {
+    "joy":     0.0,
+    "sadness": 0.616,
+    "anxiety": 0.384,
+    "anger":   0.0,
+    "neutral": 0.0
+  },
+  "dominant_emotion": "sadness",
+  "severity_score":   7.79,
+  "emotion":          "distress",
+  "severity":         "high",
+  "polarity":         -0.48,
+  "subjectivity":     0.72,
+  "distress_keywords":  ["hopeless", "can't take it"],
+  "abuse_indicators":   [],
+  "has_abuse_indicators": false,
+  "timestamp": "2026-02-23T20:10:00"
 }
 ```
 
-**Example Interaction:**
+### 2.3 Severity Score (0–10)
+
 ```
-You: I'm feeling really happy today! Everything is going well.
-Wellness Buddy: That's wonderful to hear! I'm glad you're experiencing such positive feelings...
-
-[Emotion Analysis: positive, polarity: +0.85, severity: low]
-```
-
-### 2. Pattern Tracking
-
-**Monitors emotional patterns** over time with configurable windows:
-
-**Session-Level Tracking:**
-- Last 10 messages (configurable)
-- Consecutive distress detection
-- Trend analysis (improving, stable, declining)
-
-**Long-Term Tracking:**
-- 365 days of emotional history
-- Weekly, monthly, quarterly reviews
-- Seasonal pattern detection
-
-**Pattern Summary Example:**
-```
-📊 Current Session Pattern:
-  Total messages: 12
-  Distress messages: 2
-  Distress ratio: 16.7%
-  Average sentiment: +0.15
-  Trend: Stable
-  Consecutive distress: 0
-
-📊 Last 7 Days:
-  Check-ins: 5
-  Average sentiment: +0.25
-  Trend: Improving ✨
+severity_score = clamp((-polarity + 1) / 2 * 10 + keyword_bonus, 0, 10)
+                 ↑ 0 = very positive, 10 = extreme negative
 ```
 
-### 3. Distress Alert System
+Keyword bonus: +0.5 per distress keyword, +1.0 per abuse keyword, capped at +3.
 
-**Automatic alerts** when sustained distress is detected:
+### 2.4 Research Comparison
 
-**Trigger Conditions:**
-- 3+ consecutive distress messages (configurable)
-- Sustained negative sentiment
-- Multiple distress keywords
+The module uses a **rule-based approach** (keyword + polarity fusion) as the baseline.  
+Replace `get_emotion_scores()` with a `transformers` pipeline call (e.g. `cardiffnlp/twitter-roberta-base-emotion`) to compare ML-based detection — the output schema is identical.
 
-**Alert Response:**
+---
+
+## 3. Module 2 — Distress Monitoring Agent
+
+**File**: `pattern_tracker.py`
+
+### 3.1 Time-Weighted Sliding Window
+
+Unlike simple averages, recent messages count more:
+
 ```
-⚠️ EMOTIONAL DISTRESS ALERT ⚠️
-
-I've noticed you've been experiencing sustained emotional distress.
-Your wellbeing is important, and you don't have to face this alone.
-
-Please consider reaching out to professional support:
-
-📞 General Support Resources:
-  • Crisis Hotline: 988 (Suicide & Crisis Lifeline)
-  • Crisis Text Line: Text HOME to 741741
-  • Mental Health: SAMHSA National Helpline: 1-800-662-4357
+weight_i = decay^(window_size - 1 - i)   where decay = TIME_DECAY_FACTOR (default 0.85)
+weighted_sentiment = Σ(sentiment_i × weight_i) / Σ(weight_i)
 ```
 
-**Specialized Alerts** (for women with abuse indicators):
-```
-🛡️ SPECIALIZED SUPPORT FOR WOMEN 🛡️
+### 3.2 Severity Levels
 
-  • Domestic Violence Hotline: 1-800-799-7233
-  • Domestic Violence Text: Text START to 88788
-  • Sexual Assault Hotline: 1-800-656-4673 (RAINN)
-  
-💚 Your Trusted Contacts:
-  • Emma (best friend): 555-1234
-  • Sarah (colleague): 555-5678
-```
+| Level | Score threshold |
+|---|---|
+| LOW | score < 4.0 |
+| MEDIUM | 4.0 ≤ score < 7.0 |
+| HIGH | score ≥ 7.0 |
 
-### 4. User Profiles
+The score is the **weighted average severity score** over the last `SEVERITY_SCORE_WINDOW` (default 5) messages.
 
-**Persistent profiles** with personalized support:
+### 3.3 Emotion Distribution
 
-**Profile Data:**
-```python
+Aggregates `emotion_scores` from Module 1 across all messages in the window:
+```json
 {
-  "user_id": "username",
-  "created_at": "2025-03-01T10:00:00",
-  "last_session": "2026-02-22T15:30:00",
-  "gender": "female",
-  "session_count": 287,
-  "emotional_history": [...]  # 365 days of snapshots
+  "sadness": 0.55,
+  "anxiety": 0.38,
+  "anger":   0.0,
+  "joy":     0.0,
+  "neutral": 0.07
+}
+```
+Used by the **Emotional Trends** tab pie chart.
+
+### 3.4 Full Pattern Summary
+
+```json
+{
+  "total_messages":          3,
+  "distress_messages":       3,
+  "distress_ratio":          1.0,
+  "average_sentiment":      -0.48,
+  "weighted_sentiment":     -0.52,
+  "severity_score":          7.79,
+  "severity_level":         "HIGH",
+  "emotion_distribution":   { "sadness": 0.55, "anxiety": 0.38, ... },
+  "trend":                  "declining",
+  "consecutive_distress":    3,
+  "sustained_distress_detected": true,
+  "abuse_indicators_detected": false,
+  "abuse_indicators_count":  0
 }
 ```
 
-**Profile Features:**
-- Create and load profiles
-- Gender-specific support
-- Trusted contact management
-- Safety preferences
-- Session history
+---
+
+## 4. Module 3 — Pattern Prediction Agent
+
+**File**: `prediction_agent.py`  *(new file — not present in older versions)*
+
+### 4.1 What it does
+
+Given a time-series of recent sentiment scores it:
+1. Fits an OLS linear regression line
+2. Extrapolates to predict the **next** sentiment score
+3. Classifies the trend as `improving / stable / worsening`
+4. Estimates **confidence** (inversely proportional to variance)
+5. Fires an **early warning** when predicted sentiment < −0.35
+6. Generates a **5-step forecast series** for the Risk Prediction chart
+
+### 4.2 How to use
+
+```python
+from prediction_agent import PredictionAgent
+
+agent = PredictionAgent()
+
+# Feed one data point per user message
+agent.add_data_point(sentiment=-0.25, emotion_label='anxiety')
+agent.add_data_point(sentiment=-0.35, emotion_label='sadness')
+agent.add_data_point(sentiment=-0.48, emotion_label='sadness')
+
+# Predict
+result = agent.predict_next_state()
+# {
+#   "predicted_sentiment": -0.62,
+#   "trend": "worsening",
+#   "confidence": 0.94,
+#   "early_warning": True,
+#   "warning_message": "📊 Early warning: your emotional state is predicted to worsen..."
+# }
+
+# Research metrics
+metrics = agent.get_metrics()
+# {"mae": 0.042, "rmse": 0.056, "n_predictions": 2, "trend": "worsening", "data_points": 3}
+
+# Chart data
+forecast = agent.get_forecast_series(steps=5)
+# [-0.62, -0.72, -0.83, -0.93, -1.0]
+```
+
+### 4.3 Swapping to LSTM
+
+The prediction interface is LSTM-compatible.  Replace the single function `_linreg_predict(values)` with an LSTM forward-pass:
+
+```python
+# prediction_agent.py  — drop-in replacement
+def _linreg_predict(values):
+    # Replace this with:
+    import torch
+    model = load_lstm_model()         # your trained model
+    x = torch.tensor(values).unsqueeze(0).unsqueeze(-1)
+    return float(model(x)[:, -1, :])
+```
+
+### 4.4 Research Metrics
+
+| Metric | Meaning | Good value |
+|---|---|---|
+| MAE | Mean Absolute Error on predicted sentiment | < 0.10 |
+| RMSE | Root Mean Squared Error | < 0.15 |
+| Trend accuracy | Predicted trend vs. actual direction | > 70 % |
+| Confidence | 1 − variance of recent window | > 0.70 |
 
 ---
 
-## Extended Tracking Features (NEW)
+## 5. Module 4 — Response Generation Agent
 
-### 1. One Year Emotional History
+**File**: `conversation_handler.py`
 
-**365 days of continuous tracking** (upgraded from 90 days):
+### 5.1 Emotion-Category Templates
 
-**What's Tracked:**
-- Daily emotional snapshots
-- Session summaries
-- Sentiment trends
-- Distress patterns
-- Milestone progress
+Each emotion category has **4 distinct response templates**:
 
-**Benefits:**
+| Category | Sample response |
+|---|---|
+| Joy | *"Your happiness is contagious {name}! Keep nurturing those good feelings. 🌟"* |
+| Sadness | *"I hear the sadness in your words {name}. Let's take this one moment at a time together."* |
+| Anxiety | *"Anxiety can be overwhelming {name} as a {occupation}. You're not alone — I'm here to help you find calm."* |
+| Anger | *"Anger often signals something important {name}. Would you like to talk about what's driving it?"* |
+| Neutral | *"I hear you {name}. Would you like to explore what's on your mind a bit deeper?"* |
+| Distress | *"You reached out, and that takes courage {name}. I'm right here. Let's get through this together. 💙"* |
+
+### 5.2 Personalisation
+
+- **Name**: every reply uses the user's preferred display name
+- **Occupation context**: injected into anxiety and negative templates
+  - *"…overwhelming {name} as a M.Tech Student…"*
+- **Abuse-indicator override**: appends a specialised safety message when abuse keywords are detected
+- **Deduplication**: never repeats the same template twice in a row within a session
+
+### 5.3 Occupation Context
+
+Set via profile → automatically appears in relevant responses:
 ```
-✨ See full year of progress
-📈 Identify seasonal patterns
-🎯 Track long-term goals
-📊 Better trend analysis
-🌟 Understand your journey
+"Anxiety can be overwhelming Alex as a M.Tech Student."
+"I hear how hard things feel right now Alex as a Graduate Student."
 ```
-
-**Historical View:**
-```bash
-python wellness_buddy.py
-> status full
-
-📊 Full Year Overview (365 days):
-  Total check-ins: 243
-  Average sentiment: +0.08
-  
-  Best month: June 2025 (+0.45)
-  Most challenging: January 2026 (-0.15)
-  
-  Overall trend: Improving ✨
-  Current vs start: +0.40 improvement
-```
-
-### 2. Seasonal Pattern Detection
-
-**Automatic detection** of seasonal variations:
-
-**Seasonal Analysis:**
-```
-🌸 Spring (Mar-May): +0.35 avg sentiment
-☀️ Summer (Jun-Aug): +0.42 avg sentiment
-🍂 Fall (Sep-Nov): +0.28 avg sentiment
-❄️ Winter (Dec-Feb): -0.05 avg sentiment
-
-Insight: You tend to feel better in summer months.
-Consider planning extra self-care in winter.
-```
-
-### 3. Progress Milestones
-
-**Track progress** from important events:
-
-**Setting Milestones:**
-```python
-# Mark significant dates
-profile.add_milestone("Started therapy", "2025-08-01")
-profile.add_milestone("New job", "2025-10-15")
-profile.add_milestone("Relationship ended", "2025-12-01")
-```
-
-**Viewing Progress:**
-```
-Progress Since "Started therapy" (205 days ago):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Before: -0.20 avg sentiment, 45% distress ratio
-After:  +0.30 avg sentiment, 15% distress ratio
-Change: +0.50 improvement, -30% less distress ✨
-
-Best streak: 60 consecutive days of positive mood
-```
-
-### 4. Data Archiving
-
-**Automatic archiving** of old conversations:
-
-**Configuration:**
-```python
-CONVERSATION_ARCHIVE_DAYS = 180  # Archive after 6 months
-```
-
-**Features:**
-- Older conversations archived separately
-- Summaries kept in main history
-- Archived data still accessible
-- Reduces active data size
 
 ---
 
-## Security Features (NEW)
+## 6. Module 5 — Guardian Alert Agent
 
-### 1. Password Protection
+**File**: `alert_system.py`
 
-**Secure profile access** with password/PIN:
+### 6.1 Five Severity Levels
 
-**Setup:**
 ```
-Create a password for your profile (min 8 characters): ********
-Confirm password: ********
-
-✅ Password set successfully!
-Your profile is now protected.
+INFO  ──→  LOW  ──→  MEDIUM  ──→  HIGH  ──→  CRITICAL
+  (minor)  (mild)  (moderate)  (sustained)  (severe + abuse)
 ```
 
-**Features:**
-- SHA-256 password hashing
-- Unique salt per profile
-- Passwords never stored in plain text
-- Optional (can be disabled)
+Severity is calculated from the pattern summary:
+- Base level comes from `severity_level` (LOW/MEDIUM/HIGH) from Module 2
+- **+1 level** if abuse indicators are detected
+- **→ CRITICAL** if `sustained_distress_detected` AND level is already HIGH
 
-**Login:**
+### 6.2 Escalation Policy
+
+Unacknowledged alerts auto-escalate after:
+
+| From severity | Escalates after |
+|---|---|
+| INFO | 60 minutes |
+| LOW | 30 minutes |
+| MEDIUM | 15 minutes |
+| HIGH | 5 minutes |
+| CRITICAL | No further escalation |
+
+```python
+# Check and apply escalations
+escalated = alert_system.escalate_pending_alerts()
 ```
-Enter password: ********
-✅ Access granted
 
-OR
+### 6.3 Alert Log
 
-Enter password: ********
-❌ Incorrect password (2 attempts remaining)
+Every triggered alert is recorded in a structured log:
+
+```json
+{
+  "timestamp": "2026-02-23T20:51:18",
+  "severity": "CRITICAL",
+  "type": "distress",
+  "severity_score": 7.79,
+  "sustained_distress": true,
+  "abuse_indicators": false,
+  "notify_guardians": true,
+  "acknowledged": false,
+  "user": "demo_user"
+}
 ```
 
-### 2. Data Encryption
+The log is visible in the **Guardian Alerts** tab and exportable as CSV.
 
-**AES-256 encryption** for all stored data:
+### 6.4 Consent Mechanism
 
-**How It Works:**
+Guardian details are **never shown without explicit user approval**:
+
+```python
+# UI flow:
+# 1. Alert fires → notify_guardians=True, guardian_consent=False
+# 2. User sees guardian details in "Pending Alerts" expander
+# 3. User clicks "Consent to notify guardians" button
+# 4. guardian_consent is set to True
+alert_system.grant_guardian_consent(alert)
+
+# 5. User acknowledges the alert
+alert_system.acknowledge_alert(alert)
 ```
-User Data → Serialize to JSON → Encrypt with AES-256 → Save to disk
 
-Encrypted file structure:
+### 6.5 Guardian Contacts
+
+Stored in the user profile, collected during profile creation:
+```python
+profile.add_guardian_contact(
+    name="Dr. Sharma",
+    relationship="Counsellor",
+    contact_info="+91-98765-43210"
+)
+```
+
+---
+
+## 7. Module 6 — Visualization & UI Agent
+
+**File**: `ui_app.py`
+
+### 7.1 Tab Overview
+
+#### 💬 Chat Tab
+- **Greeting**: personalized "🌟 Hi, Alex!"
+- **Live metrics bar**: Messages (count) · Trend (improving/declining/stable) · Severity (LOW/MEDIUM/HIGH) · Weighted Sentiment (−1 to +1, updates after every message)
+- **Chat history**: full conversation display
+- **Personalized input placeholder**: "Share how you're feeling, Alex…"
+- **Inline alerts**: early-warning and distress alert messages appear inline in the chat
+
+#### 📈 Emotional Trends Tab
+- **Sentiment line chart**: polarity per message, markers colour-coded green→red, hover shows emotion label
+- **Emotion distribution donut pie**: aggregate joy/sadness/anxiety/anger/neutral across the session
+- **Long-term bar chart**: average sentiment per session for the last 30 sessions (if history exists)
+
+#### 📅 Weekly Summary Tab
+- **Daily sentiment bar**: colour-coded bar chart for last 7 days
+- **Session message-count grouped bar**: total vs. distress messages per session
+- **Week-at-a-glance metrics**: Sessions · Avg Sentiment · Positive Days
+- Falls back to current-session summary when < 7 days of history
+
+#### 🔮 Risk Prediction Tab
+- **Forecast chart**: observed sentiment (blue line) + 5-step forecast (red dashed) + early-warning threshold line
+- **Confidence, Trend, Predicted Sentiment, MAE** shown as metric cards
+- **Early warning banner** (orange) when threshold breached
+- **Model Metrics panel**: data points, MAE, RMSE, predictions evaluated, current trend
+- **Research note** explaining the OLS→LSTM migration path
+
+#### 🚨 Guardian Alerts Tab
+- **Guardian contact card**: name, relationship, phone/email
+- **Alert log table**: timestamp, severity, type, score, sustained, acknowledged (sortable, searchable, CSV export)
+- **Pending alert expanders**: full alert details + consent button + acknowledge button
+- **Severity guide**: table explaining each severity level and escalation timing
+
+#### 👤 Profile Tab
+- Full profile display: name, username, age, occupation, gender, primary concerns, session count
+- Trusted contacts list
+- Guardian contacts list
+- Inline "Manage" section: add trusted contact, add guardian contact, delete all data
+
+### 7.2 Sidebar (always visible)
+
+- User name, occupation, age
+- Session number
+- Focus areas (primary concerns)
+- Help & Resources button (triggers crisis resources message in chat)
+- Manage Profile button (opens sidebar management menu)
+- End Session button
+
+---
+
+## 8. User Profile — Full Personal Details
+
+**File**: `user_profile.py`
+
+### 8.1 Profile Fields
+
+| Field | Method | Description |
+|---|---|---|
+| `user_id` | (set at creation) | Private username |
+| `name` | `set_name(name)` | Preferred display name |
+| `age` | `set_age(age)` | Integer age |
+| `occupation` | `set_occupation(occ)` | Job / student status |
+| `primary_concerns` | `set_primary_concerns(list)` | Reasons for using the app |
+| `gender` | `set_gender(gender)` | Enables specialised resources |
+| `trusted_contacts` | `add_trusted_contact(...)` | Safe people to contact |
+| `guardian_contacts` | `add_guardian_contact(...)` | Emergency contacts for alerts |
+| `unsafe_contacts` | `add_unsafe_contact(...)` | Contacts to avoid in alerts |
+| `emotional_history` | (auto) | Up to 365-day session snapshots |
+| `session_count` | (auto) | Increments each session |
+
+### 8.2 Guardian Contact Schema
+
+```python
+{
+  "name": "Dr. Sharma",
+  "relationship": "Counsellor",
+  "contact_info": "+91-98765-43210",
+  "added_at": "2026-02-23T20:10:00"
+}
+```
+
+### 8.3 Primary Concerns (multi-select options)
+
+Stress & Anxiety · Depression / Low Mood · Loneliness · Relationship Issues ·
+Work / Academic Pressure · Family Problems · Grief / Loss · Self-esteem ·
+Trauma · General Wellbeing · Other
+
+---
+
+## 9. Security & Privacy Features
+
+**File**: `data_store.py` + `config.py`
+
+| Feature | Implementation |
+|---|---|
+| AES-256 encryption | Fernet symmetric encryption; key stored in `~/.wellness_buddy/.encryption_key` (chmod 600) |
+| Password hashing | SHA-256 with per-profile unique salt; passwords never stored in plain text |
+| Session timeout | Configurable — default 30 min; checked on every message |
+| Account lockout | 3 failed login attempts → 15-min lockout (configurable) |
+| Data integrity | `get_data_integrity_hash(user_id)` returns SHA-256 of file |
+| Automatic backups | `create_backup(user_id)` runs before every save; timestamped filename |
+| Local-only storage | All data in `~/.wellness_buddy/`; zero external API calls |
+| Owner-only permissions | `os.chmod(file, 0o600)` on every data and key file |
+
+### Encrypted file structure
+```json
 {
   "encrypted": true,
-  "data": "gAAAAABh3k4p..."  # Base64-encoded encrypted data
+  "data": "gAAAAABh3k4p..."
 }
 ```
 
-**Key Management:**
+---
+
+## 10. Specialized Support for Women
+
+When a user identifies as female and marks family/guardians as unsafe:
+
+1. **Modified alert routing**: guardian alert section is replaced by women's organization resources
+2. **Trusted contacts prioritized**: user's own trusted friends shown prominently
+3. **Women's resource pack** added to every distress alert:
+   - National Domestic Violence Hotline: 1-800-799-7233
+   - RAINN: 1-800-656-4673
+   - National Women's Law Center: 202-588-5180
+4. **Government resources** appended (Office on Women's Health, Violence Against Women Office, Legal Services)
+5. **Safe support tips**: how to build a safe network outside the household
+6. **Abuse-indicator detection**: 16 keywords trigger specialized response even outside the main alert
+
+---
+
+## 11. Data Management
+
+### Storage Location
 ```
 ~/.wellness_buddy/
-├── .encryption_key          # Fernet key (600 permissions)
-├── username.json            # Encrypted data
-└── username_backup_*.json   # Encrypted backups
+├── .encryption_key          (owner-only)
+├── username.json            (encrypted profile + 365-day history)
+└── username_backup_YYYYMMDD_HHMMSS.json
 ```
 
-**Important:**
-- Encryption key is critical - backup securely!
-- Lost key = permanently lost data
-- Legacy unencrypted profiles auto-migrate
+### Key Operations
 
-### 3. Session Timeout
-
-**Auto-logout** after inactivity:
-
-**Configuration:**
 ```python
-SESSION_TIMEOUT_MINUTES = 30  # Default: 30 minutes
+# Save
+data_store.save_user_data(user_id, profile.get_profile())
+
+# Load
+data = data_store.load_user_data(user_id)
+
+# List users
+users = data_store.list_users()
+
+# Delete
+data_store.delete_user_data(user_id)
+
+# Backup
+backup_path = data_store.create_backup(user_id)
+
+# Integrity check
+hash1 = data_store.get_data_integrity_hash(user_id)
 ```
 
-**Behavior:**
-```
-[User inactive for 30 minutes]
-
-⚠️ Session Expired
-You've been logged out due to inactivity.
-Please log in again to continue.
-
-Enter password: ********
-```
-
-**Activity Tracking:**
-- Updates on every interaction
-- Checks on each message
-- Graceful logout with data save
-
-### 4. Account Lockout
-
-**Brute force protection:**
-
-**Settings:**
-```python
-MAX_LOGIN_ATTEMPTS = 3          # Lock after 3 failed attempts
-LOCKOUT_DURATION_MINUTES = 15   # Lock for 15 minutes
-```
-
-**Lockout Process:**
-```
-Attempt 1: ❌ Incorrect password (2 attempts remaining)
-Attempt 2: ❌ Incorrect password (1 attempt remaining)
-Attempt 3: ❌ Incorrect password
-
-🔒 Account Locked
-Your account has been locked due to multiple failed login attempts.
-Please try again in 15 minutes.
-```
-
-**Auto-Unlock:**
-- Automatic after lockout duration
-- Counter resets on successful login
-- Secure against brute force attacks
-
-### 5. Data Integrity
-
-**Verify data hasn't been tampered with:**
-
-**SHA-256 Hashing:**
-```python
-# Get integrity hash
-hash1 = data_store.get_data_integrity_hash("username")
-# 'a7b3c4d5e6f7...'
-
-# Later, verify integrity
-hash2 = data_store.get_data_integrity_hash("username")
-
-if hash1 == hash2:
-    print("✅ Data integrity verified")
-else:
-    print("⚠️ Data may have been modified")
-```
-
-### 6. Automatic Backups
-
-**Timestamped backups** before critical operations:
-
-**Backup Creation:**
-```python
-# Automatic backup before save
-backup_file = data_store.create_backup("username")
-# Creates: username_backup_20260222_153045.json
-```
-
-**Backup Location:**
-```
-~/.wellness_buddy/
-├── username.json
-├── username_backup_20260222_153045.json
-├── username_backup_20260221_120030.json
-└── ...
-```
-
-**Backup Management:**
-```bash
-# Keep only last 10 backups
-cd ~/.wellness_buddy
-ls -t *_backup_* | tail -n +11 | xargs rm
-```
+### Data Retention
+- Emotional history: **365 days** rolling window
+- Conversation archive: 180 days (then summarised)
+- Max snapshots: 365
 
 ---
 
-## Specialized Support Features
+## 12. Configuration Reference
 
-### 1. Women's Safety Features
+**File**: `config.py`
 
-**Specialized support** for women experiencing abuse:
-
-**Safety Settings:**
+### Emotion Analysis
 ```python
-# Enable women's support
-profile.enable_women_support()
-
-# Mark family as unsafe (for toxic situations)
-profile.add_unsafe_contact("family/parents")
-profile.add_unsafe_contact("spouse/partner")
+DISTRESS_THRESHOLD = -0.3         # Sentiment below this → distress
+SUSTAINED_DISTRESS_COUNT = 3      # Consecutive distress messages to alert
+PATTERN_TRACKING_WINDOW = 10      # Rolling window size
 ```
 
-**Modified Alert Response:**
-```
-🛡️ SAFE SUPPORT NETWORK 🛡️
-
-Since family may not be safe, consider these trusted resources:
-
-Women's Organizations:
-  • National Coalition Against Domestic Violence: 1-303-839-1852
-  • National Organization for Women: 202-628-8669
-
-Building Safe Support:
-  • Reach out to trusted friends outside your household
-  • Consider confiding in a colleague or mentor you trust
-  • Connect with support groups
-
-💚 Your Trusted Contacts:
-  • Emma (best friend): 555-1234
-  • Dr. Smith (therapist): 555-9999
-```
-
-### 2. Trusted Contact Management
-
-**Maintain a safe support network:**
-
-**Adding Contacts:**
+### Distress Monitoring (Module 2)
 ```python
-# Add trusted friend
-profile.add_trusted_contact(
-    name="Emma Johnson",
-    relationship="best friend",
-    contact_info="555-1234"
-)
-
-# Add professional support
-profile.add_trusted_contact(
-    name="Dr. Sarah Smith",
-    relationship="therapist",
-    contact_info="555-9999"
-)
+SEVERITY_SCORE_WINDOW = 5         # Messages averaged for severity score
+TIME_DECAY_FACTOR = 0.85          # Exponential weight decay
+SEVERITY_HIGH_THRESHOLD = 7.0     # Score ≥ 7 → HIGH
+SEVERITY_MEDIUM_THRESHOLD = 4.0   # Score ≥ 4 → MEDIUM
 ```
 
-**Viewing Contacts:**
-```
-💚 Your Trusted Contacts:
-
-1. Emma Johnson (best friend)
-   Contact: 555-1234
-   Added: 2025-08-15
-
-2. Dr. Sarah Smith (therapist)
-   Contact: 555-9999
-   Added: 2025-09-01
-
-3. Crisis Center (professional support)
-   Contact: 1-800-273-8255
-   Added: 2025-08-15
-```
-
-### 3. Abuse Detection
-
-**Automatic detection** of abuse indicators:
-
-**Detected Keywords (16 indicators):**
-- abuse, abused, abusive
-- controlling, manipulative
-- gaslighting, threatened
-- intimidated, belittled
-- humiliated, isolated
-- trapped, toxic relationship
-- emotional abuse, verbal abuse
-- domestic violence
-
-**Response:**
-```
-I've noticed some concerning patterns in what you've shared.
-You mentioned experiences that may indicate emotional abuse.
-
-🛡️ You deserve safety and support:
-  • Domestic Violence Hotline: 1-800-799-7233
-  • Safety Planning: thehotline.org
-  
-Your trusted contacts:
-  • Emma (best friend): 555-1234
-```
-
----
-
-## User Interface Options
-
-### 1. Command-Line Interface (CLI)
-
-**Traditional terminal interface:**
-
-**Starting:**
-```bash
-python wellness_buddy.py
-```
-
-**Features:**
-- Text-based interaction
-- Simple and fast
-- Works on any system
-- No browser required
-- Full feature access
-
-**Commands:**
-```
-help      - Show support resources
-status    - View emotional patterns
-profile   - Manage profile and contacts
-quit      - End session and save
-```
-
-### 2. Web Browser UI (Streamlit)
-
-**Modern browser-based interface:**
-
-**Starting:**
-```bash
-streamlit run ui_app.py
-```
-
-**Features:**
-- Visual, point-and-click interface
-- Real-time chat display
-- Sidebar navigation
-- Profile management UI
-- Session statistics
-- Resource links
-
-**Access:**
-```
-Local URL: http://localhost:8501
-```
-
-### 3. Network UI
-
-**Access from any device on your network:**
-
-**Starting:**
-```bash
-bash start_ui_network.sh
-```
-
-**Features:**
-- Access from phone, tablet, other computers
-- Same Wi-Fi/LAN required
-- Secure with XSRF protection
-- Full web UI features
-
-**Access:**
-```
-Local URL:   http://localhost:8501
-Network URL: http://192.168.1.100:8501
-```
-
-**Devices:**
-- Desktop/laptop browsers
-- Mobile browsers (iOS, Android)
-- Tablets
-- Multiple users simultaneously
-
----
-
-## Data Management
-
-### 1. Exporting Data
-
-**Export your emotional history:**
-
-**JSON Export:**
+### Prediction Agent (Module 3)
 ```python
-# Get all history
-history = profile.get_emotional_history()
-
-# Save to file
-import json
-with open('my_wellness_data.json', 'w') as f:
-    json.dump(history, f, indent=2, default=str)
+PREDICTION_WINDOW = 7             # Data points for OLS fit
+EARLY_WARNING_THRESHOLD = -0.35   # Predicted score to fire early warning
+PREDICTION_CONFIDENCE_MIN = 0.50  # Min confidence to show warning
 ```
 
-**Summary Report:**
+### Guardian Alerts (Module 5)
 ```python
-# Generate annual report
-report = profile.generate_annual_report()
-
-# Save report
-with open('annual_report_2026.txt', 'w') as f:
-    f.write(report)
+ALERT_SEVERITY_LEVELS = ['INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+ESCALATION_INTERVALS = {'INFO': 60, 'LOW': 30, 'MEDIUM': 15, 'HIGH': 5, 'CRITICAL': 0}
+MAX_ALERT_LOG_ENTRIES = 100
+ENABLE_GUARDIAN_ALERTS = True
+AUTO_NOTIFY_GUARDIANS = False     # Always ask user first
 ```
 
-### 2. Data Deletion
-
-**Complete control over your data:**
-
-**Delete Profile:**
-```python
-# Via profile menu
-> profile
-> 4. Delete all my data
-
-Are you sure? This cannot be undone. (yes/no): yes
-✅ All data deleted successfully.
-```
-
-**Delete Specific Period:**
-```python
-# Delete data from specific date range
-profile.delete_history(
-    start_date="2025-01-01",
-    end_date="2025-06-30"
-)
-```
-
-**Manual Cleanup:**
-```bash
-# Remove all wellness buddy data
-rm -rf ~/.wellness_buddy/
-
-# Secure deletion (Linux/Mac)
-shred -vfz -n 10 ~/.wellness_buddy/*
-rm -rf ~/.wellness_buddy/
-```
-
-### 3. Data Backup
-
-**Protect your emotional history:**
-
-**Manual Backup:**
-```bash
-# Backup entire directory
-cp -r ~/.wellness_buddy ~/backup/wellness_buddy_20260222
-
-# Or create tar archive
-tar -czf wellness_backup_20260222.tar.gz -C ~ .wellness_buddy
-```
-
-**Cloud Backup (encrypted):**
-```bash
-# Encrypt before uploading
-gpg -c wellness_backup_20260222.tar.gz
-# Upload wellness_backup_20260222.tar.gz.gpg to cloud
-```
-
-**Automatic Backups:**
-- System creates backups before saves
-- Timestamped: `username_backup_YYYYMMDD_HHMMSS.json`
-- Keep last 10-20 backups
-- All encrypted if encryption enabled
-
----
-
-## Advanced Configuration
-
-### 1. Emotional Analysis Settings
-
-```python
-# config.py
-
-# Distress detection
-DISTRESS_THRESHOLD = -0.3        # Sentiment below this = distress
-SUSTAINED_DISTRESS_COUNT = 3     # Consecutive messages for alert
-
-# Pattern tracking
-PATTERN_TRACKING_WINDOW = 10     # Messages to analyze
-```
-
-**Adjustment Guide:**
-- **More Sensitive**: Lower threshold (-0.2), fewer messages (2)
-- **Less Sensitive**: Higher threshold (-0.4), more messages (5)
-- **Balanced**: Default settings (-0.3, 3 messages)
-
-### 2. Data Retention Settings
-
-```python
-# config.py
-
-# Extended tracking
-EMOTIONAL_HISTORY_DAYS = 365     # Keep 1 year of history
-CONVERSATION_ARCHIVE_DAYS = 180  # Archive after 6 months
-MAX_EMOTIONAL_SNAPSHOTS = 365    # Maximum snapshots
-```
-
-**Custom Retention:**
-```python
-# Conservative (smaller storage)
-EMOTIONAL_HISTORY_DAYS = 90      # 3 months
-
-# Extended (more history)
-EMOTIONAL_HISTORY_DAYS = 730     # 2 years
-
-# Unlimited (use with caution)
-EMOTIONAL_HISTORY_DAYS = 999999  # Effectively unlimited
-```
-
-### 3. Security Settings
-
-```python
-# config.py
-
-# Password protection
-ENABLE_PROFILE_PASSWORD = True   # Require password
-MIN_PASSWORD_LENGTH = 8          # Minimum password length
-
-# Session management
-SESSION_TIMEOUT_MINUTES = 30     # Auto-logout timeout
-
-# Account protection
-MAX_LOGIN_ATTEMPTS = 3           # Failed attempts before lockout
-LOCKOUT_DURATION_MINUTES = 15    # Lockout duration
-
-# Encryption
-ENABLE_DATA_ENCRYPTION = True    # Encrypt data at rest
-```
-
-**Security Levels:**
-
-**Maximum Security:**
+### Security
 ```python
 ENABLE_PROFILE_PASSWORD = True
-MIN_PASSWORD_LENGTH = 12
-SESSION_TIMEOUT_MINUTES = 15
-MAX_LOGIN_ATTEMPTS = 3
-LOCKOUT_DURATION_MINUTES = 30
-ENABLE_DATA_ENCRYPTION = True
-```
-
-**Balanced Security (Default):**
-```python
-ENABLE_PROFILE_PASSWORD = True
-MIN_PASSWORD_LENGTH = 8
 SESSION_TIMEOUT_MINUTES = 30
+MIN_PASSWORD_LENGTH = 8
 MAX_LOGIN_ATTEMPTS = 3
 LOCKOUT_DURATION_MINUTES = 15
 ENABLE_DATA_ENCRYPTION = True
 ```
 
-**Minimal Security (Private device):**
+### Data Retention
 ```python
-ENABLE_PROFILE_PASSWORD = False
-SESSION_TIMEOUT_MINUTES = 0     # Disabled
-ENABLE_DATA_ENCRYPTION = True   # Still recommended
-```
-
-### 4. Conversation Settings
-
-```python
-# config.py
-
-MAX_CONVERSATION_HISTORY = 50    # Messages to keep in session
-
-GREETING_MESSAGES = [
-    "Hello! I'm here to support you.",
-    "Welcome back! I'm here to listen.",
-    "Hi there! This is a safe space."
-]
+EMOTIONAL_HISTORY_DAYS = 365
+CONVERSATION_ARCHIVE_DAYS = 180
+MAX_EMOTIONAL_SNAPSHOTS = 365
+MAX_CONVERSATION_HISTORY = 50     # In-session message buffer
 ```
 
 ---
 
-## Feature Comparison
+## 13. Testing & Research Metrics
 
-### Tracking Duration Comparison
+### Running Tests
 
-| Aspect | Previous | **NEW Extended** |
-|--------|----------|------------------|
-| Emotional History | 90 days | **365 days** |
-| Pattern Analysis | Short-term | **Long-term** |
-| Seasonal Detection | Limited | **Full year** |
-| Milestone Tracking | No | **Yes** |
-| Progress Reports | Basic | **Comprehensive** |
-
-### Security Comparison
-
-| Feature | Previous | **NEW Enhanced** |
-|---------|----------|------------------|
-| Password Protection | No | **Yes** |
-| Data Encryption | No | **AES-256** |
-| Session Timeout | No | **Yes** |
-| Account Lockout | No | **Yes** |
-| Data Integrity | No | **SHA-256** |
-| Backups | Manual | **Automatic** |
-
-### Interface Comparison
-
-| Interface | Features | Best For |
-|-----------|----------|----------|
-| **CLI** | Text-based, simple | Quick check-ins, servers |
-| **Web UI** | Visual, modern | Daily use, longer sessions |
-| **Network UI** | Multi-device | Mobile access, family sharing |
-
----
-
-## Frequently Asked Questions
-
-### General Usage
-
-**Q: How do I get started?**
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Download NLTK data
-python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
-
-# Start the app
-python wellness_buddy.py
+python -m pytest test_wellness_buddy.py -v
 ```
 
-**Q: How often should I use it?**
-A: Daily or every other day is ideal for best pattern tracking. Even brief 5-minute check-ins are valuable.
+### Test Coverage (11 tests)
 
-**Q: Can multiple people use it?**
-A: Yes! Each person creates their own profile with separate data.
+| Test | What it covers |
+|---|---|
+| `test_emotion_analysis` | Legacy classifier, polarity, keywords |
+| `test_pattern_tracking` | Consecutive distress, trends, sustained detection |
+| `test_alert_system` | Alert trigger, format, women's resources |
+| `test_conversation_handler` | Response generation, no errors |
+| `test_user_profile` | Profile fields, trusted contacts, safety settings |
+| `test_data_persistence` | Save / load / list / delete |
+| `test_full_workflow` | End-to-end abuse detection and alert |
+| `test_multi_emotion_classification` | 5-category scores, dominant emotion, severity_score |
+| `test_time_weighted_distress` | weighted_sentiment, severity_level, emotion_distribution |
+| `test_prediction_agent` | Predictions, metrics (MAE/RMSE), forecast series |
+| `test_alert_severity_escalation` | Severity levels, acknowledge, alert log |
 
-### Extended Tracking
+### Research Evaluation Metrics
 
-**Q: Will my existing data be lost with the upgrade?**
-A: No! All existing data is preserved. You'll now keep it for 365 days instead of 90.
-
-**Q: Can I export my full year of data?**
-A: Yes, use the export feature to get JSON or generate annual reports.
-
-**Q: What happens when I reach 365 days?**
-A: Oldest entries are automatically removed, maintaining a rolling 365-day window.
-
-### Security
-
-**Q: Is my data really secure?**
-A: Yes:
-- AES-256 encryption (military-grade)
-- Password hashing with unique salts
-- File permissions (owner-only)
-- No external data sharing
-
-**Q: What if I forget my password?**
-A: You'll need file system access to reset it, or delete and recreate your profile (loses history).
-
-**Q: Can someone access my data without my password?**
-A: With file system access, yes (it's stored locally). The encryption protects against casual access, but direct file system access can be used to reset the password. Keep your device secure!
-
-### Data Management
-
-**Q: How much storage does it use?**
-A: Approximately 2-3 MB per year of data including encryption and backups.
-
-**Q: Can I backup my data to cloud?**
-A: Yes, but encrypt it first:
-```bash
-gpg -c wellness_backup.tar.gz
-```
-
-**Q: How do I completely remove all data?**
-A:
-```bash
-rm -rf ~/.wellness_buddy/
-```
+| Metric | API | Research purpose |
+|---|---|---|
+| Emotion classification F1-score | Compare rule-based vs. ML `get_emotion_scores()` | Module 1 accuracy |
+| Sentiment polarity | `emotion_data['polarity']` | Baseline |
+| Severity score distribution | `pattern_summary['severity_score']` | Distress quantification |
+| MAE / RMSE | `prediction_agent.get_metrics()` | Temporal model quality |
+| Trend classification accuracy | Predicted vs. actual | Module 3 evaluation |
+| Alert detection accuracy | Alert log vs. labelled ground truth | Module 5 evaluation |
+| Response latency | Session timing | System performance |
 
 ---
 
-## Summary
+## 14. Complete Feature Checklist
 
-The AI Wellness Buddy provides:
+### ✅ Emotion Analysis
+- [x] TextBlob polarity (−1 to +1)
+- [x] Subjectivity score
+- [x] 5-category emotion classification (joy, sadness, anxiety, anger, neutral)
+- [x] Per-category confidence scores
+- [x] Dominant emotion detection
+- [x] Numeric severity score (0–10)
+- [x] 24 distress keywords detected
+- [x] 16 abuse indicator keywords detected
 
-### Core Capabilities
-✅ Real-time emotion analysis
-✅ Pattern tracking and alerts
-✅ Crisis resource connections
-✅ Persistent user profiles
+### ✅ Distress Monitoring
+- [x] Sliding window (last N messages)
+- [x] Exponential time-decay weighting
+- [x] Consecutive distress counter
+- [x] Sustained distress detection
+- [x] Weighted average sentiment
+- [x] Named severity level (LOW/MEDIUM/HIGH)
+- [x] Emotion distribution across window
+- [x] Trend classification (improving/stable/declining)
 
-### Extended Features
-✅ 365-day tracking (up from 90)
-✅ Long-term pattern analysis
-✅ Seasonal trend detection
-✅ Progress milestones
+### ✅ Prediction Agent
+- [x] OLS linear regression temporal model
+- [x] Predicted next sentiment score
+- [x] Trend classification (improving/stable/worsening)
+- [x] Confidence estimate
+- [x] Early-warning threshold
+- [x] 5-step forecast series
+- [x] MAE metric accumulation
+- [x] RMSE metric accumulation
+- [x] LSTM-compatible interface (drop-in replacement)
 
-### Security
-✅ Password protection
-✅ AES-256 encryption
-✅ Session timeouts
-✅ Account lockout
-✅ Data integrity checks
-✅ Automatic backups
+### ✅ Response Generation
+- [x] 6 emotion-category template banks (4 variants each)
+- [x] Personalized name address in every reply
+- [x] Occupation context injection
+- [x] Consecutive-response deduplication
+- [x] Abuse-indicator override message
+- [x] Legacy bucket fallback (positive/negative/neutral)
 
-### Specialized Support
-✅ Women's safety features
-✅ Trusted contact management
-✅ Abuse detection
-✅ Personalized resources
+### ✅ Guardian Alert System
+- [x] 5 severity levels (INFO/LOW/MEDIUM/HIGH/CRITICAL)
+- [x] Severity computation from pattern summary
+- [x] Abuse-indicator severity escalation
+- [x] Time-based auto-escalation of unacknowledged alerts
+- [x] Structured alert log (JSON + CSV export)
+- [x] Consent mechanism (guardian_consent flag)
+- [x] Acknowledge mechanism
+- [x] Women's specialised resources in alerts
+- [x] Guardian contact details in alert message
 
-### Interfaces
-✅ Command-line (CLI)
-✅ Web browser (Streamlit)
-✅ Network access (multi-device)
+### ✅ Visualization UI (6 tabs)
+- [x] Chat tab with live metrics bar
+- [x] Sentiment line chart (colour-coded markers)
+- [x] Emotion distribution donut pie chart
+- [x] Long-term session sentiment bar chart
+- [x] Weekly daily sentiment bar chart
+- [x] Session message-count comparison bar chart
+- [x] Risk Prediction tab with forecast chart
+- [x] Early-warning threshold line on forecast chart
+- [x] Model metrics panel (MAE, RMSE, confidence)
+- [x] Guardian Alerts tab with alert log table
+- [x] Pending alert expanders with consent/acknowledge buttons
+- [x] Severity guide table
+- [x] Profile tab with full profile display
+- [x] Inline add trusted/guardian contact forms
+
+### ✅ User Profile
+- [x] Username (private)
+- [x] Preferred display name
+- [x] Age
+- [x] Occupation / student status
+- [x] Gender
+- [x] Primary concerns (multi-select, 11 options)
+- [x] Trusted contacts (name, relationship, contact info)
+- [x] Guardian / emergency contacts (name, relationship, contact info)
+- [x] Unsafe contacts (for toxic family situations)
+- [x] 365-day emotional history
+- [x] Session count
+
+### ✅ Security & Privacy
+- [x] AES-256 encryption (Fernet)
+- [x] SHA-256 password hashing with salt
+- [x] Session timeout (30 min default)
+- [x] Account lockout (3 attempts, 15 min)
+- [x] Data integrity hash
+- [x] Automatic timestamped backups
+- [x] Local-only storage (no external APIs)
+- [x] Owner-only file permissions (chmod 600)
+- [x] Full user-controlled deletion
+
+### ✅ Specialised Support for Women
+- [x] Women's resource pack in distress alerts
+- [x] Unsafe family → routes away from guardians
+- [x] 3 government resource categories (HHS, DOJ, NIMH)
+- [x] Legal aid connections
+- [x] Trusted contact network (non-family)
+- [x] Abuse-keyword detection (16 indicators)
+- [x] Safety planning resources
+
+### ✅ Interfaces & Deployment
+- [x] Streamlit Web UI (local)
+- [x] CLI (`python wellness_buddy.py`)
+- [x] Network UI (`bash start_ui_network.sh`)
+- [x] Mobile-friendly (responsive Streamlit)
 
 ---
 
-## Additional Resources
-
-- **Security Guide**: [SECURITY.md](SECURITY.md)
-- **Data Retention**: [DATA_RETENTION.md](DATA_RETENTION.md)
-- **Network Deployment**: [NETWORK_DEPLOYMENT.md](NETWORK_DEPLOYMENT.md)
-- **Quick Start**: [USAGE.md](USAGE.md)
-- **UI Guide**: [UI_GUIDE.md](UI_GUIDE.md)
-
----
-
-**Your emotional wellbeing journey is important. The AI Wellness Buddy is here to support you every step of the way.** 💙🌟
+*"Your emotional wellbeing journey is important. AI Wellness Buddy is here to support you every step of the way."* 💙🌟
