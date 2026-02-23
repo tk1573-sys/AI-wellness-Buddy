@@ -1,0 +1,33 @@
+# Streamlit Configuration for Network Access
+# This file enables the app to be accessible over network connections
+
+[server]
+# Enable CORS for network access
+enableCORS = true
+
+# SECURITY: XSRF protection enabled for better security
+# This protects against cross-site request forgery attacks
+# Note: For local network use, this provides good security balance
+enableXsrfProtection = true
+
+# Server address - 0.0.0.0 makes it accessible from network
+# Change to 'localhost' for local-only access
+headless = true
+
+# Default port
+port = 8501
+
+# Maximum upload size (in MB) for any file uploads
+maxUploadSize = 50
+
+[browser]
+# Don't automatically open browser on server start when running headless
+gatherUsageStats = false
+
+[theme]
+# Optional: Customize the theme
+primaryColor = "#6eb52f"
+backgroundColor = "#f0f2f6"
+secondaryBackgroundColor = "#e0e2e6"
+textColor = "#262730"
+font = "sans serif"

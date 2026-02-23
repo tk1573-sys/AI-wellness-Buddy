@@ -3,6 +3,9 @@ User profile management for personalized support
 """
 
 from datetime import datetime
+import hashlib
+import secrets
+import config
 
 
 class UserProfile:
@@ -10,17 +13,25 @@ class UserProfile:
     
     def __init__(self, user_id=None):
         self.user_id = user_id
+        current_time = datetime.now()  # Calculate once for consistency
         self.profile_data = {
             'user_id': user_id,
-            'created_at': datetime.now(),
-            'last_session': datetime.now(),
+            'created_at': current_time,
+            'last_session': current_time,
             'gender': None,
             'support_preferences': {},
             'demographics': {},
             'trusted_contacts': [],  # Safe contacts for emergencies
             'unsafe_contacts': [],   # Family/guardians to avoid in toxic situations
-            'emotional_history': [],  # Long-term emotional tracking
-            'session_count': 0
+            'emotional_history': [],  # Long-term emotional tracking (now 1 year)
+            'session_count': 0,
+            # Security fields
+            'password_hash': None,  # Hashed password for profile protection
+            'salt': None,  # Salt for password hashing
+            'failed_login_attempts': 0,
+            'lockout_until': None,
+            'last_activity': current_time,  # Set at creation time
+            'security_enabled': config.ENABLE_PROFILE_PASSWORD
         }
     
     def load_from_data(self, data):
@@ -85,9 +96,10 @@ class UserProfile:
         }
         self.profile_data['emotional_history'].append(snapshot)
         
-        # Keep last 90 days only
-        if len(self.profile_data['emotional_history']) > 90:
-            self.profile_data['emotional_history'] = self.profile_data['emotional_history'][-90:]
+        # Keep last year of data (365 days) for extended tracking
+        max_snapshots = config.EMOTIONAL_HISTORY_DAYS
+        if len(self.profile_data['emotional_history']) > max_snapshots:
+            self.profile_data['emotional_history'] = self.profile_data['emotional_history'][-max_snapshots:]
     
     def get_emotional_history(self, days=None):
         """Get emotional history for specified number of days"""
@@ -95,6 +107,85 @@ class UserProfile:
         if days:
             return history[-days:]
         return history
+    
+    def set_password(self, password):
+        """Set password for profile protection"""
+        if len(password) < config.MIN_PASSWORD_LENGTH:
+            raise ValueError(f"Password must be at least {config.MIN_PASSWORD_LENGTH} characters")
+        
+        # Generate a random salt
+        self.profile_data['salt'] = secrets.token_hex(32)
+        
+        # Hash the password with the salt using SHA-256
+        password_with_salt = password + self.profile_data['salt']
+        self.profile_data['password_hash'] = hashlib.sha256(password_with_salt.encode()).hexdigest()
+        self.profile_data['security_enabled'] = True
+    
+    def verify_password(self, password):
+        """Verify password for profile access"""
+        if not self.profile_data.get('security_enabled'):
+            return True  # No password set, allow access
+        
+        # Check if account is locked out
+        if self.is_locked_out():
+            return False
+        
+        if not self.profile_data.get('password_hash') or not self.profile_data.get('salt'):
+            return True  # Legacy profile without password
+        
+        # Hash the provided password with the stored salt
+        password_with_salt = password + self.profile_data['salt']
+        password_hash = hashlib.sha256(password_with_salt.encode()).hexdigest()
+        
+        # Verify the hash
+        if password_hash == self.profile_data['password_hash']:
+            # Successful login - reset failed attempts
+            self.profile_data['failed_login_attempts'] = 0
+            self.profile_data['lockout_until'] = None
+            self.update_last_activity()
+            return True
+        else:
+            # Failed login
+            self.profile_data['failed_login_attempts'] = self.profile_data.get('failed_login_attempts', 0) + 1
+            if self.profile_data['failed_login_attempts'] >= config.MAX_LOGIN_ATTEMPTS:
+                # Lock out the account
+                from datetime import timedelta
+                self.profile_data['lockout_until'] = datetime.now() + timedelta(minutes=config.LOCKOUT_DURATION_MINUTES)
+            return False
+    
+    def is_locked_out(self):
+        """Check if account is currently locked out"""
+        lockout_until = self.profile_data.get('lockout_until')
+        if lockout_until:
+            if isinstance(lockout_until, str):
+                lockout_until = datetime.fromisoformat(lockout_until)
+            if datetime.now() < lockout_until:
+                return True
+            else:
+                # Lockout period expired
+                self.profile_data['lockout_until'] = None
+                self.profile_data['failed_login_attempts'] = 0
+        return False
+    
+    def update_last_activity(self):
+        """Update last activity timestamp for session management"""
+        self.profile_data['last_activity'] = datetime.now()
+    
+    def is_session_expired(self):
+        """Check if session has expired due to inactivity"""
+        if not config.SESSION_TIMEOUT_MINUTES:
+            return False
+        
+        last_activity = self.profile_data.get('last_activity')
+        if not last_activity:
+            return False
+        
+        if isinstance(last_activity, str):
+            last_activity = datetime.fromisoformat(last_activity)
+        
+        from datetime import timedelta
+        timeout = timedelta(minutes=config.SESSION_TIMEOUT_MINUTES)
+        return datetime.now() - last_activity > timeout
     
     def increment_session_count(self):
         """Increment session counter"""
