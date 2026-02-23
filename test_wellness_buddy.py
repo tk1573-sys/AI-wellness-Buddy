@@ -256,3 +256,152 @@ def run_all_tests():
 
 if __name__ == "__main__":
     run_all_tests()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NEW MODULE TESTS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_multi_emotion_classification():
+    """Test Module 1: multi-emotion classification."""
+    print("\n" + "="*70)
+    print("TEST 8: Multi-Emotion Classification (Module 1)")
+    print("="*70)
+
+    from emotion_analyzer import EmotionAnalyzer
+    analyzer = EmotionAnalyzer()
+
+    cases = [
+        ("I'm so happy and grateful today!", 'joy'),
+        ("I'm really anxious and worried about everything", 'anxiety'),
+        ("I feel so sad and hopeless", 'sadness'),
+        ("I'm furious about what happened!", 'anger'),
+    ]
+
+    for text, expected_dominant in cases:
+        result = analyzer.classify_emotion(text)
+        scores = result['emotion_scores']
+        dominant = result['dominant_emotion']
+        severity_score = result['severity_score']
+        print(f"\nText: '{text}'")
+        print(f"  Dominant emotion: {dominant}  (expected: {expected_dominant})")
+        print(f"  Scores: {scores}")
+        print(f"  Severity score: {severity_score}/10")
+        # Check new fields are present
+        assert 'emotion_scores' in result, "emotion_scores missing"
+        assert 'dominant_emotion' in result, "dominant_emotion missing"
+        assert 'severity_score' in result, "severity_score missing"
+        assert 0.0 <= result['severity_score'] <= 10.0, "severity_score out of range"
+        # All legacy fields still present
+        assert 'emotion' in result
+        assert 'severity' in result
+
+    print("\n✓ Multi-emotion classification test passed")
+
+
+def test_time_weighted_distress():
+    """Test Module 2: time-weighted severity scoring."""
+    print("\n" + "="*70)
+    print("TEST 9: Time-Weighted Distress Monitoring (Module 2)")
+    print("="*70)
+
+    from emotion_analyzer import EmotionAnalyzer
+    from pattern_tracker import PatternTracker
+
+    analyzer = EmotionAnalyzer()
+    tracker = PatternTracker()
+
+    messages = [
+        "I'm okay today",
+        "Feeling a bit down",
+        "I'm really anxious and worried",
+        "I feel hopeless and can't take it anymore",
+    ]
+    for msg in messages:
+        data = analyzer.classify_emotion(msg)
+        tracker.add_emotion_data(data)
+
+    summary = tracker.get_pattern_summary()
+    assert 'weighted_sentiment' in summary, "weighted_sentiment missing"
+    assert 'severity_score' in summary, "severity_score missing"
+    assert 'severity_level' in summary, "severity_level missing"
+    assert 'emotion_distribution' in summary, "emotion_distribution missing"
+    print(f"  Weighted sentiment: {summary['weighted_sentiment']:.4f}")
+    print(f"  Severity score: {summary['severity_score']}/10")
+    print(f"  Severity level: {summary['severity_level']}")
+    print(f"  Emotion distribution: {summary['emotion_distribution']}")
+    print("\n✓ Time-weighted distress monitoring test passed")
+
+
+def test_prediction_agent():
+    """Test Module 3: PredictionAgent."""
+    print("\n" + "="*70)
+    print("TEST 10: Pattern Prediction Agent (Module 3)")
+    print("="*70)
+
+    from prediction_agent import PredictionAgent
+
+    agent = PredictionAgent()
+
+    # Simulate declining sentiment
+    sentiments = [0.3, 0.2, 0.1, 0.0, -0.1, -0.2, -0.3]
+    for s in sentiments:
+        agent.add_data_point(s, 'sadness')
+
+    prediction = agent.predict_next_state()
+    print(f"  Predicted next sentiment: {prediction['predicted_sentiment']}")
+    print(f"  Trend: {prediction['trend']}")
+    print(f"  Confidence: {prediction['confidence']}")
+    print(f"  Early warning: {prediction['early_warning']}")
+
+    assert 'predicted_sentiment' in prediction
+    assert prediction['trend'] in ('improving', 'stable', 'worsening', 'insufficient_data')
+    assert 0.0 <= prediction['confidence'] <= 1.0
+
+    metrics = agent.get_metrics()
+    print(f"  Metrics: {metrics}")
+    assert 'mae' in metrics
+    assert 'rmse' in metrics
+
+    forecast = agent.get_forecast_series(steps=3)
+    assert len(forecast) == 3
+    print(f"  5-step forecast: {forecast}")
+    print("\n✓ Prediction agent test passed")
+
+
+def test_alert_severity_escalation():
+    """Test Module 5: alert severity and escalation."""
+    print("\n" + "="*70)
+    print("TEST 11: Alert Severity & Escalation (Module 5)")
+    print("="*70)
+
+    from alert_system import AlertSystem
+    from pattern_tracker import PatternTracker
+    from emotion_analyzer import EmotionAnalyzer
+
+    analyzer = EmotionAnalyzer()
+    tracker = PatternTracker()
+    alert_sys = AlertSystem()
+
+    for _ in range(4):
+        data = analyzer.classify_emotion("I feel hopeless and worthless")
+        tracker.add_emotion_data(data)
+
+    summary = tracker.get_pattern_summary()
+    assert alert_sys.should_trigger_alert(summary)
+
+    alert = alert_sys.trigger_distress_alert(summary, {'gender': 'male', 'user_id': 'tester'})
+    print(f"  Alert severity: {alert['severity']}")
+    assert 'severity' in alert
+    assert alert['severity'] in ('INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL')
+
+    # Test acknowledge
+    alert_sys.acknowledge_alert(alert)
+    assert alert['acknowledged']
+
+    # Test log
+    log = alert_sys.get_alert_log()
+    assert len(log) >= 1
+    print(f"  Alert log entries: {len(log)}")
+    print(f"  Log entry: {log[-1]}")
+    print("\n✓ Alert severity & escalation test passed")
