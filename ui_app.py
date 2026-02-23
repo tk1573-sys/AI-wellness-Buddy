@@ -10,6 +10,7 @@ from user_profile import UserProfile
 from data_store import DataStore
 from datetime import datetime, timedelta
 import os
+import config
 
 # ── Optional heavy deps ───────────────────────────────────────────────────────
 try:
@@ -33,6 +34,7 @@ for key, default in [
     ('buddy', None), ('messages', []), ('user_id', None),
     ('profile_loaded', False), ('show_load', False),
     ('show_create', False), ('show_profile_menu', False),
+    ('pending_username', None), ('login_error', None),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -51,6 +53,96 @@ def load_profile(username):
     st.session_state.profile_loaded = True
     st.success(f"✓ Profile loaded: {username}")
     st.rerun()
+
+
+def _initiate_login(username):
+    """Start the password-check flow for an existing profile."""
+    data_store = DataStore()
+    raw_data = data_store.load_user_data(username)
+    if raw_data and raw_data.get('password_hash') is not None:
+        # Profile is password-protected — show the auth form
+        st.session_state.pending_username = username
+        st.rerun()
+    else:
+        # No password set — load directly
+        load_profile(username)
+
+
+def _show_login_form():
+    """Render the password entry form for a pending profile load."""
+    username = st.session_state.pending_username
+    st.markdown(f"#### 🔒 Password Required for **{username}**")
+
+    data_store = DataStore()
+    raw_data = data_store.load_user_data(username)
+    if not raw_data:
+        st.error("Profile not found.")
+        if st.button("← Back"):
+            st.session_state.pending_username = None
+            st.rerun()
+        return
+
+    profile = UserProfile(username)
+    profile.load_from_data(raw_data)
+
+    if profile.is_locked_out():
+        st.error(
+            f"🔒 Account locked due to too many failed login attempts. "
+            f"Please try again in {config.LOCKOUT_DURATION_MINUTES} minutes."
+        )
+        if st.button("← Back"):
+            st.session_state.pending_username = None
+            st.rerun()
+        return
+
+    # Show any error from the previous attempt
+    if st.session_state.login_error:
+        st.error(st.session_state.login_error)
+        st.session_state.login_error = None
+
+    attempts_used = raw_data.get('failed_login_attempts', 0)
+    if attempts_used > 0:
+        st.caption(
+            f"⚠️ {attempts_used} failed attempt(s). "
+            f"{max(0, config.MAX_LOGIN_ATTEMPTS - attempts_used)} remaining before lockout."
+        )
+
+    with st.form("login_form"):
+        password = st.text_input(
+            "Profile Password:", type="password",
+            placeholder="Enter your profile password"
+        )
+        col1, col2 = st.columns(2)
+        with col1:
+            submitted = st.form_submit_button("🔓 Unlock Profile", use_container_width=True)
+        with col2:
+            back = st.form_submit_button("← Back", use_container_width=True)
+
+    if back:
+        st.session_state.pending_username = None
+        st.rerun()
+
+    if submitted:
+        if profile.verify_password(password):
+            # Persist the reset of failed_login_attempts to disk
+            data_store.save_user_data(username, profile.get_profile())
+            st.session_state.pending_username = None
+            load_profile(username)
+        else:
+            # Persist the incremented failed attempt count to disk
+            data_store.save_user_data(username, profile.get_profile())
+            attempts = profile.get_profile().get('failed_login_attempts', 0)
+            if profile.is_locked_out():
+                st.session_state.login_error = (
+                    f"🔒 Account locked for {config.LOCKOUT_DURATION_MINUTES} minutes "
+                    "due to too many failed attempts."
+                )
+            else:
+                remaining = max(0, config.MAX_LOGIN_ATTEMPTS - attempts)
+                st.session_state.login_error = (
+                    f"❌ Incorrect password. {remaining} attempt(s) remaining."
+                )
+            st.rerun()
 
 # ── Custom CSS ────────────────────────────────────────────────────────────────
 
@@ -84,6 +176,11 @@ def show_profile_setup():
     st.title("🌟 AI Wellness Buddy")
     st.markdown("### Welcome! Let's set up your profile")
 
+    # If a password check is in progress, show only the login form
+    if st.session_state.pending_username:
+        _show_login_form()
+        return
+
     data_store = DataStore()
     existing_users = data_store.list_users()
 
@@ -100,7 +197,7 @@ def show_profile_setup():
         if st.session_state.show_load:
             username = st.selectbox("Select your username:", existing_users)
             if st.button("Load Profile"):
-                load_profile(username)
+                _initiate_login(username)
 
         if st.session_state.show_create:
             _create_new_profile_form()
@@ -159,12 +256,35 @@ def _create_new_profile_form():
             guardian_contact = st.text_input("Phone / Email:", placeholder="e.g. +1-555-0100")
 
         st.markdown("---")
+        st.markdown("**🔒 Profile Password** *(recommended for privacy)*")
+        st.info("Set a password so only you can open this profile. Leave blank to skip.")
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            new_password = st.text_input(
+                f"Password (min {config.MIN_PASSWORD_LENGTH} characters):",
+                type="password", key="new_password",
+                placeholder="Leave blank for no password"
+            )
+        with col_p2:
+            confirm_password = st.text_input(
+                "Confirm password:", type="password", key="confirm_password"
+            )
+
+        st.markdown("---")
         submitted = st.form_submit_button("✅ Create My Profile", use_container_width=True)
 
         if submitted:
             if not username:
                 st.error("Please choose a username.")
                 return
+            # Validate password if provided
+            if new_password:
+                if new_password != confirm_password:
+                    st.error("❌ Passwords do not match. Please try again.")
+                    return
+                if len(new_password) < config.MIN_PASSWORD_LENGTH:
+                    st.error(f"❌ Password must be at least {config.MIN_PASSWORD_LENGTH} characters.")
+                    return
             init_buddy()
             st.session_state.user_id = username
             st.session_state.buddy.user_id = username
@@ -187,11 +307,16 @@ def _create_new_profile_form():
                     guardian_name, guardian_rel,
                     guardian_contact if guardian_contact else None
                 )
+            if new_password:
+                profile.set_password(new_password)
 
             st.session_state.buddy.user_profile = profile
             st.session_state.buddy._save_profile()
             st.session_state.profile_loaded = True
-            st.success("✓ Profile created! Welcome 🎉")
+            if new_password:
+                st.success("✓ Profile created with password protection! Welcome 🎉🔒")
+            else:
+                st.success("✓ Profile created! Welcome 🎉")
             st.rerun()
 
 
@@ -658,8 +783,19 @@ def _tab_profile(buddy, profile_data, display_name):
 
     st.markdown("---")
     st.subheader("⚙️ Manage")
+
+    # Show current password protection status
+    has_password = bool(buddy.user_profile.get_profile().get('password_hash'))
+    if has_password:
+        st.success("🔒 This profile is password-protected.")
+    else:
+        st.info("🔓 No password set. Add one below to protect your profile.")
+
     action = st.selectbox("Action:", ["-- Choose --", "Add Trusted Contact",
-                                       "Add Guardian Contact", "Delete All My Data"])
+                                       "Add Guardian Contact",
+                                       "Set / Change Password",
+                                       "Remove Password",
+                                       "Delete All My Data"])
     if action == "Add Trusted Contact":
         with st.form("add_tc"):
             tc_name = st.text_input("Name:")
@@ -681,6 +817,38 @@ def _tab_profile(buddy, profile_data, display_name):
                     buddy._save_profile()
                     st.success(f"✓ Added {gc_name}")
                     st.rerun()
+    elif action == "Set / Change Password":
+        with st.form("set_password"):
+            st.markdown("**Set or change your profile password**")
+            new_pw = st.text_input(
+                f"New password (min {config.MIN_PASSWORD_LENGTH} characters):",
+                type="password"
+            )
+            confirm_pw = st.text_input("Confirm new password:", type="password")
+            if st.form_submit_button("🔒 Save Password"):
+                if not new_pw:
+                    st.error("Please enter a password.")
+                elif new_pw != confirm_pw:
+                    st.error("❌ Passwords do not match.")
+                elif len(new_pw) < config.MIN_PASSWORD_LENGTH:
+                    st.error(f"❌ Password must be at least {config.MIN_PASSWORD_LENGTH} characters.")
+                else:
+                    buddy.user_profile.set_password(new_pw)
+                    buddy._save_profile()
+                    st.success("✅ Password saved. Your profile is now protected.")
+                    st.rerun()
+    elif action == "Remove Password":
+        st.warning("⚠️ This will remove password protection from your profile.")
+        with st.form("remove_pw"):
+            current_pw = st.text_input("Enter current password to confirm:", type="password")
+            if st.form_submit_button("🔓 Remove Password"):
+                if buddy.user_profile.verify_password(current_pw):
+                    buddy.user_profile.remove_password()
+                    buddy._save_profile()
+                    st.success("✅ Password removed. Profile is now unprotected.")
+                    st.rerun()
+                else:
+                    st.error("❌ Incorrect password.")
     elif action == "Delete All My Data":
         st.warning("⚠️ This cannot be undone!")
         if st.button("Confirm Delete"):

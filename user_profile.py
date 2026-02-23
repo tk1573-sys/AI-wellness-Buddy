@@ -244,7 +244,18 @@ class UserProfile:
         """Check if user identifies as female"""
         return self.profile_data.get('gender') == 'female'
     
+    def remove_password(self):
+        """Remove password protection from this profile."""
+        self.profile_data['password_hash'] = None
+        self.profile_data['salt'] = None
+        self.profile_data['security_enabled'] = False
+
+    def reset_lockout(self):
+        """Clear any active lockout and reset failed login attempt counter."""
+        self.profile_data['lockout_until'] = None
+        self.profile_data['failed_login_attempts'] = 0
+
     def needs_women_support(self):
         """Check if women's support features should be enabled"""
-        return (self.is_female() or 
+        return (self.is_female() or
                 self.profile_data.get('support_preferences', {}).get('women_support_enabled', False))

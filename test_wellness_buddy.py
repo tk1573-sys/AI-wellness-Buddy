@@ -405,3 +405,62 @@ def test_alert_severity_escalation():
     print(f"  Alert log entries: {len(log)}")
     print(f"  Log entry: {log[-1]}")
     print("\n✓ Alert severity & escalation test passed")
+
+
+def test_password_protection():
+    """Test profile password protection and lockout (for UI gate)."""
+    import pytest
+    import config as cfg
+    print("\n" + "="*70)
+    print("TEST 12: Password Protection")
+    print("="*70)
+
+    profile = UserProfile('secure_user')
+
+    # No password set → verify_password() always returns True
+    assert profile.verify_password('anything'), "No password should allow any input"
+    print("✓ No-password profile allows access")
+
+    # Set a password
+    profile.set_password('MySecret99')
+    assert profile.get_profile()['password_hash'] is not None
+    assert profile.get_profile()['salt'] is not None
+    print("✓ Password set (hash + salt stored)")
+
+    # Correct password
+    assert profile.verify_password('MySecret99'), "Correct password should return True"
+    print("✓ Correct password accepted")
+
+    # Wrong password
+    result = profile.verify_password('WrongPass!')
+    assert not result, "Wrong password should return False"
+    print(f"✓ Wrong password rejected (failed_login_attempts={profile.get_profile()['failed_login_attempts']})")
+
+    # Lockout after MAX_LOGIN_ATTEMPTS wrong attempts
+    profile.reset_lockout()
+    for _ in range(cfg.MAX_LOGIN_ATTEMPTS):
+        profile.verify_password('wrong')
+    assert profile.is_locked_out(), "Should be locked out after too many attempts"
+    assert not profile.verify_password('MySecret99'), "Locked account should deny even correct password"
+    print(f"✓ Lockout triggered after {cfg.MAX_LOGIN_ATTEMPTS} attempts")
+
+    # Short-password rejection (use pytest.raises for idiomatic testing)
+    with pytest.raises(ValueError):
+        profile.set_password('short')
+    print(f"✓ Short password rejected (min {cfg.MIN_PASSWORD_LENGTH} chars)")
+
+    # Change password using reset_lockout() helper
+    profile.reset_lockout()
+    profile.set_password('NewSecret42')
+    assert profile.verify_password('NewSecret42'), "New password should work"
+    assert not profile.verify_password('MySecret99'), "Old password should not work"
+    print("✓ Password changed successfully")
+
+    # Remove password using remove_password()
+    profile.remove_password()
+    assert profile.get_profile()['password_hash'] is None
+    assert not profile.get_profile()['security_enabled']
+    assert profile.verify_password('anything'), "After removal, any input should be accepted"
+    print("✓ Password removed — profile now unprotected")
+
+    print("\n✓ Password protection test passed")
