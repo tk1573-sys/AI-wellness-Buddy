@@ -138,7 +138,7 @@ def _create_new_profile_form():
 
         safe_family = "Skip"
         if gender == "Female":
-            st.info("💙 Specialised support resources for women are available.")
+            st.info("💙 Specialized support resources for women are available.")
             safe_family = st.radio("Do you feel safe with your family/guardians?",
                                    ["Skip", "Yes", "No"])
             if safe_family == "No":
