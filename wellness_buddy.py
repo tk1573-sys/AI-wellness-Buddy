@@ -180,7 +180,8 @@ class WellnessBuddy:
         self.conversation_handler.add_message(user_message, emotion_data)
         
         # Generate response
-        response = self.conversation_handler.generate_response(emotion_data)
+        profile_data = self.user_profile.get_profile() if self.user_profile else None
+        response = self.conversation_handler.generate_response(emotion_data, profile_data)
         
         # Check for distress alerts
         pattern_summary = self.pattern_tracker.get_pattern_summary()

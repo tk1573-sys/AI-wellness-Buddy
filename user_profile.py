@@ -16,14 +16,19 @@ class UserProfile:
         current_time = datetime.now()  # Calculate once for consistency
         self.profile_data = {
             'user_id': user_id,
+            'name': None,            # Display / preferred name
+            'age': None,             # Age (integer)
+            'occupation': None,      # Job / student status
+            'primary_concerns': [],  # Reasons for using the app
             'created_at': current_time,
             'last_session': current_time,
             'gender': None,
             'support_preferences': {},
             'demographics': {},
-            'trusted_contacts': [],  # Safe contacts for emergencies
-            'unsafe_contacts': [],   # Family/guardians to avoid in toxic situations
-            'emotional_history': [],  # Long-term emotional tracking (now 1 year)
+            'trusted_contacts': [],    # Safe contacts for emergencies
+            'guardian_contacts': [],   # Guardian / emergency contacts for alerts
+            'unsafe_contacts': [],     # Family/guardians to avoid in toxic situations
+            'emotional_history': [],   # Long-term emotional tracking (now 1 year)
             'session_count': 0,
             # Security fields
             'password_hash': None,  # Hashed password for profile protection
@@ -57,6 +62,42 @@ class UserProfile:
         """Set living situation for safety considerations"""
         self.profile_data['demographics']['living_situation'] = situation
     
+    def set_name(self, name):
+        """Set the user's preferred display name"""
+        self.profile_data['name'] = name
+
+    def set_age(self, age):
+        """Set the user's age"""
+        self.profile_data['age'] = age
+
+    def set_occupation(self, occupation):
+        """Set the user's occupation or student status"""
+        self.profile_data['occupation'] = occupation
+
+    def set_primary_concerns(self, concerns):
+        """Set the user's primary concerns or reasons for using the app"""
+        self.profile_data['primary_concerns'] = concerns
+
+    def get_display_name(self):
+        """Get the best available name to address the user"""
+        return self.profile_data.get('name') or self.profile_data.get('user_id') or 'Friend'
+
+    def add_guardian_contact(self, name, relationship, contact_info=None):
+        """Add a guardian or emergency contact for distress alerts"""
+        contact = {
+            'name': name,
+            'relationship': relationship,
+            'contact_info': contact_info,
+            'added_at': datetime.now()
+        }
+        if 'guardian_contacts' not in self.profile_data:
+            self.profile_data['guardian_contacts'] = []
+        self.profile_data['guardian_contacts'].append(contact)
+
+    def get_guardian_contacts(self):
+        """Get list of guardian / emergency contacts"""
+        return self.profile_data.get('guardian_contacts', [])
+
     def enable_women_support(self):
         """Enable specialized women's support features"""
         self.profile_data['support_preferences']['women_support_enabled'] = True

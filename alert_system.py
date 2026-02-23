@@ -46,17 +46,11 @@ class AlertSystem:
         return alert
     
     def _should_notify_guardians(self, pattern_summary):
-        """Determine if guardians should be notified based on severity"""
+        """Determine if guardians should be notified based on sustained distress detection"""
         if not pattern_summary:
             return False
-        
-        severity_level = pattern_summary.get('severity', 'low')
-        threshold = config.GUARDIAN_ALERT_THRESHOLD
-        
-        severity_order = {'low': 0, 'medium': 1, 'high': 2}
-        
-        return (severity_order.get(severity_level, 0) >= 
-                severity_order.get(threshold, 1))
+        # Notify when sustained distress is detected (same threshold as the main alert)
+        return pattern_summary.get('sustained_distress_detected', False)
     
     def format_guardian_notification(self, alert, user_name="User"):
         """Format notification message for guardians"""
