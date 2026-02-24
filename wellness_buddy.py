@@ -109,6 +109,41 @@ class WellnessBuddy:
                     if add_trusted == 'yes':
                         self._add_trusted_contacts()
         
+        # Relationship / marital status
+        print("\nUnderstanding your life situation helps me support you better.")
+        marital = input("What is your relationship/marital status? "
+                        "(single/married/divorced/widowed/other/skip): ").strip().lower()
+        if marital and marital not in ['skip', '']:
+            self.user_profile.set_relationship_status(marital)
+        
+        # Family background
+        family_bg = input("\nCan you briefly describe your family situation or background? "
+                          "(optional — press Enter to skip): ").strip()
+        if family_bg:
+            self.user_profile.set_family_background(family_bg)
+        
+        # Trauma history
+        has_trauma = input("\nHave you experienced significant trauma or loss you'd like me "
+                           "to be aware of? (yes/no/skip): ").strip().lower()
+        if has_trauma == 'yes':
+            print("  (This stays private and helps me support you more sensitively.)")
+            trauma_desc = input("  Brief description: ").strip()
+            if trauma_desc:
+                self.user_profile.add_trauma_history(trauma_desc)
+                print("  ✓ I'll keep this in mind and respond with extra care.")
+        
+        # Personal triggers
+        add_triggers = input("\nAre there topics or words that you find especially distressing? "
+                             "(yes/no/skip): ").strip().lower()
+        if add_triggers == 'yes':
+            print("  Add words or phrases one at a time. Press Enter with no input to finish.")
+            while True:
+                trigger = input("  Sensitive topic/word (or press Enter to finish): ").strip()
+                if not trigger:
+                    break
+                self.user_profile.add_personal_trigger(trigger)
+                print(f"  ✓ I'll be especially gentle around '{trigger}'.")
+        
         # Save the new profile
         self._save_profile()
         print("\n✓ Profile created and saved securely.\n")
@@ -179,8 +214,9 @@ class WellnessBuddy:
         # Add to conversation history
         self.conversation_handler.add_message(user_message, emotion_data)
         
-        # Generate response
-        response = self.conversation_handler.generate_response(emotion_data)
+        # Generate response (personalized with user context)
+        user_context = self.user_profile.get_personal_context()
+        response = self.conversation_handler.generate_response(emotion_data, user_context)
         
         # Check for distress alerts
         pattern_summary = self.pattern_tracker.get_pattern_summary()
@@ -283,16 +319,20 @@ class WellnessBuddy:
         
         trusted = self.user_profile.get_trusted_contacts()
         message += f"Trusted contacts: {len(trusted)}\n"
+        message += f"Trauma records: {len(self.user_profile.get_trauma_history())}\n"
+        message += f"Personal triggers: {len(self.user_profile.get_personal_triggers())}\n"
         
         print(message)
         print("\nOptions:")
         print("1. Add trusted contacts")
         print("2. View trusted contacts")
         print("3. Mark family as unsafe (for toxic situations)")
-        print("4. Delete my data")
-        print("5. Return to conversation")
+        print("4. Update personal history (trauma / triggers)")
+        print("5. View personal history")
+        print("6. Delete my data")
+        print("7. Return to conversation")
         
-        choice = input("\nChoice (1-5): ").strip()
+        choice = input("\nChoice (1-7): ").strip()
         
         if choice == '1':
             self._add_trusted_contacts()
@@ -313,6 +353,42 @@ class WellnessBuddy:
             self._save_profile()
             return "✓ Noted. I will avoid suggesting family contacts in crisis situations."
         elif choice == '4':
+            # Add trauma records
+            trauma_desc = input("\nAny trauma or loss to record (press Enter to skip): ").strip()
+            if trauma_desc:
+                self.user_profile.add_trauma_history(trauma_desc)
+                print("  ✓ Recorded. I'll respond with extra care.")
+            # Add triggers
+            print("\nAdd sensitive topics/words (press Enter with no input to finish):")
+            while True:
+                trigger = input("  Sensitive topic/word: ").strip()
+                if not trigger:
+                    break
+                self.user_profile.add_personal_trigger(trigger)
+                print(f"  ✓ I'll be especially gentle around '{trigger}'.")
+            self._save_profile()
+            return "✓ Personal history updated."
+        elif choice == '5':
+            msg = "\n📋 YOUR PERSONAL HISTORY\n" + "="*70 + "\n"
+            demographics = self.user_profile.get_profile().get('demographics', {})
+            msg += f"\nRelationship status: {demographics.get('relationship_status', 'not set')}\n"
+            msg += f"Family background: {demographics.get('family_background', 'not set')}\n"
+            trauma = self.user_profile.get_trauma_history()
+            if trauma:
+                msg += "\nTrauma records:\n"
+                for t in trauma:
+                    msg += f"  • {t['description']}\n"
+            else:
+                msg += "\nNo trauma records on file.\n"
+            triggers = self.user_profile.get_personal_triggers()
+            if triggers:
+                msg += "\nPersonal triggers:\n"
+                for tr in triggers:
+                    msg += f"  • {tr}\n"
+            else:
+                msg += "\nNo personal triggers on file.\n"
+            return msg
+        elif choice == '6':
             confirm = input("\n⚠️ Delete all your data? This cannot be undone. (yes/no): ").strip().lower()
             if confirm == 'yes':
                 self.data_store.delete_user_data(self.user_id)

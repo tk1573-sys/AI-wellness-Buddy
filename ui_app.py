@@ -72,6 +72,11 @@ def create_new_profile():
         gender = st.selectbox("How do you identify?", 
                              ["Skip", "Female", "Male", "Other"])
         
+        marital_status = st.selectbox(
+            "Relationship / marital status:",
+            ["Skip", "Single", "Married", "Divorced", "Widowed", "In a relationship", "Other"]
+        )
+        
         show_safety = False
         if gender == "Female":
             st.info("💙 Specialized support resources for women are available.")
@@ -81,6 +86,26 @@ def create_new_profile():
                 show_safety = True
                 st.warning("🛡️ I understand. Your safety is paramount. "
                           "I will guide you toward trusted friends and women's organizations.")
+        
+        family_bg = st.text_area(
+            "Family background / situation (optional):",
+            key="family_bg",
+            height=68,
+            help="A brief description helps me respond more sensitively to your situation."
+        )
+        
+        trauma_info = st.text_area(
+            "Any trauma or significant loss you'd like me to be aware of? (optional):",
+            key="trauma_info",
+            height=68,
+            help="This stays completely private and helps me support you with extra care."
+        )
+        
+        triggers_info = st.text_input(
+            "Topics or words that are especially sensitive for you (comma-separated, optional):",
+            key="triggers_info",
+            help="I will be especially gentle whenever these come up."
+        )
         
         submitted = st.form_submit_button("Create Profile")
         
@@ -96,6 +121,21 @@ def create_new_profile():
             
             if show_safety:
                 st.session_state.buddy.user_profile.add_unsafe_contact('family/guardians')
+            
+            if marital_status != "Skip":
+                st.session_state.buddy.user_profile.set_relationship_status(marital_status.lower())
+            
+            if family_bg.strip():
+                st.session_state.buddy.user_profile.set_family_background(family_bg.strip())
+            
+            if trauma_info.strip():
+                st.session_state.buddy.user_profile.add_trauma_history(trauma_info.strip())
+            
+            if triggers_info.strip():
+                for t in triggers_info.split(','):
+                    t = t.strip()
+                    if t:
+                        st.session_state.buddy.user_profile.add_personal_trigger(t)
             
             # Save profile
             st.session_state.buddy._save_profile()
@@ -175,8 +215,9 @@ def show_profile_menu():
         trusted = st.session_state.buddy.user_profile.get_trusted_contacts()
         st.write(f"Trusted contacts: {len(trusted)}")
         
-        action = st.selectbox("Choose action:", 
-                             ["Cancel", "Add Trusted Contact", "View Trusted Contacts", 
+        action = st.selectbox("Choose action:",
+                             ["Cancel", "Add Trusted Contact", "View Trusted Contacts",
+                              "View Personal History", "Add Trauma / Trigger",
                               "Mark Family Unsafe", "Delete All Data"])
         
         if action == "Add Trusted Contact":
@@ -203,6 +244,46 @@ def show_profile_menu():
             else:
                 st.info("No trusted contacts added yet")
         
+        elif action == "View Personal History":
+            profile = st.session_state.buddy.user_profile
+            demographics = profile.get_profile().get('demographics', {})
+            st.markdown("**📋 Your Personal History**")
+            st.write(f"**Relationship status:** {demographics.get('relationship_status', 'not set')}")
+            st.write(f"**Family background:** {demographics.get('family_background', 'not set')}")
+            trauma = profile.get_trauma_history()
+            if trauma:
+                st.markdown("**Trauma records:**")
+                for t in trauma:
+                    st.write(f"• {t['description']}")
+            else:
+                st.info("No trauma records on file.")
+            triggers = profile.get_personal_triggers()
+            if triggers:
+                st.markdown("**Personal triggers:**")
+                st.write(", ".join(triggers))
+            else:
+                st.info("No personal triggers on file.")
+        
+        elif action == "Add Trauma / Trigger":
+            with st.form("add_personal_history"):
+                trauma_desc = st.text_area(
+                    "Trauma or loss to record (optional):",
+                    height=68,
+                    help="This stays private and helps me respond with extra care."
+                )
+                trigger_input = st.text_input(
+                    "Sensitive topic/word to add (optional):",
+                    help="I will be especially gentle whenever this comes up."
+                )
+                if st.form_submit_button("Save"):
+                    if trauma_desc.strip():
+                        st.session_state.buddy.user_profile.add_trauma_history(trauma_desc.strip())
+                    if trigger_input.strip():
+                        st.session_state.buddy.user_profile.add_personal_trigger(trigger_input.strip())
+                    st.session_state.buddy._save_profile()
+                    st.success("✓ Personal history updated")
+                    st.session_state.show_profile_menu = False
+        
         elif action == "Mark Family Unsafe":
             if st.button("Confirm"):
                 st.session_state.buddy.user_profile.add_unsafe_contact('family/guardians')
@@ -222,7 +303,6 @@ def show_profile_menu():
         if action == "Cancel" or st.button("Close"):
             st.session_state.show_profile_menu = False
             st.rerun()
-
 def main():
     """Main application"""
     # Custom CSS

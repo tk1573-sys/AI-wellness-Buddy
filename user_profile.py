@@ -24,6 +24,8 @@ class UserProfile:
             'trusted_contacts': [],  # Safe contacts for emergencies
             'unsafe_contacts': [],   # Family/guardians to avoid in toxic situations
             'emotional_history': [],  # Long-term emotional tracking (now 1 year)
+            'trauma_history': [],    # Personal trauma records for sensitive support
+            'personal_triggers': [], # Topics/keywords that are especially sensitive
             'session_count': 0,
             # Security fields
             'password_hash': None,  # Hashed password for profile protection
@@ -56,6 +58,48 @@ class UserProfile:
     def set_living_situation(self, situation):
         """Set living situation for safety considerations"""
         self.profile_data['demographics']['living_situation'] = situation
+    
+    def set_family_background(self, info):
+        """Store family background / situation for context-aware support"""
+        self.profile_data['demographics']['family_background'] = info
+    
+    def add_trauma_history(self, description, approximate_date=None):
+        """Record a past trauma so responses can be more sensitive"""
+        entry = {
+            'description': description,
+            'recorded_at': datetime.now()
+        }
+        if approximate_date:
+            entry['approximate_date'] = approximate_date
+        self.profile_data.setdefault('trauma_history', []).append(entry)
+    
+    def add_personal_trigger(self, trigger):
+        """Add a topic or keyword that is especially sensitive for this user"""
+        triggers = self.profile_data.setdefault('personal_triggers', [])
+        normalized = trigger.strip().lower()
+        if normalized and normalized not in triggers:
+            triggers.append(normalized)
+    
+    def get_personal_triggers(self):
+        """Return the list of personal trigger words/phrases"""
+        return self.profile_data.get('personal_triggers', [])
+    
+    def get_trauma_history(self):
+        """Return the list of recorded trauma entries"""
+        return self.profile_data.get('trauma_history', [])
+    
+    def get_personal_context(self):
+        """Return a context dict used to personalize conversation responses"""
+        demographics = self.profile_data.get('demographics', {})
+        return {
+            'gender': self.profile_data.get('gender'),
+            'marital_status': demographics.get('relationship_status'),
+            'family_background': demographics.get('family_background'),
+            'has_trauma_history': len(self.profile_data.get('trauma_history', [])) > 0,
+            'trauma_count': len(self.profile_data.get('trauma_history', [])),
+            'personal_triggers': self.profile_data.get('personal_triggers', []),
+            'has_unsafe_family': self.has_unsafe_family(),
+        }
     
     def enable_women_support(self):
         """Enable specialized women's support features"""

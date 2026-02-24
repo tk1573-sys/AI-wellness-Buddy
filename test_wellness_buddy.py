@@ -229,6 +229,112 @@ def test_full_workflow():
             tracker.reset_consecutive_distress()
 
 
+def test_personal_history_profile():
+    """Test new personal history fields on UserProfile"""
+    print("\n" + "="*70)
+    print("TEST 8: Personal History Profile")
+    print("="*70)
+
+    profile = UserProfile('test_personal')
+    profile.set_gender('female')
+    profile.set_relationship_status('divorced')
+    profile.set_family_background('Grew up in a single-parent household')
+    profile.add_trauma_history('Lost a parent at a young age')
+    profile.add_trauma_history('Ended an abusive relationship in 2022')
+    profile.add_personal_trigger('abandonment')
+    profile.add_personal_trigger('violence')
+    profile.add_personal_trigger('violence')  # duplicate — should be ignored
+
+    print(f"\nRelationship status: {profile.get_profile()['demographics']['relationship_status']}")
+    print(f"Family background: {profile.get_profile()['demographics']['family_background']}")
+    print(f"Trauma records: {len(profile.get_trauma_history())}")
+    for t in profile.get_trauma_history():
+        print(f"  • {t['description']}")
+    print(f"Personal triggers: {profile.get_personal_triggers()}")
+    assert len(profile.get_trauma_history()) == 2, "Should have 2 trauma records"
+    assert len(profile.get_personal_triggers()) == 2, "Duplicate trigger should not be added"
+
+    ctx = profile.get_personal_context()
+    print(f"\nPersonal context: {ctx}")
+    assert ctx['has_trauma_history'] is True
+    assert ctx['trauma_count'] == 2
+    assert ctx['marital_status'] == 'divorced'
+    assert 'abandonment' in ctx['personal_triggers']
+    print("\n✓ Personal history profile tests passed")
+
+
+def test_personalized_responses():
+    """Test that generate_response produces context-aware, humanoid responses"""
+    print("\n" + "="*70)
+    print("TEST 9: Personalized Responses")
+    print("="*70)
+
+    analyzer = EmotionAnalyzer()
+    handler = ConversationHandler()
+
+    # -- 1. Positive emotion with no context --
+    msg = "I had a great day today!"
+    emotion = analyzer.classify_emotion(msg)
+    handler.add_message(msg, emotion)
+    response = handler.generate_response(emotion)
+    print(f"\nPositive (no context): {response}")
+    assert response, "Response should not be empty"
+
+    # -- 2. Distress with trauma context --
+    ctx_trauma = {
+        'gender': 'female',
+        'marital_status': 'divorced',
+        'family_background': 'difficult childhood',
+        'has_trauma_history': True,
+        'trauma_count': 2,
+        'personal_triggers': ['abuse', 'violence'],
+        'has_unsafe_family': False,
+    }
+    msg2 = "I feel completely worthless and hopeless"
+    emotion2 = analyzer.classify_emotion(msg2)
+    handler.add_message(msg2, emotion2)
+    response2 = handler.generate_response(emotion2, ctx_trauma)
+    print(f"\nDistress (with trauma context): {response2}")
+    assert response2, "Response should not be empty"
+
+    # -- 3. Trigger detection --
+    ctx_trigger = {
+        'gender': None,
+        'marital_status': None,
+        'family_background': None,
+        'has_trauma_history': False,
+        'trauma_count': 0,
+        'personal_triggers': ['abuse'],
+        'has_unsafe_family': False,
+    }
+    msg3 = "I experienced abuse in my childhood"
+    emotion3 = analyzer.classify_emotion(msg3)
+    handler.add_message(msg3, emotion3)
+    response3 = handler.generate_response(emotion3, ctx_trigger)
+    print(f"\nNegative (trigger detected): {response3}")
+    assert 'sensitive' in response3.lower() or 'pace' in response3.lower(), \
+        "Response should acknowledge the personal trigger"
+
+    # -- 4. Divorced marital status with medium negative emotion --
+    ctx_divorced = {
+        'gender': None,
+        'marital_status': 'divorced',
+        'family_background': None,
+        'has_trauma_history': False,
+        'trauma_count': 0,
+        'personal_triggers': [],
+        'has_unsafe_family': False,
+    }
+    msg4 = "Today has been really hard and I feel empty"
+    emotion4 = analyzer.classify_emotion(msg4)
+    handler.add_message(msg4, emotion4)
+    response4 = handler.generate_response(emotion4, ctx_divorced)
+    print(f"\nNegative (divorced context): {response4}")
+    assert response4, "Response should not be empty"
+
+    print("\n✓ Personalized response tests passed")
+
+
 def run_all_tests():
     """Run all tests"""
     print("\n" + "="*70)
@@ -243,6 +349,8 @@ def run_all_tests():
         test_user_profile()
         test_data_persistence()
         test_full_workflow()
+        test_personal_history_profile()
+        test_personalized_responses()
         
         print("\n" + "="*70)
         print("   ✓ ALL TESTS COMPLETED SUCCESSFULLY")
