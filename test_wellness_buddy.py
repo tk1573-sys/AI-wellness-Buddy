@@ -844,6 +844,221 @@ def test_pre_distress_warning():
     print("\n✓ Pre-distress early warning tests passed")
 
 
+def test_ml_emotion_adapter():
+    """Test MLEmotionAdapter graceful fallback and evaluate_classification_performance."""
+    from emotion_analyzer import EmotionAnalyzer, MLEmotionAdapter
+
+    print("\n" + "="*70)
+    print("TEST 23: ML Emotion Adapter + Heuristic Classifier Evaluation")
+    print("="*70)
+
+    # MLEmotionAdapter must instantiate without raising, regardless of whether
+    # transformers/torch are installed.
+    adapter = MLEmotionAdapter()
+    assert isinstance(adapter.available, bool), "available must be a bool"
+    print(f"\n✓ MLEmotionAdapter available={adapter.available}")
+
+    # classify() must return dict (if available) or None (if not)
+    result = adapter.classify("I feel so happy today")
+    if adapter.available:
+        assert isinstance(result, dict) and len(result) > 0
+        print(f"✓ ML classify() returned {result}")
+    else:
+        assert result is None, "Unavailable adapter must return None"
+        print("✓ ML classify() correctly returned None (transformers not installed)")
+
+    # evaluate_classification_performance must work with heuristic fallback
+    analyzer = EmotionAnalyzer()
+    report = analyzer.evaluate_classification_performance()
+    assert 'overall_accuracy'  in report
+    assert 'macro_f1'          in report
+    assert 'per_class_metrics' in report
+    assert 0.0 <= report['overall_accuracy'] <= 1.0
+    assert report['test_cases'] == 19
+    print(f"\n✓ Heuristic classifier accuracy  : {report['overall_accuracy']:.2%}")
+    print(f"✓ Heuristic macro-F1             : {report['macro_f1']:.4f}")
+    for cls, m in report['per_class_metrics'].items():
+        print(f"   {cls:<10}: P={m['precision']:.2f}  R={m['recall']:.2f}  F1={m['f1']:.2f}")
+
+    # classify_emotion_ml must always return required fields
+    ml_result = analyzer.classify_emotion_ml("I am sad and crying")
+    assert 'ml_available' in ml_result
+    assert 'ml_scores' in ml_result
+    assert 'primary_emotion' in ml_result
+    print(f"\n✓ classify_emotion_ml() ml_available={ml_result['ml_available']}, "
+          f"primary_emotion={ml_result['primary_emotion']}")
+
+    print("\n✓ ML emotion adapter + evaluation tests passed")
+
+
+def test_ewma_predictor():
+    """Test EWMAPredictor and compare_models() utility."""
+    from prediction_agent import EWMAPredictor, compare_models
+
+    print("\n" + "="*70)
+    print("TEST 24: EWMA Predictor & Model Comparison")
+    print("="*70)
+
+    # Basic prediction
+    ewma = EWMAPredictor(alpha=0.3)
+    assert ewma.predict_next([0.1, 0.2]) is not None
+    assert ewma.predict_next([0.5]) is None, "Need at least 2 points"
+    assert ewma.predict_next([]) is None
+
+    # Declining history → prediction should be below starting value
+    declining = [0.5, 0.4, 0.3, 0.2, 0.1, 0.0, -0.1]
+    pred_dec = ewma.predict_next(declining)
+    assert pred_dec is not None and -1.0 <= pred_dec <= 1.0
+    print(f"\nDeclining history EWMA prediction: {pred_dec:.4f}")
+
+    # MAE / RMSE on a recoverable dataset
+    recovering = [-0.4, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3]
+    mae  = ewma.compute_mae(recovering)
+    rmse = ewma.compute_rmse(recovering)
+    assert mae is not None and mae >= 0
+    assert rmse is not None and rmse >= mae - 1e-6, "RMSE must be ≥ MAE"
+    print(f"EWMA MAE={mae:.4f}  RMSE={rmse:.4f}")
+
+    # compare_models — needs ≥ 5 points
+    history = [0.4, 0.3, 0.2, 0.1, 0.0, -0.1, -0.2, -0.3, -0.4, -0.5]
+    comparison = compare_models(history)
+    assert comparison is not None
+    assert 'ols'    in comparison
+    assert 'ewma'   in comparison
+    assert 'winner' in comparison
+    assert comparison['winner'] in ('ols', 'ewma', 'tie')
+    print(f"OLS  MAE={comparison['ols']['mae']:.4f}  RMSE={comparison['ols']['rmse']:.4f}")
+    print(f"EWMA MAE={comparison['ewma']['mae']:.4f}  RMSE={comparison['ewma']['rmse']:.4f}")
+    print(f"Winner: {comparison['winner']}")
+
+    # compare_models on tiny history → None
+    assert compare_models([0.1, 0.2, 0.3]) is None, \
+        "compare_models needs ≥ 5 points"
+
+    # Invalid alpha
+    try:
+        EWMAPredictor(alpha=0.0)
+        assert False, "alpha=0 should raise ValueError"
+    except ValueError:
+        pass
+    print("✓ Invalid alpha raises ValueError")
+
+    print("\n✓ EWMA predictor and model comparison tests passed")
+
+
+def test_evaluation_framework():
+    """Test evaluation_framework module — scenarios, metrics, benchmarks."""
+    print("\n" + "="*70)
+    print("TEST 25: Evaluation Framework")
+    print("="*70)
+
+    from evaluation_framework import (
+        generate_gradual_decline_scenario,
+        generate_sudden_drop_scenario,
+        generate_recovery_pattern_scenario,
+        generate_stable_positive_scenario,
+        generate_volatile_scenario,
+        compute_mae,
+        compute_rmse,
+        compute_correlation,
+        compute_confidence_interval,
+        run_t_test,
+        compute_detection_metrics,
+        run_prediction_benchmark,
+        evaluate_heuristic_classifier,
+        simulate_risk_detection_on_scenarios,
+    )
+    from emotion_analyzer import EmotionAnalyzer
+
+    # ── Scenario generators ────────────────────────────────────────────
+    decline = generate_gradual_decline_scenario(n=10)
+    assert len(decline) == 10
+    assert decline[0] > decline[-1], "Decline scenario must be decreasing"
+
+    drop = generate_sudden_drop_scenario(n=15, drop_at=10)
+    assert len(drop) == 15
+    assert drop[9] > drop[10], "Sudden drop must occur at drop_at"
+
+    recovery = generate_recovery_pattern_scenario(n=12)
+    assert len(recovery) == 12
+    assert recovery[-1] > recovery[0], "Recovery scenario must be increasing"
+
+    stable = generate_stable_positive_scenario(n=8)
+    assert len(stable) == 8
+    assert all(v > 0 for v in stable), "Stable-positive values should be positive"
+
+    volatile = generate_volatile_scenario(n=20)
+    assert len(volatile) == 20
+    print(f"\n✓ All 5 scenario generators produce correct-length lists")
+
+    # ── Statistical helpers ────────────────────────────────────────────
+    a = [1.0, 2.0, 3.0, 4.0]
+    b = [1.5, 2.5, 3.5, 4.5]
+    assert compute_mae(a, b) == 0.5
+    assert compute_rmse(a, b) == 0.5
+    assert compute_correlation(a, b) == 1.0, "Perfectly correlated lists"
+    assert compute_mae([], []) is None
+    print("✓ MAE, RMSE, correlation basic checks pass")
+
+    ci = compute_confidence_interval([0.1, 0.2, 0.3, 0.25, 0.15])
+    assert ci is not None and 'mean' in ci and 'ci_lower' in ci
+    assert ci['ci_lower'] <= ci['mean'] <= ci['ci_upper']
+    print(f"✓ CI: mean={ci['mean']} [{ci['ci_lower']}, {ci['ci_upper']}]")
+
+    t, p = run_t_test([0.1, 0.2, 0.3], [0.4, 0.5, 0.6])
+    assert t is not None and p is not None
+    assert 0.0 <= p <= 1.0, "p-value must be in [0, 1]"
+    print(f"✓ t-test: t={t:.4f}  p={p:.4f}")
+
+    metrics = compute_detection_metrics(tp=8, fp=2, tn=10, fn=1)
+    assert abs(metrics['precision'] - 0.8) < 0.01
+    assert metrics['recall']    > metrics['precision']  # 8/(8+1) > 8/(8+2)
+    assert 0.0 <= metrics['f1_score'] <= 1.0
+    print(f"✓ Detection metrics: {metrics}")
+
+    # ── Prediction benchmark ───────────────────────────────────────────
+    benchmark = run_prediction_benchmark()
+    assert len(benchmark) == 4, "Should have 4 canonical scenarios"
+    for row in benchmark:
+        assert 'scenario' in row
+        assert 'ols'  in row and row['ols']['mae'] is not None
+        assert 'ewma' in row and row['ewma']['mae'] is not None
+        print(f"  {row['scenario']:20s}: OLS-MAE={row['ols']['mae']:.4f}  "
+              f"EWMA-MAE={row['ewma']['mae']:.4f}")
+    print("✓ Prediction benchmark returns results for all 4 scenarios")
+
+    # ── Heuristic classifier evaluation ───────────────────────────────
+    analyzer = EmotionAnalyzer()
+    report = evaluate_heuristic_classifier(analyzer)
+    assert report['overall_accuracy'] > 0.3, "Heuristic accuracy should exceed random"
+    assert report['test_cases'] == 19
+    print(f"✓ Heuristic classifier: accuracy={report['overall_accuracy']:.2%}  "
+          f"macro-F1={report['macro_f1']:.4f}")
+
+    # ── Risk detection simulation ──────────────────────────────────────
+    risk_table = simulate_risk_detection_on_scenarios()
+    assert len(risk_table) == 5
+    names = {r['scenario'] for r in risk_table}
+    assert 'gradual_decline'  in names
+    assert 'stable_positive'  in names
+    assert 'recovery'         in names
+
+    for row in risk_table:
+        assert row['risk_level'] in ('info', 'low', 'medium', 'high', 'critical')
+        assert 0.0 <= row['stability_index'] <= 1.0
+        print(f"  {row['scenario']:20s}: risk={row['risk_level']:8s}  "
+              f"stability={row['stability_index']:.4f}  drift={row['drift_score']:+.4f}")
+
+    # Stable-positive → INFO/LOW; gradual-decline → HIGH/CRITICAL
+    stable_row  = next(r for r in risk_table if r['scenario'] == 'stable_positive')
+    decline_row = next(r for r in risk_table if r['scenario'] == 'gradual_decline')
+    assert stable_row['risk_score'] < decline_row['risk_score'], \
+        "Stable-positive should have lower risk than gradual-decline"
+    print("✓ Stable-positive risk < gradual-decline risk")
+
+    print("\n✓ Evaluation framework tests passed")
+
+
 def run_all_tests():
     """Run all tests"""
     print("\n" + "="*70)
@@ -873,6 +1088,9 @@ def run_all_tests():
         test_info_risk_level()
         test_emotional_drift_score()
         test_pre_distress_warning()
+        test_ml_emotion_adapter()
+        test_ewma_predictor()
+        test_evaluation_framework()
         
         print("\n" + "="*70)
         print("   ✓ ALL TESTS COMPLETED SUCCESSFULLY")

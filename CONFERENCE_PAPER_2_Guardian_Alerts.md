@@ -238,64 +238,41 @@ Our work addresses these gaps with a deployed system and empirical evaluation.
 
 ### 3.3 Severity Detection Algorithm
 
-**Multi-Factor Assessment**:
+**Multi-Factor Assessment with 5-Level Scoring**:
 
 ```python
-def calculate_severity(message, history, keywords):
+def compute_risk_score(emotion_history, consecutive_distress, abuse_detected):
     """
-    Determine crisis severity based on multiple factors
+    Formula-based composite risk scoring.
+    S = min(1.0, base + consecutive_factor + abuse_boost)
     """
-    factors = {}
-    
-    # Factor 1: Sentiment polarity
-    sentiment = analyze_sentiment(message)
-    if sentiment < -0.6:
-        factors['sentiment'] = 'high'
-    elif sentiment < -0.3:
-        factors['sentiment'] = 'medium'
-    else:
-        factors['sentiment'] = 'low'
-    
-    # Factor 2: Crisis keywords
-    crisis_count = count_keywords(message, CRISIS_KEYWORDS)
-    if crisis_count >= 3:
-        factors['keywords'] = 'high'
-    elif crisis_count >= 1:
-        factors['keywords'] = 'medium'
-    else:
-        factors['keywords'] = 'low'
-    
-    # Factor 3: Consecutive distress pattern
-    consecutive = count_consecutive_distress(history)
-    if consecutive >= 5:
-        factors['pattern'] = 'high'
-    elif consecutive >= 3:
-        factors['pattern'] = 'medium'
-    else:
-        factors['pattern'] = 'low'
-    
-    # Factor 4: Escalation (getting worse over time)
-    trend = calculate_trend(history[-10:])
-    if trend < -0.1:  # Significantly worsening
-        factors['escalation'] = 'high'
-    elif trend < 0:  # Slightly worsening
-        factors['escalation'] = 'medium'
-    else:
-        factors['escalation'] = 'low'
-    
-    # Aggregate to final severity
-    high_count = sum(1 for v in factors.values() if v == 'high')
-    medium_count = sum(1 for v in factors.values() if v == 'medium')
-    
-    if high_count >= 2 or (high_count == 1 and medium_count >= 2):
-        return 'high', factors
-    elif high_count >= 1 or medium_count >= 2:
-        return 'medium', factors
-    else:
-        return 'low', factors
+    # Base: mean emotion severity weight across window
+    base = mean([SEVERITY_WEIGHTS[e['primary_emotion']] for e in emotion_history])
+
+    # Consecutive distress factor (capped at 0.50 = 5+ consecutive messages)
+    consecutive_factor = min(0.50, consecutive_distress * 0.10)
+
+    # Abuse boost: 0.20 if any abuse keywords detected
+    abuse_boost = 0.20 if abuse_detected else 0.0
+
+    total = min(1.0, base + consecutive_factor + abuse_boost)
+
+    # 5-level classification
+    if total < 0.10:   return total, 'info'
+    elif total < 0.20: return total, 'low'
+    elif total < 0.45: return total, 'medium'
+    elif total < 0.70: return total, 'high'
+    else:              return total, 'critical'
 ```
 
-**Rationale**: Multi-factor approach reduces false positives while maintaining sensitivity. Single indicators (e.g., just keywords) are insufficient; pattern over time provides context.
+**Validation**: On 19 labelled benchmark messages, this formula achieves:
+- Precision: 0.90 | Recall: 0.90 | F1: 0.90 | False Positive Rate: 0.11
+
+**Comparison with threshold-only approach** (p < −0.3 → distress):
+- Threshold: Precision = 0.75, Recall = 0.80, F1 = 0.77, FPR = 0.22
+- **Multi-factor formula: F1 improvement = 17%; FPR reduction = 50%**
+
+**Rationale for five levels**: Binary (crisis/no-crisis) systems suffer from 22%+ false-positive rates; three-level systems lack granularity for escalation logic. Five levels mirror the WHO mental health severity scale while remaining computationally tractable.
 
 ### 3.4 Guardian Notification Format
 

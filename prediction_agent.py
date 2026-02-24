@@ -3,6 +3,11 @@ Prediction agent for emotional trend forecasting.
 Uses Ordinary Least Squares (OLS) linear regression on historical
 sentiment values to predict the next session's emotional score.
 No external ML dependencies required.
+
+Also provides:
+- ``EWMAPredictor``: Exponentially Weighted Moving Average predictor
+  (non-linear, recency-weighted baseline for model comparison).
+- ``compare_models()``: Leave-one-out MAE/RMSE comparison of OLS vs EWMA.
 """
 
 # Minimum slope magnitude considered a "meaningful" declining trend.
@@ -144,3 +149,141 @@ class PredictionAgent:
                 "or simply taking a few slow breaths. I'm here with you. 💙"
             )
         return None
+
+
+# ---------------------------------------------------------------------------
+# EWMAPredictor — Exponentially Weighted Moving Average
+# ---------------------------------------------------------------------------
+
+class EWMAPredictor:
+    """
+    Exponentially Weighted Moving Average (EWMA) predictor for emotional
+    sentiment sequences.
+
+    Unlike OLS which fits a straight line to all historical points equally,
+    EWMA assigns exponentially higher weight to recent observations (controlled
+    by *alpha*).  This makes it more responsive to recent trend changes and
+    serves as a stronger non-linear baseline in the model-comparison study.
+
+    Parameters
+    ----------
+    alpha : float
+        Smoothing factor ∈ (0, 1].  Higher alpha → more weight on recent
+        values (faster adaptation); lower alpha → smoother (historical).
+        Default 0.3 is recommended for emotional sentiment which typically
+        changes gradually.
+
+    Theoretical justification
+    -------------------------
+    Brown's simple exponential smoothing is equivalent to an infinite-order
+    MA model with geometrically decreasing weights.  It is optimal under a
+    local-level state-space model (Harvey, 1990) and is widely used for
+    short-term time-series forecasting in healthcare analytics.
+    """
+
+    def __init__(self, alpha=0.3):
+        if not 0 < alpha <= 1:
+            raise ValueError(f"alpha must be in (0, 1], got {alpha}")
+        self.alpha = alpha
+
+    def predict_next(self, history):
+        """
+        One-step-ahead EWMA prediction.
+
+        Parameters
+        ----------
+        history : list[float]
+
+        Returns
+        -------
+        float | None
+            Predicted next sentiment value, clamped to [-1, 1], or ``None``
+            if fewer than 2 data points.
+        """
+        if not history or len(history) < 2:
+            return None
+        ewma = history[0]
+        for v in history[1:]:
+            ewma = self.alpha * v + (1 - self.alpha) * ewma
+        return round(max(-1.0, min(1.0, ewma)), 4)
+
+    def _leave_one_out_errors(self, history):
+        """Yield (predicted, actual) pairs via leave-one-out on history[2:]."""
+        for i in range(2, len(history)):
+            pred = self.predict_next(history[:i])
+            if pred is not None:
+                yield pred, history[i]
+
+    def compute_mae(self, history):
+        """Leave-one-out Mean Absolute Error."""
+        errors = [abs(p - a) for p, a in self._leave_one_out_errors(history)]
+        return round(sum(errors) / len(errors), 4) if errors else None
+
+    def compute_rmse(self, history):
+        """Leave-one-out Root Mean Squared Error."""
+        errors = [(p - a) ** 2 for p, a in self._leave_one_out_errors(history)]
+        return round((sum(errors) / len(errors)) ** 0.5, 4) if errors else None
+
+
+# ---------------------------------------------------------------------------
+# Model comparison utility
+# ---------------------------------------------------------------------------
+
+def compare_models(history):
+    """
+    Compare OLS and EWMA predictors on a shared sentiment *history* using
+    leave-one-out cross-validation.
+
+    Returns
+    -------
+    dict with keys:
+        ``ols``  — {'mae': float, 'rmse': float}
+        ``ewma`` — {'mae': float, 'rmse': float}
+        ``n_test_points`` — int (number of points used for evaluation)
+        ``winner`` — 'ols' | 'ewma' | 'tie' (based on lower MAE)
+    or ``None`` if fewer than 5 data points.
+
+    Research use
+    ------------
+    This function powers Table 5.2 in the thesis (OLS vs EWMA comparison)
+    and Section 3 of CONFERENCE_PAPER_1.  The comparison validates that
+    OLS is a strong, interpretable baseline, while EWMA captures recent-trend
+    adaptation that OLS cannot represent with a single global slope.
+    """
+    if not history or len(history) < 5:
+        return None
+
+    ols_agent  = PredictionAgent()
+    ewma_agent = EWMAPredictor(alpha=0.3)
+
+    ols_errors, ewma_errors = [], []
+    for i in range(2, len(history)):
+        window = history[:i]
+        ols_r  = ols_agent.predict_next_sentiment(window)
+        ewma_r = ewma_agent.predict_next(window)
+        if ols_r is not None and ewma_r is not None:
+            actual = history[i]
+            ols_errors.append(abs(ols_r['predicted_value'] - actual))
+            ewma_errors.append(abs(ewma_r - actual))
+
+    if not ols_errors:
+        return None
+
+    ols_mae  = round(sum(ols_errors) / len(ols_errors), 4)
+    ewma_mae = round(sum(ewma_errors) / len(ewma_errors), 4)
+    ols_rmse  = round((sum(e ** 2 for e in ols_errors) / len(ols_errors)) ** 0.5, 4)
+    ewma_rmse = round((sum(e ** 2 for e in ewma_errors) / len(ewma_errors)) ** 0.5, 4)
+
+    if ols_mae < ewma_mae - 1e-4:
+        winner = 'ols'
+    elif ewma_mae < ols_mae - 1e-4:
+        winner = 'ewma'
+    else:
+        winner = 'tie'
+
+    return {
+        'ols':  {'mae': ols_mae,  'rmse': ols_rmse},
+        'ewma': {'mae': ewma_mae, 'rmse': ewma_rmse},
+        'n_test_points': len(ols_errors),
+        'winner': winner,
+    }
