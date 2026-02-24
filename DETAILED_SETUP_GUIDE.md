@@ -1,1688 +1,610 @@
-# AI Wellness Buddy - Complete Step-by-Step Setup Guide
+# AI Wellness Buddy — Complete Step-by-Step Setup Guide
 
-## Comprehensive Installation and Configuration Manual
-
-**Last Updated**: [Date]  
-**Version**: 2.0  
-**For**: Windows, macOS, and Linux
+> **Version**: 3.0 — Feb 2026  
+> Covers the six-module agent architecture with password-protected profiles,  
+> multi-emotion analysis, OLS prediction, severity-based guardian alerts, and the six-tab Streamlit UI.
 
 ---
 
 ## Table of Contents
 
-1. [Introduction](#introduction)
-2. [System Requirements](#system-requirements)
-3. [Pre-Installation Checklist](#pre-installation-checklist)
-4. [Installation Methods](#installation-methods)
-5. [Step-by-Step Setup](#step-by-step-setup)
-6. [Configuration](#configuration)
-7. [First Run](#first-run)
-8. [Advanced Features Setup](#advanced-features-setup)
-9. [Testing Your Installation](#testing-your-installation)
-10. [Troubleshooting](#troubleshooting)
-11. [Uninstallation](#uninstallation)
+1. [Introduction](#1-introduction)
+2. [System Requirements](#2-system-requirements)
+3. [Pre-Installation Checklist](#3-pre-installation-checklist)
+4. [Installation](#4-installation)
+5. [First Run — Creating Your Profile](#5-first-run--creating-your-profile)
+6. [Using the Six-Tab Dashboard](#6-using-the-six-tab-dashboard)
+7. [Password Protection Setup](#7-password-protection-setup)
+8. [Guardian Alert Setup](#8-guardian-alert-setup)
+9. [Configuration](#9-configuration)
+10. [Advanced Usage](#10-advanced-usage)
+11. [Testing Your Installation](#11-testing-your-installation)
+12. [Troubleshooting](#12-troubleshooting)
+13. [Uninstallation](#13-uninstallation)
 
 ---
 
 ## 1. Introduction
 
-This guide provides complete, step-by-step instructions for installing and configuring the AI Wellness Buddy system. Whether you're a:
-- **Student** setting up for an MTech project
-- **Researcher** evaluating the system
-- **Individual** seeking mental health support
-- **Developer** contributing to the project
+AI Wellness Buddy is a privacy-first emotional support application.  
+All processing is **local** — no data is ever sent to external servers.
 
-This guide will help you get started.
+### What You Will Set Up
 
-### What You'll Accomplish
+By the end of this guide you will have:
 
-By the end of this guide, you will have:
-- ✅ Installed Python and all dependencies
-- ✅ Downloaded the AI Wellness Buddy code
-- ✅ Configured the system for your needs
-- ✅ Created your first user profile
-- ✅ Tested all major features
-- ✅ Set up guardian/emergency contacts (optional)
-- ✅ Configured security settings
+- ✅ Python 3.8+ and all dependencies installed
+- ✅ The six-module agent system running
+- ✅ A password-protected personal profile created
+- ✅ Guardian / emergency contacts configured
+- ✅ The six-tab Streamlit dashboard running
+- ✅ All 12 automated tests passing
 
 ### Time Required
 
-- **Quick Setup** (basic installation): 10-15 minutes
-- **Full Setup** (all features configured): 30-45 minutes
-- **Testing & Verification**: 15-20 minutes
-
-**Total**: 1-1.5 hours for complete setup and testing
+| Step | Time |
+|---|---|
+| Dependency installation | 5–10 min |
+| Profile creation | 5 min |
+| Guardian setup | 2 min |
+| Testing | 5 min |
+| **Total** | **~20 min** |
 
 ---
 
 ## 2. System Requirements
 
-### Minimum Requirements
+### Minimum
 
-**Operating System:**
-- Windows 10 or later
-- macOS 10.14 (Mojave) or later
-- Linux (Ubuntu 18.04+, Debian 10+, Fedora 30+, or equivalent)
+| Requirement | Value |
+|---|---|
+| Python | 3.8 or higher |
+| RAM | 512 MB |
+| Disk space | 100 MB |
+| OS | Windows 10 / macOS 10.14 / Ubuntu 18.04 or later |
+| Browser | Chrome, Firefox, Safari, or Edge (for Streamlit UI) |
 
-**Hardware:**
-- CPU: Dual-core processor (2.0 GHz or faster)
-- RAM: 2 GB minimum
-- Storage: 500 MB free space (100 MB for application + 400 MB for dependencies)
-- Display: 1024x768 minimum resolution
-- Network: Internet connection required for initial setup only
+### Recommended
 
-**Software:**
-- Python 3.7 or higher (3.9+ recommended)
-- pip (Python package installer)
-- Git (for downloading code)
+| Requirement | Value |
+|---|---|
+| Python | 3.10+ |
+| RAM | 2 GB |
+| Disk space | 500 MB |
 
-### Recommended Configuration
+### Python Dependencies
 
-**Operating System:**
-- Windows 11
-- macOS 13 (Ventura) or later
-- Ubuntu 22.04 LTS or later
+All dependencies are listed in `requirements.txt`:
 
-**Hardware:**
-- CPU: Quad-core processor (2.5 GHz or faster)
-- RAM: 4 GB or more
-- Storage: 1 GB free space
-- Display: 1920x1080 or higher
-- Network: Wi-Fi for network UI features
-
-**Software:**
-- Python 3.11 (latest stable)
-- pip 23.0+
-- Git 2.40+
-
-### Verification
-
-Before proceeding, verify you have a compatible system:
-
-**Windows:**
-```cmd
-winver
 ```
-Look for Windows 10 version 1903 or later.
-
-**macOS:**
-```bash
-sw_vers
+nltk>=3.8.1
+textblob>=0.17.1
+python-dateutil>=2.8.2
+streamlit>=1.28.0
+cryptography>=41.0.0
+numpy>=1.24.0
+pandas>=2.0.0
+plotly>=5.15.0
+scikit-learn>=1.3.0
 ```
-Look for ProductVersion 10.14 or later.
-
-**Linux:**
-```bash
-lsb_release -a
-```
-Look for Ubuntu 18.04+ or equivalent.
 
 ---
 
 ## 3. Pre-Installation Checklist
 
-Before starting installation, complete this checklist:
+Before you start, verify:
 
-### ☐ Python Installation Check
-
-**Windows:**
-1. Open Command Prompt (Press `Win + R`, type `cmd`, press Enter)
-2. Type: `python --version`
-3. Expected output: `Python 3.7.0` or higher
-
-**macOS/Linux:**
-1. Open Terminal
-2. Type: `python3 --version`
-3. Expected output: `Python 3.7.0` or higher
-
-**If Python is NOT installed:**
-- Windows: Download from https://www.python.org/downloads/ (check "Add Python to PATH" during installation)
-- macOS: `brew install python3` (requires Homebrew)
-- Linux: `sudo apt install python3 python3-pip` (Ubuntu/Debian)
-
-### ☐ pip Installation Check
-
-**Check pip:**
-```bash
-# Windows
-python -m pip --version
-
-# macOS/Linux
-python3 -m pip --version
-```
-
-**Expected output:** `pip 20.0.0` or higher
-
-**If pip is NOT installed:**
-```bash
-# Windows
-python -m ensurepip --upgrade
-
-# macOS/Linux
-python3 -m ensurepip --upgrade
-```
-
-### ☐ Git Installation Check
-
-**Check Git:**
-```bash
-git --version
-```
-
-**Expected output:** `git version 2.0.0` or higher
-
-**If Git is NOT installed:**
-- Windows: Download from https://git-scm.com/download/win
-- macOS: `brew install git` or download from https://git-scm.com/download/mac
-- Linux: `sudo apt install git` (Ubuntu/Debian)
-
-### ☐ Internet Connection
-
-Verify you have internet access:
-```bash
-ping google.com -c 4
-```
-
-You should see responses with times (e.g., "64 bytes from...").
-
-### ☐ Administrator/Sudo Access
-
-You may need administrator privileges for:
-- Installing Python packages globally
-- Setting file permissions
-- Configuring network settings
-
-### ☐ Disk Space
-
-Check available disk space:
-
-**Windows:**
-```cmd
-dir C:\
-```
-Look for "bytes free" at the bottom.
-
-**macOS/Linux:**
-```bash
-df -h /
-```
-Look for "Available" column.
-
-**Requirement:** At least 500 MB free.
+- [ ] Python 3.8+ installed: `python --version` or `python3 --version`
+- [ ] `pip` available: `pip --version`
+- [ ] Internet connection (for downloading packages — not needed after installation)
+- [ ] ~100 MB free disk space
+- [ ] A web browser for the Streamlit UI
 
 ---
 
-## 4. Installation Methods
+## 4. Installation
 
-Choose one of three installation methods:
-
-### Method 1: Quick Setup (Recommended for Beginners)
-
-**Advantages:**
-- Fastest method (5-10 minutes)
-- Automated installation
-- Includes all dependencies
-
-**Disadvantages:**
-- Less control over installation
-- May install globally (affects system)
-
-### Method 2: Manual Setup (Recommended for Developers)
-
-**Advantages:**
-- Full control over each step
-- Understand what's being installed
-- Better for troubleshooting
-
-**Disadvantages:**
-- Takes longer (15-20 minutes)
-- More commands to run
-
-### Method 3: Virtual Environment Setup (Recommended for Multiple Projects)
-
-**Advantages:**
-- Isolated installation (doesn't affect other projects)
-- Easy to uninstall (just delete folder)
-- Best practice for Python development
-
-**Disadvantages:**
-- Slightly more complex
-- Need to activate environment each time
-
----
-
-## 5. Step-by-Step Setup
-
-Choose your operating system and follow the corresponding steps.
-
-### 5.1 Windows Installation
-
-#### Option A: Quick Setup (Windows)
-
-**Step 1: Download the Code**
-
-1. Open Command Prompt (`Win + R`, type `cmd`, Enter)
-2. Navigate to where you want to install:
-   ```cmd
-   cd C:\Users\YourUsername\Documents
-   ```
-3. Clone the repository:
-   ```cmd
-   git clone https://github.com/tk1573-sys/AI-wellness-Buddy.git
-   ```
-4. Enter the directory:
-   ```cmd
-   cd AI-wellness-Buddy
-   ```
-
-**Step 2: Run Quick Setup Script**
-
-1. Run the automated setup:
-   ```cmd
-   python quickstart.py
-   ```
-2. The script will:
-   - Check Python version
-   - Install all dependencies
-   - Download NLTK data
-   - Create configuration files
-   - Test the installation
-
-**Step 3: Verify Installation**
-
-You should see output like:
-```
-✓ Python version check passed
-✓ Installing dependencies...
-✓ Downloading NLTK data...
-✓ Creating configuration...
-✓ Installation complete!
-
-To start using AI Wellness Buddy:
-  python wellness_buddy.py
-```
-
-**Jump to Section 6 (Configuration)**
-
-#### Option B: Manual Setup (Windows)
-
-**Step 1: Download the Code**
-
-Same as Option A, Steps 1-4.
-
-**Step 2: Install Dependencies**
-
-1. Install required packages:
-   ```cmd
-   python -m pip install -r requirements.txt
-   ```
-   
-   This installs:
-   - nltk (Natural Language Toolkit)
-   - textblob (Sentiment Analysis)
-   - streamlit (Web UI)
-   - cryptography (Encryption)
-   - python-dateutil (Date handling)
-
-2. Wait for installation (2-5 minutes depending on internet speed)
-
-3. Verify installation:
-   ```cmd
-   python -m pip list
-   ```
-   
-   You should see all packages listed.
-
-**Step 3: Download NLTK Data**
-
-1. Run Python interactively:
-   ```cmd
-   python
-   ```
-
-2. Download required NLTK data:
-   ```python
-   import nltk
-   nltk.download('brown')
-   nltk.download('punkt')
-   exit()
-   ```
-
-3. You should see:
-   ```
-   [nltk_data] Downloading package brown to ...
-   [nltk_data] Downloading package punkt to ...
-   ```
-
-**Step 4: Verify Installation**
-
-1. Run the test script:
-   ```cmd
-   python test_wellness_buddy.py
-   ```
-
-2. Expected output:
-   ```
-   Testing Emotion Analyzer...
-   ✓ Sentiment analysis working
-   ✓ Keyword detection working
-   
-   Testing Data Store...
-   ✓ Encryption working
-   ✓ Storage working
-   
-   All tests passed!
-   ```
-
-**Jump to Section 6 (Configuration)**
-
-#### Option C: Virtual Environment Setup (Windows)
-
-**Step 1: Create Virtual Environment**
-
-1. Navigate to parent directory:
-   ```cmd
-   cd C:\Users\YourUsername\Documents
-   ```
-
-2. Create virtual environment:
-   ```cmd
-   python -m venv wellness-env
-   ```
-
-3. Activate virtual environment:
-   ```cmd
-   wellness-env\Scripts\activate
-   ```
-
-4. You should see `(wellness-env)` prefix in your prompt:
-   ```
-   (wellness-env) C:\Users\YourUsername\Documents>
-   ```
-
-**Step 2: Clone and Install**
-
-1. Clone repository:
-   ```cmd
-   git clone https://github.com/tk1573-sys/AI-wellness-Buddy.git
-   cd AI-wellness-Buddy
-   ```
-
-2. Install dependencies:
-   ```cmd
-   pip install -r requirements.txt
-   ```
-
-**Step 3: Download NLTK Data**
-
-Same as Option B, Step 3.
-
-**Step 4: Verify**
-
-Same as Option B, Step 4.
-
-**Important:** Always activate virtual environment before using:
-```cmd
-C:\Users\YourUsername\Documents\wellness-env\Scripts\activate
-```
-
----
-
-### 5.2 macOS Installation
-
-#### Option A: Quick Setup (macOS)
-
-**Step 1: Open Terminal**
-
-1. Press `Cmd + Space`, type "Terminal", press Enter
-2. Or navigate: Applications > Utilities > Terminal
-
-**Step 2: Install Homebrew (if not installed)**
-
-Check if Homebrew is installed:
-```bash
-brew --version
-```
-
-If not found, install:
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-**Step 3: Install Python 3 (if needed)**
+### Step 1 — Get the Code
 
 ```bash
-brew install python3
-```
-
-Verify:
-```bash
-python3 --version
-```
-
-**Step 4: Download the Code**
-
-1. Navigate to Documents:
-   ```bash
-   cd ~/Documents
-   ```
-
-2. Clone repository:
-   ```bash
-   git clone https://github.com/tk1573-sys/AI-wellness-Buddy.git
-   cd AI-wellness-Buddy
-   ```
-
-**Step 5: Run Quick Setup**
-
-```bash
-bash quickstart.sh
-```
-
-The script will install everything automatically.
-
-**Step 6: Verify**
-
-You should see:
-```
-✓ Installation complete!
-To start: python3 wellness_buddy.py
-```
-
-#### Option B: Manual Setup (macOS)
-
-**Step 1: Download the Code**
-
-```bash
-cd ~/Documents
+# Option A: Clone from GitHub
 git clone https://github.com/tk1573-sys/AI-wellness-Buddy.git
+cd AI-wellness-Buddy
+
+# Option B: Download ZIP and extract, then:
 cd AI-wellness-Buddy
 ```
 
-**Step 2: Install Dependencies**
+### Step 2 — Install Dependencies
 
 ```bash
-python3 -m pip install -r requirements.txt
-```
-
-**Step 3: Download NLTK Data**
-
-```bash
-python3 -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
-```
-
-**Step 4: Verify**
-
-```bash
-python3 test_wellness_buddy.py
-```
-
-#### Option C: Virtual Environment (macOS)
-
-**Step 1: Create Virtual Environment**
-
-```bash
-cd ~/Documents
-python3 -m venv wellness-env
-source wellness-env/bin/activate
-```
-
-**Step 2: Clone and Install**
-
-```bash
-git clone https://github.com/tk1573-sys/AI-wellness-Buddy.git
-cd AI-wellness-Buddy
 pip install -r requirements.txt
 ```
 
-**Step 3: Download NLTK Data**
+> **Note**: On some systems use `pip3` instead of `pip`.
+
+### Step 3 — Download NLTK Data (first time only)
 
 ```bash
-python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
+python -c "import nltk; nltk.download('brown'); nltk.download('punkt'); nltk.download('averaged_perceptron_tagger')"
 ```
 
-**Step 4: Verify**
+> TextBlob uses NLTK internally. This is a one-time download (~3 MB).
+
+### Step 4 — Verify Installation
 
 ```bash
-python test_wellness_buddy.py
+python -c "from emotion_analyzer import EmotionAnalyzer; print('✓ EmotionAnalyzer OK')"
+python -c "from prediction_agent import PredictionAgent; print('✓ PredictionAgent OK')"
+python -c "import streamlit; print('✓ Streamlit', streamlit.__version__)"
 ```
 
-**Important:** Always activate before using:
-```bash
-source ~/Documents/wellness-env/bin/activate
-```
+All three lines should print `✓` without errors.
 
 ---
 
-### 5.3 Linux Installation (Ubuntu/Debian)
+## 5. First Run — Creating Your Profile
 
-#### Option A: Quick Setup (Linux)
-
-**Step 1: Update System**
-
-```bash
-sudo apt update
-sudo apt upgrade -y
-```
-
-**Step 2: Install Prerequisites**
-
-```bash
-sudo apt install -y python3 python3-pip git
-```
-
-**Step 3: Download Code**
-
-```bash
-cd ~/Documents
-git clone https://github.com/tk1573-sys/AI-wellness-Buddy.git
-cd AI-wellness-Buddy
-```
-
-**Step 4: Run Quick Setup**
-
-```bash
-bash quickstart.sh
-```
-
-**Step 5: Verify**
-
-Should see: "✓ Installation complete!"
-
-#### Option B: Manual Setup (Linux)
-
-**Step 1: Install Python and pip**
-
-```bash
-sudo apt update
-sudo apt install -y python3 python3-pip git
-```
-
-Verify:
-```bash
-python3 --version
-pip3 --version
-```
-
-**Step 2: Download Code**
-
-```bash
-cd ~/Documents
-git clone https://github.com/tk1573-sys/AI-wellness-Buddy.git
-cd AI-wellness-Buddy
-```
-
-**Step 3: Install Dependencies**
-
-```bash
-pip3 install -r requirements.txt
-```
-
-**Step 4: Download NLTK Data**
-
-```bash
-python3 -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
-```
-
-**Step 5: Verify**
-
-```bash
-python3 test_wellness_buddy.py
-```
-
-#### Option C: Virtual Environment (Linux)
-
-**Step 1: Install venv**
-
-```bash
-sudo apt install python3-venv
-```
-
-**Step 2: Create Environment**
-
-```bash
-cd ~/Documents
-python3 -m venv wellness-env
-source wellness-env/bin/activate
-```
-
-**Step 3: Clone and Install**
-
-```bash
-git clone https://github.com/tk1573-sys/AI-wellness-Buddy.git
-cd AI-wellness-Buddy
-pip install -r requirements.txt
-```
-
-**Step 4: Download NLTK Data**
-
-```bash
-python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
-```
-
-**Step 5: Verify**
-
-```bash
-python test_wellness_buddy.py
-```
-
----
-
-## 6. Configuration
-
-After installation, configure the system for your needs.
-
-### 6.1 Basic Configuration
-
-**Step 1: Review config.py**
-
-Open `config.py` in a text editor:
-
-**Windows:**
-```cmd
-notepad config.py
-```
-
-**macOS:**
-```bash
-open -e config.py
-```
-
-**Linux:**
-```bash
-nano config.py
-```
-
-**Step 2: Key Settings to Review**
-
-```python
-# Emotional distress thresholds
-DISTRESS_THRESHOLD = -0.3  # How negative before "distressed"
-SUSTAINED_DISTRESS_COUNT = 3  # Consecutive distress messages for alert
-
-# Data retention
-EMOTIONAL_HISTORY_DAYS = 365  # Keep 1 year of history
-
-# Security settings
-ENABLE_PROFILE_PASSWORD = True  # Require password?
-SESSION_TIMEOUT_MINUTES = 30  # Auto-logout time
-ENABLE_DATA_ENCRYPTION = True  # Encrypt data?
-
-# Guardian alerts
-ENABLE_GUARDIAN_ALERTS = True  # Allow guardian notifications?
-GUARDIAN_ALERT_THRESHOLD = 'high'  # When to alert: low/medium/high
-AUTO_NOTIFY_GUARDIANS = False  # Ask first (recommended)
-```
-
-**Step 3: Customize for Your Needs**
-
-**For Higher Privacy:**
-```python
-ENABLE_PROFILE_PASSWORD = True
-ENABLE_DATA_ENCRYPTION = True
-SESSION_TIMEOUT_MINUTES = 15  # Shorter timeout
-```
-
-**For Easier Access:**
-```python
-ENABLE_PROFILE_PASSWORD = False  # If private device
-SESSION_TIMEOUT_MINUTES = 60  # Longer timeout
-```
-
-**For More Sensitive Detection:**
-```python
-DISTRESS_THRESHOLD = -0.2  # Detect distress earlier
-SUSTAINED_DISTRESS_COUNT = 2  # Alert after 2 messages
-```
-
-**Step 4: Save Changes**
-
-- Press `Ctrl + S` (Windows/Linux) or `Cmd + S` (macOS)
-- Close the editor
-
-### 6.2 Advanced Configuration
-
-**Email Notifications (Optional)**
-
-If you want to send email notifications to guardians:
-
-1. Open `config.py`
-2. Add email configuration:
-
-```python
-# Email settings (optional)
-ENABLE_EMAIL_NOTIFICATIONS = True
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SMTP_USER = "your-email@gmail.com"
-SMTP_PASSWORD = "your-app-password"  # Use App Password, not regular password
-SYSTEM_EMAIL = "wellness-buddy@yourdomain.com"
-```
-
-**For Gmail:**
-1. Go to https://myaccount.google.com/apppasswords
-2. Create an App Password
-3. Use that password in config
-
-**Network UI Configuration**
-
-For accessing from other devices:
-
-```python
-# Network UI settings
-NETWORK_UI_HOST = "0.0.0.0"  # Accept connections from any device
-NETWORK_UI_PORT = 8501  # Default Streamlit port
-```
-
----
-
-## 7. First Run
-
-### 7.1 Starting the Application
-
-**Option 1: Command Line Interface (CLI)**
-
-**Windows:**
-```cmd
-python wellness_buddy.py
-```
-
-**macOS/Linux:**
-```bash
-python3 wellness_buddy.py
-```
-
-**Option 2: Web User Interface**
-
-**Windows:**
-```cmd
-python -m streamlit run ui_app.py
-```
-
-**macOS/Linux:**
-```bash
-python3 -m streamlit run ui_app.py
-```
-
-Or use the launcher:
-```bash
-bash start_ui.sh
-```
-
-**Option 3: Network UI (Access from other devices)**
-
-**Windows:**
-```cmd
-start_ui_network.bat
-```
-
-**macOS/Linux:**
-```bash
-bash start_ui_network.sh
-```
-
-### 7.2 First-Time Setup Wizard
-
-When you first run the system, you'll see:
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║           Welcome to AI Wellness Buddy!                      ║
-║        Your Private Mental Wellbeing Companion              ║
-╚══════════════════════════════════════════════════════════════╝
-
-This appears to be your first time using the system.
-Let's set up your profile.
-
-Press Enter to continue...
-```
-
-**Step 1: Create Username**
-
-```
-Choose a username (private, just for you):
-> sarah
-
-Great! Your data will be stored privately at:
-~/.wellness_buddy/sarah.json
-```
-
-**Tips:**
-- Use a name you'll remember
-- No spaces or special characters
-- This is just for your own reference
-
-**Step 2: Set Password (Optional but Recommended)**
-
-```
-Would you like to set a password to protect your profile? (yes/no)
-> yes
-
-Create a password (minimum 8 characters):
-> **********
-
-Confirm password:
-> **********
-
-✓ Password set successfully!
-```
-
-**Tips:**
-- Use a strong password (12+ characters recommended)
-- Mix letters, numbers, symbols
-- Don't forget it! (no recovery mechanism for privacy)
-
-**Step 3: Demographic Information (Optional)**
-
-```
-The following questions help personalize support.
-You can skip any question by pressing Enter.
-
-How do you identify? (female/male/other/skip):
-> female
-
-Age range? (18-25/26-35/36-50/51+/skip):
-> 26-35
-
-✓ Profile preferences saved.
-```
-
-**Step 4: Safety Settings**
-
-```
-For your safety, we can provide specialized resources.
-
-Do you feel safe with your family/guardians? (yes/no/skip):
-> no
-
-✓ Noted. We'll prioritize non-family resources and trusted friends.
-```
-
-**Important:** This affects which resources are shown.
-
-**Step 5: Encryption Setup**
-
-```
-Setting up AES-256 encryption for your data...
-Generating encryption key...
-✓ Encryption configured!
-
-Your encryption key is stored at:
-~/.wellness_buddy/.encryption_key
-
-Keep your device secure. If you lose this key, data cannot be recovered.
-```
-
-**Step 6: Complete**
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║              Setup Complete!                                 ║
-╚══════════════════════════════════════════════════════════════╝
-
-You're all set! Your profile is ready.
-
-What would you like to do?
-  1. Start a conversation
-  2. View settings
-  3. Read documentation
-  4. Exit
-
-Your choice (1-4):
-```
-
-### 7.3 Your First Conversation
-
-Choose option 1 to start:
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Session #1 for sarah
-Started: 2024-01-15 14:30:22
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💙 Hello! I'm here to support you. How are you feeling today?
-
-Type your message (or 'help' for options, 'quit' to end):
-> I'm feeling a bit anxious about my upcoming exams
-
-I understand. Test anxiety is very common. It sounds like you're 
-feeling stressed about your exams. Would you like to talk about 
-what's making you most anxious?
-
-> Yes, I'm worried I won't remember everything I studied
-
-That's a valid concern. Many students feel this way. The fact that
-you're studying shows you care about doing well. Have you tried
-any relaxation techniques before studying?
-
-> No, I haven't. Do you have suggestions?
-
-Absolutely! Here are some techniques that can help:
-• Deep breathing: 4 seconds in, hold 4, out 4
-• Take regular breaks (25 min study, 5 min break)
-• Get enough sleep - crucial for memory
-• Try practice tests to build confidence
-
-Would you like to try a breathing exercise right now?
-
-> 
-
-Commands available:
-  help    - View crisis resources and your contacts
-  status  - Check your emotional patterns
-  profile - Manage settings and contacts
-  quit    - Save and exit session
-```
-
----
-
-## 8. Advanced Features Setup
-
-### 8.1 Adding Guardian/Emergency Contacts
-
-**Via CLI:**
-
-```
-> profile
-
-Profile Options:
-1. View profile information
-2. Manage guardian contacts
-3. Manage trusted friends
-4. Change password
-5. Export data
-6. Delete all data
-
-Your choice (1-6): 2
-
-Guardian Contact Management:
-1. Add guardian contact
-2. View guardians
-3. Remove guardian
-4. Back
-
-Your choice: 1
-
-Adding Guardian Contact
-━━━━━━━━━━━━━━━━━━━━━
-
-Name: Dr. Sarah Johnson
-Relationship (therapist/family/friend): therapist
-Email: dr.johnson@therapy.com
-Phone (optional): 555-123-4567
-Notify on severity (low/medium/high): high
-
-✓ Guardian added successfully!
-
-Guardian Summary:
-• Dr. Sarah Johnson (therapist)
-• Will be notified on: HIGH severity alerts
-• Contact: dr.johnson@therapy.com, 555-123-4567
-```
-
-**Via Web UI:**
-
-1. Click "Profile" in sidebar
-2. Select "Guardian Contacts"
-3. Click "➕ Add Guardian"
-4. Fill in the form:
-   - Name: Dr. Sarah Johnson
-   - Relationship: Therapist
-   - Email: dr.johnson@therapy.com
-   - Phone: 555-123-4567
-   - Notify on: High severity
-5. Click "Save"
-
-### 8.2 Adding Trusted Friends (Non-Family)
-
-For those who can't rely on family:
-
-```
-> profile
-Your choice: 3
-
-Trusted Friend Management:
-1. Add trusted friend
-2. View trusted contacts
-3. Remove contact
-4. Back
-
-Your choice: 1
-
-Adding Trusted Friend
-━━━━━━━━━━━━━━━━━━━━
-
-Name: Emma Rodriguez
-Relationship: best friend
-Contact info: 555-987-6543
-Notes (optional): Known since college, very supportive
-
-✓ Trusted friend added!
-```
-
-### 8.3 Configuring Alert Thresholds
-
-Customize when alerts trigger:
-
-```python
-# In config.py
-
-# Option 1: Conservative (fewer alerts)
-GUARDIAN_ALERT_THRESHOLD = 'high'  # Only severe crises
-SUSTAINED_DISTRESS_COUNT = 5  # Need 5 distress messages
-
-# Option 2: Moderate (balanced)
-GUARDIAN_ALERT_THRESHOLD = 'medium'  # Moderate and severe
-SUSTAINED_DISTRESS_COUNT = 3  # Need 3 distress messages
-
-# Option 3: Sensitive (more alerts)
-GUARDIAN_ALERT_THRESHOLD = 'low'  # Any detected distress
-SUSTAINED_DISTRESS_COUNT = 2  # Need 2 distress messages
-```
-
-### 8.4 Network Access Setup
-
-To access from phone/tablet:
-
-**Step 1: Start Network UI**
-
-```bash
-bash start_ui_network.sh
-```
-
-**Step 2: Note the Network URL**
-
-You'll see:
-```
-You can now view your Streamlit app in your browser.
-
-  Local URL: http://localhost:8501
-  Network URL: http://192.168.1.100:8501
-
-Your network IP addresses:
-  • Wi-Fi: 192.168.1.100
-  • Ethernet: 192.168.1.105
-
-Share the Network URL with other devices on your network.
-```
-
-**Step 3: Access from Other Device**
-
-On your phone/tablet:
-1. Open web browser
-2. Enter: `http://192.168.1.100:8501`
-3. Bookmark for easy access
-
-**Step 4: Security Note**
-
-```
-⚠️ SECURITY NOTICE ⚠️
-This interface is accessible to anyone on your local network.
-Only use on trusted networks (home Wi-Fi, not public Wi-Fi).
-Your data remains on your computer.
-```
-
----
-
-## 9. Testing Your Installation
-
-### 9.1 Automated Tests
-
-Run the test suite:
-
-```bash
-python test_wellness_buddy.py
-```
-
-**Expected output:**
-
-```
-Running AI Wellness Buddy Test Suite
-═══════════════════════════════════════════════════════════════
-
-Testing Emotion Analyzer...
-✓ Sentiment analysis: polarity calculated correctly
-✓ Emotion categorization: working
-✓ Keyword detection: distress keywords found
-✓ Abuse keyword detection: working
-
-Testing Pattern Tracker...
-✓ Emotional snapshot addition: working
-✓ Consecutive distress tracking: accurate
-✓ Trend calculation: correct
-✓ 365-day retention: verified
-
-Testing Alert System...
-✓ Distress alert triggering: working
-✓ Alert message formatting: correct
-✓ Severity detection: accurate
-✓ Guardian alert formatting: correct
-
-Testing Data Store...
-✓ User data save: successful
-✓ User data load: successful
-✓ Encryption: working (AES-256)
-✓ Decryption: working
-✓ Backup creation: successful
-
-Testing User Profile...
-✓ Profile creation: working
-✓ Password hashing: secure (SHA-256)
-✓ Password verification: accurate
-✓ Session timeout: functioning
-✓ Account lockout: working
-
-═══════════════════════════════════════════════════════════════
-Test Summary: 23/23 tests passed ✓
-═══════════════════════════════════════════════════════════════
-
-🎉 All tests passed! Your installation is working correctly.
-```
-
-**If any tests fail:**
-See Section 10 (Troubleshooting)
-
-### 9.2 Manual Feature Testing
-
-**Test 1: Basic Conversation**
-
-```bash
-python wellness_buddy.py
-```
-
-Try:
-1. Enter a positive message: "I'm feeling great today!"
-2. Check sentiment is detected as positive
-3. Enter a negative message: "I'm feeling really sad"
-4. Check sentiment is detected as negative
-
-**Test 2: Alert System**
-
-Enter 3 consecutive distress messages:
-1. "I'm feeling hopeless"
-2. "Everything feels overwhelming"
-3. "I don't know if I can go on"
-
-You should see an alert:
-```
-⚠️ EMOTIONAL DISTRESS ALERT ⚠️
-
-I've noticed sustained emotional distress.
-Your wellbeing is important.
-
-📞 General Support Resources:
-  • Crisis: 988
-  ...
-```
-
-**Test 3: Guardian Notification**
-
-If you set up a guardian:
-1. Trigger an alert (as above)
-2. When asked "Would you like to notify guardians?"
-3. Choose "Yes"
-4. Verify notification is sent
-
-**Test 4: Encryption**
-
-1. Create a test profile
-2. Add some emotional data
-3. Check the data file:
-   ```bash
-   cat ~/.wellness_buddy/testuser.json
-   ```
-4. Data should look encrypted (gibberish), not readable
-
-**Test 5: Web UI**
+### Launch the Web UI
 
 ```bash
 streamlit run ui_app.py
 ```
 
-1. Browser should open automatically
-2. Try all features in the web interface
-3. Verify charts display correctly
+Your browser opens automatically at `http://localhost:8501`.  
+If not, navigate there manually.
 
-**Test 6: Network Access**
+### Welcome Screen
 
-```bash
-bash start_ui_network.sh
+You will see:
+```
+🌟 AI Wellness Buddy
+Welcome! Let's set up your profile
+
+[ Load Existing Profile ]  [ Create New Profile ]
 ```
 
-1. Note network URL
-2. Access from phone/tablet
-3. Verify functionality
+Click **Create New Profile**.
+
+### Profile Creation Form
+
+Fill in the fields:
+
+| Field | Notes |
+|---|---|
+| **Username *** | Private — never displayed to others. Choose something memorable. |
+| **Preferred name** | How the buddy addresses you in every message (e.g. "Jordan") |
+| **Age** | Optional. Spinner, defaults to 18. |
+| **Occupation / Student status** | Injected into relevant responses (e.g. "M.Tech Student") |
+| **How do you identify?** | Enables specialized women's support resources if Female |
+| **What brings you here?** | Multi-select primary concerns — personalises the experience |
+| **Do you feel safe with family?** | (Female users only) If No, guardian alerts are re-routed to trusted friends |
+| **Guardian's name** | Person to be notified in a distress alert |
+| **Relationship** | e.g. Parent, Counsellor, Friend |
+| **Phone / Email** | Contact details shown in distress alerts |
+
+### Password Section (new in v3.0)
+
+```
+🔒 Profile Password (recommended for privacy)
+Set a password so only you can open this profile. Leave blank to skip.
+
+[ Password (min 8 characters) ]  [ Confirm password ]
+```
+
+**If you set a password**:
+- The password is never stored in plain text
+- SHA-256 hashing with a random salt is applied
+- 3 failed login attempts → 15-minute lockout
+- You can change or remove it later from the Profile tab
+
+**If you skip the password**:
+- The profile opens with a single click (no password required)
+- You can add a password later from the Profile tab → Manage → Set / Change Password
+
+Click **✅ Create My Profile**.
 
 ---
 
-## 10. Troubleshooting
+## 6. Using the Six-Tab Dashboard
 
-### Common Issues and Solutions
+After profile creation (or after unlocking with a password), the main dashboard opens.
 
-#### Issue 1: "Python not found"
+### 💬 Chat Tab (default)
 
-**Error:**
+- Type in the input box at the bottom: "Share how you're feeling, Jordan…"
+- The buddy replies with a personalized, emotion-aware message
+- The **live metrics bar** updates after every message:
+  - **Messages**: total in this session
+  - **Trend**: improving / stable / declining
+  - **Severity**: LOW / MEDIUM / HIGH
+  - **Sentiment**: weighted average, −1 to +1
+- When sustained distress is detected, an inline alert appears with crisis resources
+
+### 📈 Emotional Trends Tab
+
+- **Sentiment line chart**: your polarity score per message, color-coded green→red
+- **Emotion distribution pie**: proportion of joy/sadness/anxiety/anger/neutral this session
+- **Long-term bar chart**: average sentiment per session (last 30 sessions)
+
+### 📅 Weekly Summary Tab
+
+- **Daily sentiment bar**: average mood per day for the last 7 days
+- **Session comparison bar**: total vs. distress messages per session
+- Falls back gracefully if you have fewer than 7 days of history
+
+### 🔮 Risk Prediction Tab
+
+- **Forecast chart**: your observed sentiment (blue) + predicted next 5 messages (red dashed)
+- **Early-warning threshold line**: alerts you when your trajectory crosses −0.35
+- **Model metrics**: MAE, RMSE, confidence — useful for research / M.Tech evaluation
+- The prediction engine uses OLS linear regression over your last 7 messages
+  (replace one function with an LSTM forward-pass for the advanced version)
+
+### 🚨 Guardian Alerts Tab
+
+- **Guardian contact card**: who will be contacted in a crisis
+- **Alert log**: every alert this session — severity, score, timestamp
+- **Pending alerts**: if an alert is waiting, you see the full details and two buttons:
+  - **✅ Consent to notify guardians** — your guardian's contact details become actionable
+  - **✔ Acknowledge** — marks the alert as seen and stops escalation
+- **Severity guide**: explains each of the 5 levels (INFO → CRITICAL)
+
+### 👤 Profile Tab
+
+- Displays all your profile information
+- **Password status badge**: 🔒 or 🔓
+- **Manage** dropdown:
+  - Add Trusted Contact
+  - Add Guardian Contact
+  - Set / Change Password
+  - Remove Password
+  - Delete All My Data
+
+### Sidebar
+
+Always visible while in the main dashboard:
+
+- Your name, occupation, age, session number, focus areas
+- **📞 Help & Resources** — crisis numbers injected into chat
+- **⚙️ Manage Profile** — quick contact management
+- **🚪 End Session** — saves your data and returns to the welcome screen
+
+---
+
+## 7. Password Protection Setup
+
+### Setting a Password at Profile Creation
+
+On the creation form, scroll to the **🔒 Profile Password** section and enter your chosen password (min 8 characters) twice.
+
+### Setting a Password After Creation
+
+1. Open the **👤 Profile** tab
+2. In **Manage** dropdown, select **Set / Change Password**
+3. Enter new password + confirm
+4. Click **🔒 Save Password**
+
+### Changing Your Password
+
+Same as above — overwriting an existing password follows the same flow.
+
+### Removing Your Password
+
+1. Open the **👤 Profile** tab
+2. In **Manage** dropdown, select **Remove Password**
+3. Enter your **current** password to confirm
+4. Click **🔓 Remove Password**
+
+### What Happens at Login
+
+When you click **Load Profile** for a password-protected profile:
+
 ```
-'python' is not recognized as an internal or external command
+🔒 Password Required for username
+
+⚠️ 1 failed attempt(s). 2 remaining before lockout.  ← shows if any failures
+
+[Enter your profile password]  [👁 show/hide]
+
+[ 🔓 Unlock Profile ]   [ ← Back ]
 ```
 
-**Solution:**
+After 3 failed attempts the account is locked for 15 minutes:
 
-**Windows:**
-1. Reinstall Python from python.org
-2. Check "Add Python to PATH" during installation
-3. Restart Command Prompt
+```
+🔒 Account locked due to too many failed login attempts.
+Please try again in 15 minutes.
+```
 
-**macOS/Linux:**
-Try `python3` instead of `python`:
+---
+
+## 8. Guardian Alert Setup
+
+### Adding a Guardian Contact
+
+**During profile creation** — fill in the Guardian section of the form.
+
+**After creation** — use either:
+- **Profile tab** → Manage → Add Guardian Contact
+- **Sidebar** → Manage Profile → Add Guardian Contact
+
+### How Alerts Work
+
+```
+User sends several distress messages
+         ↓
+consecutive_distress ≥ 3  (SUSTAINED_DISTRESS_COUNT)
+         ↓
+Alert triggered at severity: INFO / LOW / MEDIUM / HIGH / CRITICAL
+         ↓
+Alert appears inline in Chat + in Guardian Alerts tab
+         ↓
+User reviews guardian contact details in "Pending Alerts" expander
+         ↓
+User clicks "✅ Consent to notify guardians"
+         ↓
+guardian_consent = True  → guardians' details are actionable
+         ↓
+User clicks "✔ Acknowledge" → alert stops escalating
+```
+
+### Severity Levels
+
+| Level | What triggered it | Auto-escalates after |
+|---|---|---|
+| 🟢 INFO | Minor distress detected | 60 min |
+| 🟡 LOW | Mild sustained negativity | 30 min |
+| 🟠 MEDIUM | Moderate distress | 15 min |
+| 🔴 HIGH | Severity score ≥ 7/10 | 5 min |
+| 🚨 CRITICAL | Sustained HIGH + abuse indicators | Never (immediate) |
+
+---
+
+## 9. Configuration
+
+All settings are in `config.py`. Defaults work well for most users.
+
+### Key Settings to Customize
+
+```python
+# How many consecutive distress messages trigger an alert
+SUSTAINED_DISTRESS_COUNT = 3       # default: 3
+
+# How long user session lasts without interaction
+SESSION_TIMEOUT_MINUTES = 30       # default: 30
+
+# Minimum password length
+MIN_PASSWORD_LENGTH = 8            # default: 8
+
+# Failed login lockout
+MAX_LOGIN_ATTEMPTS = 3             # default: 3
+LOCKOUT_DURATION_MINUTES = 15      # default: 15
+
+# Prediction model window
+PREDICTION_WINDOW = 7              # default: 7 messages
+
+# Early warning trigger
+EARLY_WARNING_THRESHOLD = -0.35    # default: -0.35 (negative = distress)
+```
+
+---
+
+## 10. Advanced Usage
+
+### CLI Mode
+
 ```bash
-python3 wellness_buddy.py
+python wellness_buddy.py
 ```
 
-#### Issue 2: "Module not found"
+Commands during CLI session:
+- `help` — show crisis resources and trusted contacts
+- `status` — current session and long-term pattern summary
+- `profile` — add contacts, update safety settings, delete data
+- `quit` — save and exit
 
-**Error:**
-```
-ModuleNotFoundError: No module named 'nltk'
-```
+### Network / LAN Mode
 
-**Solution:**
+Allow access from other devices on your network:
+
 ```bash
-pip install -r requirements.txt
+bash start_ui_network.sh
+# → http://YOUR-LAN-IP:8501
 ```
 
-If still failing:
+Or directly:
+
 ```bash
-pip install nltk textblob streamlit cryptography python-dateutil
+streamlit run ui_app.py --server.address 0.0.0.0 --server.port 8501
 ```
 
-#### Issue 3: NLTK Data Missing
+### Multiple Profiles
 
-**Error:**
+Any number of profiles can be created — each stored as a separate encrypted file.  
+At the welcome screen, select any username from the **Load Existing Profile** dropdown.
+
+### Encrypted Data Files
+
+All data is stored in `~/.wellness_buddy/`.  
+To inspect a raw file:
+```bash
+ls -la ~/.wellness_buddy/
+```
+Files are AES-256 encrypted — you cannot read them directly.
+
+---
+
+## 11. Testing Your Installation
+
+```bash
+python -m pytest test_wellness_buddy.py -v
+```
+
+### Expected Output (12 tests, all pass)
+
+```
+test_wellness_buddy.py::test_emotion_analysis           PASSED
+test_wellness_buddy.py::test_pattern_tracking           PASSED
+test_wellness_buddy.py::test_alert_system               PASSED
+test_wellness_buddy.py::test_conversation_handler       PASSED
+test_wellness_buddy.py::test_user_profile               PASSED
+test_wellness_buddy.py::test_data_persistence           PASSED
+test_wellness_buddy.py::test_full_workflow              PASSED
+test_wellness_buddy.py::test_multi_emotion_classification PASSED
+test_wellness_buddy.py::test_time_weighted_distress     PASSED
+test_wellness_buddy.py::test_prediction_agent           PASSED
+test_wellness_buddy.py::test_alert_severity_escalation  PASSED
+test_wellness_buddy.py::test_password_protection        PASSED
+
+12 passed in X.XXs
+```
+
+### What Each Test Validates
+
+| Test | Validates |
+|---|---|
+| `test_emotion_analysis` | TextBlob polarity, distress keywords, severity label |
+| `test_pattern_tracking` | Consecutive distress counter, trend detection, sustained distress |
+| `test_alert_system` | Alert trigger, severity formatting, women's resources |
+| `test_conversation_handler` | Response generation for all emotion categories |
+| `test_user_profile` | All profile field setters, trusted contacts, gender-based support |
+| `test_data_persistence` | Save / load / list / delete encrypted data |
+| `test_full_workflow` | End-to-end: abuse keywords → HIGH alert → guardian notification |
+| `test_multi_emotion_classification` | 5-category scores, dominant emotion, severity score 0–10 |
+| `test_time_weighted_distress` | Time-weighted sentiment, severity_level, emotion_distribution |
+| `test_prediction_agent` | OLS prediction, MAE/RMSE accumulation, 5-step forecast |
+| `test_alert_severity_escalation` | 5 levels, escalation timing, acknowledge + log |
+| `test_password_protection` | set/verify/wrong/lockout/remove/reset, `pytest.raises(ValueError)` |
+
+---
+
+## 12. Troubleshooting
+
+### Port Already in Use
+
+```
+OSError: [Errno 98] Address already in use
+```
+
+Solution:
+```bash
+streamlit run ui_app.py --server.port 8502
+# Navigate to http://localhost:8502
+```
+
+### NLTK Data Not Found
+
 ```
 LookupError: Resource brown not found.
 ```
 
-**Solution:**
-```python
+Solution:
+```bash
 python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
 ```
 
-Or manually:
-```python
-python
->>> import nltk
->>> nltk.download('all')  # Downloads everything (takes longer)
->>> exit()
+### Cryptography / Fernet Error
+
+```
+ModuleNotFoundError: No module named 'cryptography'
 ```
 
-#### Issue 4: Permission Denied
-
-**Error:**
-```
-PermissionError: [Errno 13] Permission denied: '.wellness_buddy'
-```
-
-**Solution:**
-
-**Windows:**
-Run Command Prompt as Administrator
-
-**macOS/Linux:**
+Solution:
 ```bash
-sudo chown -R $USER ~/.wellness_buddy
-chmod 700 ~/.wellness_buddy
+pip install cryptography>=41.0.0
 ```
 
-#### Issue 5: Port Already in Use
+### Streamlit Not Found
 
-**Error:**
 ```
-OSError: [Errno 48] Address already in use
+command not found: streamlit
 ```
 
-**Solution:**
-Change the port:
+Solution:
 ```bash
-streamlit run ui_app.py --server.port 8502
+pip install streamlit>=1.28.0
+# If still not found, try:
+python -m streamlit run ui_app.py
 ```
 
-Or kill the process using the port:
+### Charts Not Showing
 
-**Windows:**
-```cmd
-netstat -ano | findstr :8501
-taskkill /PID <PID> /F
+```
+Install pandas and plotly for charts: pip install pandas plotly
 ```
 
-**macOS/Linux:**
+Solution:
 ```bash
-lsof -ti:8501 | xargs kill -9
+pip install pandas plotly
 ```
 
-#### Issue 6: Forgot Password
+### Profile Locked Out
 
-**Error:**
-Cannot log in to profile.
+If you are locked out of a profile (3 failed login attempts), wait 15 minutes and try again.  
+The lockout expires automatically — you do not need to delete the profile.
 
-**Solution:**
-Reset password (data preserved):
+### All Tests Failing
 
-1. Open your profile file:
-   ```bash
-   nano ~/.wellness_buddy/youruser.json
-   ```
-
-2. Find and change:
-   ```json
-   "password_hash": null,
-   "salt": null,
-   "security_enabled": false
-   ```
-
-3. Save and exit
-4. Next login, set a new password
-
-**Warning:** Do NOT edit other fields or data may be corrupted.
-
-#### Issue 7: Web UI Won't Open
-
-**Error:**
-Streamlit starts but browser doesn't open.
-
-**Solution:**
-Manually open:
-1. Look for output: `Local URL: http://localhost:8501`
-2. Copy that URL
-3. Open browser manually
-4. Paste URL
-
-Or disable auto-open:
 ```bash
-streamlit run ui_app.py --server.headless=true
-```
+# Check your Python version
+python --version
 
-#### Issue 8: Encryption Key Lost
-
-**Error:**
-```
-cryptography.fernet.InvalidToken: 
-```
-
-**Solution:**
-If encryption key is lost, data cannot be recovered (by design for privacy).
-
-Options:
-1. Restore from backup:
-   ```bash
-   cp ~/.wellness_buddy/user_backup_*.json ~/.wellness_buddy/user.json
-   ```
-
-2. Start fresh (data loss):
-   ```bash
-   rm ~/.wellness_buddy/user.json
-   rm ~/.wellness_buddy/.encryption_key
-   ```
-
-**Prevention:**
-Backup your encryption key:
-```bash
-cp ~/.wellness_buddy/.encryption_key ~/safe-backup-location/
-```
-
-#### Issue 9: Tests Failing
-
-**Error:**
-Some tests fail.
-
-**Solution:**
-
-1. Check Python version:
-   ```bash
-   python --version
-   ```
-   Should be 3.7+
-
-2. Reinstall dependencies:
-   ```bash
-   pip install --upgrade -r requirements.txt
-   ```
-
-3. Clear cache:
-   ```bash
-   rm -rf __pycache__
-   ```
-
-4. Run tests with verbose output:
-   ```bash
-   python test_wellness_buddy.py -v
-   ```
-
-#### Issue 10: Slow Performance
-
-**Symptoms:**
-System is sluggish, responses take long.
-
-**Solutions:**
-
-1. **Check RAM usage:**
-   Close other applications
-
-2. **Reduce history:**
-   In `config.py`:
-   ```python
-   EMOTIONAL_HISTORY_DAYS = 180  # Instead of 365
-   ```
-
-3. **Disable encryption (not recommended):**
-   ```python
-   ENABLE_DATA_ENCRYPTION = False
-   ```
-
-4. **Use CLI instead of Web UI:**
-   CLI uses less resources
-
----
-
-## 11. Uninstallation
-
-### Complete Removal
-
-**Step 1: Delete Application Files**
-
-**Windows:**
-```cmd
-cd C:\Users\YourUsername\Documents
-rmdir /s AI-wellness-Buddy
-```
-
-**macOS/Linux:**
-```bash
-cd ~/Documents
-rm -rf AI-wellness-Buddy
-```
-
-**Step 2: Delete User Data**
-
-**Windows:**
-```cmd
-rmdir /s %USERPROFILE%\.wellness_buddy
-```
-
-**macOS/Linux:**
-```bash
-rm -rf ~/.wellness_buddy
-```
-
-**Step 3: Uninstall Python Packages (Optional)**
-
-If not using for other projects:
-```bash
-pip uninstall nltk textblob streamlit cryptography python-dateutil
-```
-
-**Step 4: Delete Virtual Environment (If Used)**
-
-**Windows:**
-```cmd
-rmdir /s wellness-env
-```
-
-**macOS/Linux:**
-```bash
-rm -rf wellness-env
-```
-
-### Partial Removal (Keep Data)
-
-To reinstall but keep your data:
-
-**Step 1: Backup Data**
-```bash
-cp -r ~/.wellness_buddy ~/wellness_buddy_backup
-```
-
-**Step 2: Delete Application**
-Same as Complete Removal Step 1
-
-**Step 3: Reinstall**
-Follow installation steps again
-
-**Step 4: Restore Data**
-```bash
-cp -r ~/wellness_buddy_backup ~/.wellness_buddy
-```
-
----
-
-## Appendix A: Command Reference
-
-### Essential Commands
-
-**Start CLI:**
-```bash
-python wellness_buddy.py
-```
-
-**Start Web UI:**
-```bash
-streamlit run ui_app.py
-```
-
-**Start Network UI:**
-```bash
-bash start_ui_network.sh
-```
-
-**Run Tests:**
-```bash
-python test_wellness_buddy.py
-```
-
-**Install Dependencies:**
-```bash
+# Re-install all dependencies
 pip install -r requirements.txt
+
+# Re-download NLTK data
+python -c "import nltk; nltk.download('all')"
 ```
 
-**Download NLTK Data:**
+---
+
+## 13. Uninstallation
+
+### Remove the Application
+
 ```bash
-python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
+# Remove the application directory
+rm -rf /path/to/AI-wellness-Buddy
+
+# Remove user data (optional — this deletes all profiles permanently)
+rm -rf ~/.wellness_buddy/
 ```
 
-### In-Session Commands
+### Remove Python Packages
 
-**While using the system:**
-
-- `help` - Show crisis resources
-- `status` - View emotional patterns
-- `profile` - Manage settings
-- `quit` - Save and exit
-
----
-
-## Appendix B: File Locations
-
-**Application Files:**
-```
-~/Documents/AI-wellness-Buddy/  (or installation directory)
-├── wellness_buddy.py           # Main CLI application
-├── ui_app.py                   # Web UI application
-├── config.py                   # Configuration
-├── emotion_analyzer.py         # NLP module
-├── pattern_tracker.py          # Pattern analysis
-├── alert_system.py             # Alert module
-├── data_store.py               # Storage module
-├── user_profile.py             # Profile module
-└── requirements.txt            # Dependencies
-```
-
-**User Data:**
-```
-~/.wellness_buddy/
-├── username.json               # Your encrypted data
-├── username_backup_*.json      # Automatic backups
-├── .encryption_key             # Encryption key (guard carefully!)
-└── wellness_buddy.log          # System logs (if enabled)
+```bash
+pip uninstall -r requirements.txt -y
 ```
 
 ---
 
-## Appendix C: Getting Help
+## Quick Reference Card
 
-### Documentation
+```bash
+# Start web UI
+streamlit run ui_app.py
 
-- **Quick Start:** QUICK_START_GUIDE.md
-- **Full Operations:** OPERATION_GUIDE.md
-- **All Features:** COMPLETE_FEATURE_GUIDE.md
-- **Security:** SECURITY.md
-- **Data Retention:** DATA_RETENTION.md
+# Start CLI
+python wellness_buddy.py
 
-### Support
+# Run all tests
+python -m pytest test_wellness_buddy.py -v
 
-- **GitHub Issues:** https://github.com/tk1573-sys/AI-wellness-Buddy/issues
-- **Documentation:** All markdown files in repository
-- **Email:** [Support email if available]
+# Network mode (accessible from LAN)
+bash start_ui_network.sh
 
-### Crisis Resources
+# Install / update dependencies
+pip install -r requirements.txt
 
-**If you're in crisis:**
-- **Call:** 988 (Suicide & Crisis Lifeline)
-- **Text:** HOME to 741741 (Crisis Text Line)
-- **Emergency:** 911
-
-**This is a support tool, not emergency services.**
+# Data location
+ls ~/.wellness_buddy/
+```
 
 ---
 
-## Conclusion
+**You are not alone. Help is available 24/7.**
 
-You should now have AI Wellness Buddy fully installed and configured. Key achievements:
-
-✅ System installed and verified  
-✅ Profile created with security  
-✅ Guardian contacts configured (optional)  
-✅ Network access set up (optional)  
-✅ All tests passing  
-✅ First conversation completed  
-
-### Next Steps
-
-1. **Use regularly:** Daily or every other day for best results
-2. **Review patterns:** Check `status` weekly
-3. **Update guardians:** Keep contacts current
-4. **Backup data:** Monthly export recommended
-5. **Explore features:** Try all interfaces (CLI, Web, Network)
-
-### Remember
-
-- All data stays on your device
-- You control your data completely
-- This supplements, not replaces, professional care
-- You're not alone - help is available 24/7
-
-**Enjoy using AI Wellness Buddy! 💙**
-
----
-
-*End of Step-by-Step Setup Guide*
+- Crisis Hotline: **988**
+- Crisis Text Line: Text HOME to **741741**
+- Emergency: **911**
