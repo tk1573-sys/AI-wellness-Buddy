@@ -7,16 +7,22 @@ This comprehensive guide covers ALL features available in the AI Wellness Buddy,
 ## Table of Contents
 1. [Overview](#overview)
 2. [Core Features](#core-features)
-3. [Extended Tracking Features](#extended-tracking-features)
-4. [Security Features](#security-features)
-5. [Specialized Support Features](#specialized-support-features)
-6. [Guardian Alert System](#guardian-alert-system)
-7. [Government Resources for Women](#government-resources-for-women)
-8. [User Interface Options](#user-interface-options)
-9. [Data Management](#data-management)
-10. [Advanced Configuration](#advanced-configuration)
-11. [Feature Comparison](#feature-comparison)
-12. [Frequently Asked Questions](#frequently-asked-questions)
+3. [Multi-Emotion Detection & XAI](#multi-emotion-detection--xai)
+4. [Risk Scoring & Trend Modeling](#risk-scoring--trend-modeling)
+5. [Emotion Forecasting (Prediction Agent)](#emotion-forecasting-prediction-agent)
+6. [Personal History & Context Awareness](#personal-history--context-awareness)
+7. [Response Style & Personalization](#response-style--personalization)
+8. [Gamification (Mood Streak & Badges)](#gamification-mood-streak--badges)
+9. [Extended Tracking Features](#extended-tracking-features)
+10. [Security Features](#security-features)
+11. [Specialized Support Features](#specialized-support-features)
+12. [Guardian Alert System](#guardian-alert-system)
+13. [Government Resources for Women](#government-resources-for-women)
+14. [User Interface Options](#user-interface-options)
+15. [Data Management](#data-management)
+16. [Advanced Configuration](#advanced-configuration)
+17. [Feature Comparison](#feature-comparison)
+18. [Frequently Asked Questions](#frequently-asked-questions)
 
 ---
 
@@ -26,19 +32,45 @@ The AI Wellness Buddy is a comprehensive emotional support system with the follo
 
 ### Quick Feature List
 
-✅ **Core Emotional Support**
-- Real-time emotion analysis
-- Pattern tracking and trend detection
-- Distress alert system
-- Crisis resource connections
+✅ **Multi-Emotion Classification**
+- 6 fine-grained emotions: joy, sadness, anger, fear, anxiety, crisis
+- Keyword-driven detection with polarity fallback
+- Crisis detection with immediate 988/911 escalation
+- XAI keyword attribution in every response
 
-✅ **Extended Tracking (NEW)**
+✅ **Intelligent Risk Scoring**
+- Formula-based Low / Medium / High / Critical risk level
+- Emotional volatility and stability index (0–1 scale)
+- Moving average smoothing of sentiment history
+- Emotion distribution breakdown per session
+
+✅ **Emotion Forecasting**
+- OLS linear regression next-session mood prediction
+- Risk escalation forecast (will risk worsen?)
+- Displayed in `status`, Weekly Report, and Trends tab
+
+✅ **Personal History & Awareness**
+- Trauma history stored for extra-sensitive responses
+- Personal triggers flagged for gentle acknowledgement
+- Marital/relationship status used for life-transition empathy
+- Family background for culturally-aware context
+
+✅ **Response Style Personalization**
+- Choose Short, Balanced (default), or Detailed replies
+- All 6 emotion templates have 3 style variants
+
+✅ **Gamification**
+- Mood streak: consecutive positive-mood sessions
+- 8 wellness badge types awarded at session end
+- Weekly summary report with improvement suggestions
+
+✅ **Extended Tracking**
 - 365-day emotional history (up from 90 days)
 - Long-term pattern analysis
 - Seasonal trend detection
 - Progress milestone tracking
 
-✅ **Enhanced Security (NEW)**
+✅ **Enhanced Security**
 - Password-protected profiles
 - AES-256 data encryption
 - Session timeout protection
@@ -51,14 +83,14 @@ The AI Wellness Buddy is a comprehensive emotional support system with the follo
 - Abuse detection and resources
 - Personalized support networks
 
-✅ **Guardian Alert System (NEW)**
+✅ **Guardian Alert System**
 - Emergency contact notification during severe distress
 - Configurable severity thresholds (low/medium/high)
 - Privacy-respecting: asks before notifying guardians
 - Multiple guardian contacts supported
 - Formatted alert messages with crisis resources
 
-✅ **Government Resources for Women (NEW)**
+✅ **Government Resources for Women**
 - 15+ U.S. government agency contacts
 - Legal aid and women's law resources
 - Women-specific mental health services
@@ -66,7 +98,7 @@ The AI Wellness Buddy is a comprehensive emotional support system with the follo
 
 ✅ **Multiple Interfaces**
 - Command-line interface (CLI)
-- Web browser UI (Streamlit)
+- Web browser UI (Streamlit) with 4-tab analytics dashboard
 - Network-accessible UI
 - Mobile-friendly design
 
@@ -76,31 +108,42 @@ The AI Wellness Buddy is a comprehensive emotional support system with the follo
 
 ### 1. Emotion Analysis
 
-**Real-time sentiment analysis** using natural language processing:
+**Real-time sentiment and multi-emotion analysis** using NLP:
 
 **Technologies:**
-- TextBlob for sentiment analysis
-- NLTK for text processing
-- Custom keyword detection
+- TextBlob for sentiment analysis (polarity −1 to +1)
+- NLTK for language understanding
+- Custom keyword dictionaries per emotion
+- OLS regression for trend forecasting
 
 **What It Analyzes:**
 ```python
 {
-  "polarity": 0.5,           # -1 (negative) to +1 (positive)
-  "subjectivity": 0.6,       # 0 (objective) to 1 (subjective)
-  "emotion": "positive",     # Category: positive, neutral, negative, distress
-  "severity": "low",         # Severity: low, medium, high
-  "distress_keywords": [],   # 24 distress indicators detected
-  "abuse_indicators": []     # 16 abuse-related keywords detected
+  # Coarse fields (backward-compatible)
+  "polarity": -0.45,
+  "subjectivity": 0.7,
+  "emotion": "negative",        # positive / neutral / negative / distress
+  "severity": "medium",
+  "distress_keywords": ["sad"],
+  "abuse_indicators": [],
+  "has_abuse_indicators": False,
+
+  # Fine-grained fields (new)
+  "primary_emotion": "sadness", # joy / sadness / anger / fear / anxiety / crisis
+  "emotion_scores": {"joy": 0, "sadness": 2, "anger": 0, "fear": 0, "anxiety": 0},
+  "explanation": "Detected 'sadness' due to keywords: sad, hopeless",
+  "is_crisis": False,
+  "crisis_keywords": []
 }
 ```
 
 **Example Interaction:**
 ```
-You: I'm feeling really happy today! Everything is going well.
-Wellness Buddy: That's wonderful to hear! I'm glad you're experiencing such positive feelings...
+You: I feel so sad and hopeless today.
+Wellness Buddy: I'm so sorry you're feeling this way. Your sadness is real and it
+  matters — I'm here with you. 💙
 
-[Emotion Analysis: positive, polarity: +0.85, severity: low]
+  _(Analysis: Detected 'sadness' due to keywords: sad, hopeless)_
 ```
 
 ### 2. Pattern Tracking
@@ -108,29 +151,39 @@ Wellness Buddy: That's wonderful to hear! I'm glad you're experiencing such posi
 **Monitors emotional patterns** over time with configurable windows:
 
 **Session-Level Tracking:**
-- Last 10 messages (configurable)
-- Consecutive distress detection
+- Last 10 messages (configurable via `PATTERN_TRACKING_WINDOW`)
+- Consecutive distress detection (now tracks fine-grained emotions)
 - Trend analysis (improving, stable, declining)
+- Moving average (3-message window smooths noise)
+- Emotional volatility and stability index (0 = volatile, 1 = stable)
+- Emotion distribution: counts per fine-grained emotion
+- Formula-based risk score (see Section 4)
 
 **Long-Term Tracking:**
 - 365 days of emotional history
 - Weekly, monthly, quarterly reviews
 - Seasonal pattern detection
 
-**Pattern Summary Example:**
+**Pattern Summary Example (updated):**
 ```
 📊 Current Session Pattern:
-  Total messages: 12
-  Distress messages: 2
-  Distress ratio: 16.7%
-  Average sentiment: +0.15
-  Trend: Stable
-  Consecutive distress: 0
+  Messages analyzed: 5
+  Emotional trend: DECLINING
+  Average sentiment: -0.32 (negative)
+  Risk level: HIGH (score: 0.68)
+  Stability index: 0.81 (volatility: 0.19)
+
+  Emotion breakdown:
+    sadness: 3 message(s)
+    anxiety: 2 message(s)
 
 📊 Last 7 Days:
   Check-ins: 5
-  Average sentiment: +0.25
-  Trend: Improving ✨
+  Mood streak: 0 positive session(s)
+  Overall sentiment: -0.15 (negative)
+
+📡 Next-Session Forecast (medium confidence):
+  Neutral to slightly low mood expected — extra self-care may help.
 ```
 
 ### 3. Distress Alert System
@@ -179,23 +232,268 @@ Please consider reaching out to professional support:
 {
   "user_id": "username",
   "created_at": "2025-03-01T10:00:00",
-  "last_session": "2026-02-22T15:30:00",
+  "last_session": "2026-02-24T15:30:00",
   "gender": "female",
-  "session_count": 287,
-  "emotional_history": [...]  # 365 days of snapshots
+  "relationship_status": "single",
+  "family_background": "Grew up in a single-parent household.",
+  "trauma_history": [{"description": "...", "date": "2024-01-01"}],
+  "personal_triggers": ["abandonment", "criticism"],
+  "response_style": "balanced",    # short / balanced / detailed
+  "mood_streak": 3,                # consecutive positive sessions
+  "wellness_badges": ["first_step", "streak_3", "self_aware"],
+  "session_count": 14,
+  "emotional_history": [...]       # 365-day rolling snapshots
 }
 ```
 
 **Profile Features:**
 - Create and load profiles
 - Gender-specific support
+- Personal history for trauma-aware, trigger-aware responses
+- Response style preference (short/balanced/detailed)
+- Mood streak and badge tracking
 - Trusted contact management
 - Safety preferences
-- Session history
+- Password protection and session history
 
 ---
 
-## Extended Tracking Features (NEW)
+## Multi-Emotion Detection & XAI
+
+### Emotion Classes
+
+The system classifies each message into one of **6 fine-grained emotions** instead of the old positive/negative:
+
+| Emotion | Example triggers | Risk weight |
+|---------|-----------------|-------------|
+| `joy` | happy, grateful, elated | 0.00 |
+| `neutral` | (polarity fallback) | 0.10 |
+| `anxiety` | anxious, overwhelmed, stressed | 0.55 |
+| `anger` | angry, furious, resentful | 0.45 |
+| `fear` | scared, terrified, dreading | 0.60 |
+| `sadness` | sad, depressed, hopeless | 0.65 |
+| `crisis` | suicide, self-harm, end my life | 1.00 |
+
+### Crisis Detection
+
+15+ crisis keywords trigger **immediate escalation** regardless of polarity. The `is_crisis` flag is set to `True` and the response directs to 988 immediately:
+
+```
+I'm very concerned about what you've shared, and I want you to know that your
+life matters deeply. Please reach out to the 988 Suicide & Crisis Lifeline
+(call or text 988) right now — they're available 24/7. 💙
+```
+
+### XAI — Keyword Attribution
+
+Every non-positive response includes a transparent explanation:
+
+```
+_(Analysis: Detected 'anxiety' due to keywords: anxious, overwhelmed)_
+```
+
+This helps users understand how the AI is reading their messages.
+
+---
+
+## Risk Scoring & Trend Modeling
+
+### Formula-Based Risk Score
+
+Instead of a simple threshold, the system computes:
+
+```
+base_score   = mean(emotion_risk_weight for each recent message)
+consec_bonus = min(0.5, consecutive_distress × 0.10)
+abuse_boost  = 0.20 if abuse keywords detected, else 0
+total_score  = min(1.0, base_score + consec_bonus + abuse_boost)
+```
+
+**Levels:**
+| Score | Level | Example response |
+|-------|-------|-----------------|
+| < 0.20 | 🟢 Low | Continue normal support |
+| 0.20–0.44 | 🟡 Medium | Show additional resources |
+| 0.45–0.69 | 🔴 High | Distress alert triggered |
+| ≥ 0.70 | 🚨 Critical | Immediate crisis response |
+
+### Moving Average
+
+The 3-message moving average smooths out single-message noise so the trend chart is more readable.
+
+### Volatility & Stability Index
+
+```python
+volatility     = std_dev(sentiment_history)   # 0 = flat, 1 = highly erratic
+stability_index = 1.0 - volatility            # 0 = unstable, 1 = perfectly stable
+```
+
+Both are shown in `status` and the ⚠️ Risk Dashboard tab.
+
+---
+
+## Emotion Forecasting (Prediction Agent)
+
+### Next-Session Sentiment Prediction
+
+Using **Ordinary Least Squares (OLS) linear regression** on past session sentiment values:
+
+```python
+prediction = {
+    "predicted_value": -0.12,           # next expected polarity
+    "trend_slope":     -0.035,          # rate of change per session
+    "confidence":      "medium",        # low (3-4 pts) / medium (5-9) / high (10+)
+    "interpretation":  "Neutral to slightly low mood expected — extra self-care may help.",
+    "data_points_used": 7
+}
+```
+
+### Risk Escalation Prediction
+
+```python
+risk_escalation = {
+    "will_escalate":   True,
+    "predicted_risk":  0.72,
+    "recommendation":  "Risk appears to be increasing. Consider proactive check-in..."
+}
+```
+
+Both predictions are shown in:
+- The `status` command output
+- The 📋 Weekly Report tab
+- The 📈 Emotional Trends tab
+
+No external ML dependencies required — pure Python OLS.
+
+---
+
+## Personal History & Context Awareness
+
+### Profile Fields
+
+| Field | Purpose |
+|-------|---------|
+| `trauma_history` | List of past trauma entries — responses add extra sensitivity |
+| `personal_triggers` | Words/topics to acknowledge gently if mentioned in a message |
+| `relationship_status` | Used for life-transition empathy (divorce, bereavement, etc.) |
+| `family_background` | Background context for culturally-sensitive responses |
+
+### Setting Up in the CLI
+
+During profile creation you will be asked:
+```
+Relationship / marital status: divorced
+Family background (optional): Single parent; estranged from parents.
+Any trauma or significant loss? (optional): Lost spouse in 2023.
+Sensitive topics (comma-separated, optional): death, hospital
+```
+
+You can also add or update this information later:
+```
+You: profile
+> 4. View personal history
+> 5. Add trauma / trigger
+```
+
+### How It Affects Responses
+
+When a personal trigger is detected in a message:
+```
+I noticed you touched on something that may feel especially sensitive for you.
+It's completely okay to go at your own pace — I'm here with you, no matter what.
+```
+
+When the user has trauma history and expresses sadness:
+```
+I also want you to know — given everything you've been through before, your
+resilience is real. You are not alone in this moment. 💙
+```
+
+---
+
+## Response Style & Personalization
+
+### Choosing a Style
+
+Set during profile creation or via `profile > Change response style`:
+
+| Style | Description | Best for |
+|-------|-------------|---------|
+| `short` | 1–2 sentences, direct | Users who prefer brevity |
+| `balanced` | 2–4 sentences (default) | Most users |
+| `detailed` | 4–6 sentences with questions | Users who want more dialogue |
+
+### Example (Anxiety, all three styles)
+
+**Short:**
+> Anxiety is exhausting. Take a slow breath — I'm here with you.
+
+**Balanced:**
+> Anxiety is exhausting, and I hear you. Take a slow breath — I'm right here with you. 💙
+
+**Detailed:**
+> Anxiety can be completely exhausting — your mind and body are working so hard. I want you to know that what you're feeling is real and understandable, and I'm here to sit with you through it. 💙 Sometimes it helps to just name what you're anxious about — would you like to try?
+
+---
+
+## Gamification (Mood Streak & Badges)
+
+### Mood Streak
+
+The system counts **consecutive sessions where the average sentiment is positive (> 0)**. The streak is shown at session end and in the ⚠️ Risk Dashboard.
+
+```
+🔥 Mood Streak: 3 consecutive positive session(s)
+```
+
+The streak resets to 0 after a negative or distress session.
+
+### Wellness Badges
+
+Eight badges are awarded automatically at session end:
+
+| Badge | Condition |
+|-------|----------|
+| 🌱 First Step | Complete your first session |
+| 📅 Consistent | Complete 7 sessions |
+| 💪 Dedicated | Complete 30 sessions |
+| 🔥 3-Day Streak | 3 consecutive positive sessions |
+| ⭐ 7-Day Streak | 7 consecutive positive sessions |
+| 🌈 Resilient | Recover from a High/Critical risk session |
+| 🧠 Self-Aware | Add trauma history or personal triggers |
+| 💚 Connected | Add a trusted contact |
+
+Badges are shown in the ⚠️ Risk Dashboard and at session end.
+
+### Weekly Summary Report
+
+Type `weekly` (or `report`) to get a 7-day report:
+
+```
+📋 WEEKLY WELLNESS SUMMARY
+
+📅 Period         : Last 7 days
+✅ Check-ins       : 5
+📈 Average mood    : -0.08 — 😐 Neutral / Mixed
+⚠️  Risk incidents  : 1
+🔥 Mood streak     : 0 positive session(s)
+
+🎭 Emotion Distribution:
+   sadness       3 messages  (60%)
+   anxiety       1 messages  (20%)
+   neutral       1 messages  (20%)
+
+📡 Next-Session Forecast (medium confidence):
+   Neutral to slightly low mood expected — extra self-care may help.
+
+💡 Suggestions:
+   - Consider reaching out to a friend or trusted contact this week.
+   - Try one small act of self-care today — even a short walk helps.
+```
+
+---
+
+## Extended Tracking Features
 
 ### 1. One Year Emotional History
 
@@ -288,7 +586,7 @@ CONVERSATION_ARCHIVE_DAYS = 180  # Archive after 6 months
 
 ---
 
-## Security Features (NEW)
+## Security Features
 
 ### 1. Password Protection
 
@@ -550,7 +848,7 @@ Your trusted contacts:
 
 ---
 
-## Guardian Alert System (NEW)
+## Guardian Alert System
 
 ### Overview
 
@@ -652,7 +950,7 @@ Your designated guardians/emergency contacts have been notified.
 
 ---
 
-## Government Resources for Women (NEW)
+## Government Resources for Women
 
 The system includes an extensive database of government-backed and legal resources specifically for women, displayed automatically when abuse indicators are detected in a female user's session.
 
@@ -736,28 +1034,35 @@ python wellness_buddy.py
 
 **Commands:**
 ```
-help      - Show support resources
-status    - View emotional patterns
-profile   - Manage profile and contacts
-quit      - End session and save
+help              - Show support resources and trusted contacts
+status            - View risk level, stability index, emotion distribution, 7-day history
+weekly / report   - Generate 7-day wellness report with AI forecast
+profile           - Manage personal history, response style, contacts, security
+quit              - End session and save (streak and badges updated)
 ```
 
-### 2. Web Browser UI (Streamlit)
+### 2. Web Browser UI (Streamlit) — 4-Tab Analytics Dashboard
 
-**Modern browser-based interface:**
+**Modern browser-based interface with full analytics:**
 
 **Starting:**
 ```bash
 streamlit run ui_app.py
 ```
 
-**Features:**
-- Visual, point-and-click interface
-- Real-time chat display
-- Sidebar navigation
-- Profile management UI
-- Session statistics
-- Resource links
+**Tab Layout:**
+
+| Tab | What it shows |
+|-----|--------------|
+| 💬 **Chat** | Live conversation with XAI annotation per response |
+| 📈 **Emotional Trends** | Sentiment line chart, 3-msg moving average, emotion distribution bar chart, 30-day history, OLS forecast, stability/volatility metrics |
+| ⚠️ **Risk Dashboard** | Risk level + progress bar (🟢🟡🔴🚨), volatility/stability/consecutive distress metrics, 30-day risk history, escalation forecast, mood streak, badges |
+| 📋 **Weekly Report** | 7-day KPIs, emotion distribution, improvement suggestions, OLS forecast |
+
+**Sidebar (always visible):**
+- Current user and session number
+- Live risk level indicator (updates after every message)
+- Quick-action buttons: Help & Resources, Emotional Status, Manage Profile, End Session
 
 **Access:**
 ```
@@ -1013,20 +1318,42 @@ GREETING_MESSAGES = [
 
 ## Feature Comparison
 
+### Emotion Analysis Comparison
+
+| Aspect | Previous | **Current** |
+|--------|----------|-------------|
+| Emotion classes | positive / neutral / negative / distress | **joy / sadness / anger / fear / anxiety / crisis** |
+| Crisis detection | Keyword threshold | **Dedicated 15-keyword crisis list** |
+| XAI attribution | No | **Keyword explanation in every response** |
+| Risk scoring | Polarity threshold (-0.3) | **Formula: base + consecutive + abuse** |
+| Risk levels | Distress / Not distress | **Low / Medium / High / Critical** |
+| Stability index | No | **Volatility + stability (0–1)** |
+| Moving average | No | **3-message sliding average** |
+
+### Personalization Comparison
+
+| Feature | Previous | **Current** |
+|---------|----------|-------------|
+| Personal history | No | **Trauma, triggers, marital status, family background** |
+| Response styles | One generic template | **Short / Balanced / Detailed per emotion** |
+| Mood streak | No | **Consecutive positive sessions** |
+| Wellness badges | No | **8 badge types** |
+| Weekly report | No | **`weekly` command with OLS forecast** |
+
 ### Tracking Duration Comparison
 
-| Aspect | Previous | **NEW Extended** |
-|--------|----------|------------------|
+| Aspect | Previous | **Current** |
+|--------|----------|-------------|
 | Emotional History | 90 days | **365 days** |
 | Pattern Analysis | Short-term | **Long-term** |
 | Seasonal Detection | Limited | **Full year** |
-| Milestone Tracking | No | **Yes** |
-| Progress Reports | Basic | **Comprehensive** |
+| Forecast | No | **OLS next-session prediction** |
+| Risk trend | No | **Risk escalation forecast** |
 
 ### Security Comparison
 
-| Feature | Previous | **NEW Enhanced** |
-|---------|----------|------------------|
+| Feature | Previous | **Current** |
+|---------|----------|-------------|
 | Password Protection | No | **Yes** |
 | Data Encryption | No | **AES-256** |
 | Session Timeout | No | **Yes** |
@@ -1036,8 +1363,8 @@ GREETING_MESSAGES = [
 
 ### Guardian Alert Comparison
 
-| Feature | Previous | **NEW Guardian System** |
-|---------|----------|-------------------------|
+| Feature | Previous | **Current** |
+|---------|----------|-------------|
 | Guardian Contacts | No | **Yes** |
 | Emergency Notifications | No | **Yes** |
 | Severity Thresholds | No | **Low/Medium/High** |
@@ -1050,7 +1377,7 @@ GREETING_MESSAGES = [
 | Interface | Features | Best For |
 |-----------|----------|----------|
 | **CLI** | Text-based, simple | Quick check-ins, servers |
-| **Web UI** | Visual, modern | Daily use, longer sessions |
+| **Web UI** | 4-tab analytics dashboard | Daily use, pattern review |
 | **Network UI** | Multi-device | Mobile access, family sharing |
 
 ---
@@ -1138,16 +1465,34 @@ A: Default is 'high' severity only. Change `GUARDIAN_ALERT_THRESHOLD` in `config
 The AI Wellness Buddy provides:
 
 ### Core Capabilities
-✅ Real-time emotion analysis
-✅ Pattern tracking and alerts
+✅ Real-time multi-emotion analysis (joy/sadness/anger/fear/anxiety/crisis)
+✅ Crisis detection with 988/911 immediate escalation
+✅ XAI keyword attribution in every response
+✅ Pattern tracking and intelligent distress alerts
 ✅ Crisis resource connections
 ✅ Persistent user profiles
 
-### Extended Features
-✅ 365-day tracking (up from 90)
+### Intelligent Analysis & Forecasting
+✅ Formula-based risk scoring (Low/Medium/High/Critical)
+✅ Emotional volatility and stability index
+✅ 3-message moving average smoothing
+✅ OLS next-session mood prediction
+✅ Risk escalation forecasting
+
+### Personalization
+✅ Personal history: trauma, triggers, marital status, family background
+✅ Response style preference (short/balanced/detailed)
+✅ Warm, humanoid, context-aware responses
+
+### Gamification
+✅ Mood streak (consecutive positive sessions)
+✅ 8 wellness badge types
+✅ Weekly summary report with improvement suggestions
+
+### Extended Tracking
+✅ 365-day emotional history
 ✅ Long-term pattern analysis
 ✅ Seasonal trend detection
-✅ Progress milestones
 
 ### Security
 ✅ Password protection
@@ -1173,7 +1518,7 @@ The AI Wellness Buddy provides:
 
 ### Interfaces
 ✅ Command-line (CLI)
-✅ Web browser (Streamlit)
+✅ Web browser (Streamlit) — 4-tab analytics dashboard
 ✅ Network access (multi-device)
 
 ---

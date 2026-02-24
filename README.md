@@ -6,14 +6,28 @@ An AI-based emotional wellness support system that provides continuous text-base
 
 ### Core Capabilities
 - **Persistent User Profiles**: Private profiles with secure local storage for continuous support across sessions
-- **Extended Emotional History**: **NEW: 365-day tracking** (upgraded from 90 days) for comprehensive long-term pattern analysis
-- **Text-based Emotional Interaction**: Continuous conversational support with emotion-aware responses
-- **Emotion Analysis**: Advanced sentiment analysis and emotion classification using natural language processing
-- **Pattern Tracking**: Monitors emotional trends over time to identify concerning patterns
+- **Extended Emotional History**: 365-day tracking for comprehensive long-term pattern analysis
+- **Text-based Emotional Interaction**: Continuous conversational support with emotion-aware, humanoid responses
+- **Multi-Emotion Analysis**: Fine-grained classification of **joy, sadness, anger, fear, anxiety, and crisis** using NLP — not just positive/negative
+- **Crisis Detection**: Dedicated crisis keyword detection with immediate 988 / 911 escalation
+- **XAI Explanations**: Every response shows which keywords drove the emotion classification (e.g. *"Detected 'anxiety' due to keywords: anxious, overwhelmed"*)
+- **Pattern Tracking**: Monitors emotional trends over time including moving average, volatility, and stability index
+- **Formula-based Risk Scoring**: Intelligent Low / Medium / High / Critical risk score (not simple threshold logic)
+- **Emotion Trend Forecasting**: OLS linear regression predicts next-session mood and risk escalation
 - **Distress Alert System**: Automatically triggers alerts when sustained emotional distress is detected (3+ consecutive distress messages)
 - **Resource Connection**: Provides immediate access to crisis hotlines and support resources
 
-### Enhanced Security Features 🔒 NEW
+### Personal History & Context Awareness 🧠
+- **Trauma History**: Record past trauma so responses are extra sensitive to your experience
+- **Personal Triggers**: Flag topics or words that are especially sensitive — the system responds with extra care when they arise
+- **Marital / Relationship Status**: Used to personalise responses for transitions like divorce or loss
+- **Family Background**: Gives context for empathetic, culturally-aware support
+- **Response Style Preference**: Choose **Short**, **Balanced** (default), or **Detailed** replies to match how you like to communicate
+
+### Gamification & Wellness Tracking 🏅
+- **Mood Streak**: Consecutive positive-mood session counter to celebrate progress
+- **Wellness Badges**: Earn 8 badge types — First Step, Consistent (7 sessions), Dedicated (30 sessions), 3-Day Streak, 7-Day Streak, Resilient, Self-Aware, Connected
+- **Weekly Summary Report**: Full 7-day breakdown — emotion distribution, risk incidents, average mood, suggestions, and OLS forecast — available via the `weekly` command
 - **Password Protection**: Secure profile access with password/PIN (SHA-256 hashing)
 - **Data Encryption**: AES-256 encryption for all stored data
 - **Session Timeout**: Automatic logout after inactivity (default: 30 minutes)
@@ -22,7 +36,7 @@ An AI-based emotional wellness support system that provides continuous text-base
 - **Automatic Backups**: Timestamped backups before critical operations
 - **File Permissions**: Owner-only access to data files (Unix/Linux)
 
-### Guardian Alert System 👨‍👩‍👧‍👦 NEW
+### Guardian Alert System 👨‍👩‍👧‍👦
 - **Emergency Contact Notification**: Alerts designated guardians (therapist, family, friends) during severe distress
 - **Multi-Level Severity**: Configure alerts for low, medium, or high severity distress
 - **Privacy-Respecting**: System asks before notifying guardians (optional auto-notify)
@@ -34,9 +48,9 @@ An AI-based emotional wellness support system that provides continuous text-base
 - **Safe Support Network**: Avoid harmful family contacts in toxic situations; guide toward trusted friends and organizations
 - **Trusted Contacts Management**: Add and manage your own safe support network (friends, not family if unsafe)
 - **Women's Organizations**: Direct connection to specialized women's support organizations
-- **Government Resources**: ⭐ **NEW**: Access to 15+ government agencies (Office on Women's Health, Violence Against Women Office, Legal Services)
-- **Legal Aid Connections**: ⭐ **NEW**: National Women's Law Center, Legal Services Corporation, American Bar Association
-- **Mental Health Support**: ⭐ **NEW**: Women-specific mental health resources (NIMH Women's Health, Postpartum Support)
+- **Government Resources**: Access to 15+ government agencies (Office on Women's Health, Violence Against Women Office, Legal Services)
+- **Legal Aid Connections**: National Women's Law Center, Legal Services Corporation, American Bar Association
+- **Mental Health Support**: Women-specific mental health resources (NIMH Women's Health, Postpartum Support)
 - **Abuse Detection**: Identifies potential indicators of emotional abuse in toxic family or marital environments
 - **Safety Navigation**: Direct connection to domestic violence hotlines and safety planning resources
 - **User Control**: You decide who to trust and what support you need
@@ -109,22 +123,24 @@ The system remembers you! When you return:
 
 1. **Create/Load Profile**: Choose a username to create a new profile or load an existing one
 2. **Setup Support Network**: Add trusted friends and mark unsafe family if needed (optional)
-3. **Share Your Feelings**: Type messages describing how you're feeling
-4. **Receive Support**: Get empathetic responses based on your emotional patterns over time
-5. **Access Resources**: Type 'help' to see support hotlines and your trusted contacts
-6. **Track Patterns**: Type 'status' to view current session and long-term emotional history
-7. **Manage Profile**: Type 'profile' to add trusted contacts or update settings
-8. **End Session**: Type 'quit' to safely end and save your session
+3. **Share Your Feelings**: Type messages describing how you're feeling — get warm, emotion-specific responses
+4. **Receive Support**: Get empathetic responses personalised to your emotional state and personal history
+5. **Access Resources**: Type `help` to see support hotlines and your trusted contacts
+6. **Track Patterns**: Type `status` to view current session risk level, stability index, emotion distribution, and 7-day history
+7. **Weekly Summary**: Type `weekly` (or `report`) to get a 7-day emotion report with AI forecast and improvement suggestions
+8. **Manage Profile**: Type `profile` to update personal history, response style, trusted contacts, and settings
+9. **End Session**: Type `quit` to safely end and save your session (streak and badges updated automatically)
 
 ### Commands
-- `help` - Display support resources, hotlines, and your trusted contacts
-- `status` - Show emotional pattern summary (current session + last 7 days, or full year)
-- `profile` - Manage trusted contacts, security settings, and delete data
-- `quit` - End the session and save your progress
+- `help` — Display support resources, hotlines, and your trusted contacts
+- `status` — Show emotional pattern summary with risk level, stability index, and emotion distribution
+- `weekly` / `report` — Generate a 7-day wellness report with forecast and suggestions
+- `profile` — Manage personal history, response style, trusted contacts, security, and delete data
+- `quit` — End the session and save your progress
 
 ## 🔒 Privacy & Security
 
-### Enhanced Security Features (NEW)
+### Enhanced Security Features
 - **Password Protection**: Set a password to protect your profile from unauthorized access
 - **AES-256 Encryption**: All data encrypted at rest with industry-standard encryption
 - **Session Timeout**: Automatic logout after 30 minutes of inactivity
@@ -173,20 +189,27 @@ The system remembers you! When you return:
 ## 🧠 How It Works
 
 ### User-Centric Design
-The system builds a private profile for each user and continuously understands their emotional history through daily conversations. Instead of just reacting to single messages, it observes emotional patterns over time and responds with empathetic, supportive replies that validate feelings.
+The system builds a private profile for each user and continuously understands their emotional history through daily conversations. It tracks personal context — trauma history, personal triggers, marital status, family background — so every response is warm, sensitive, and tailored to the individual.
 
-### Emotion Analysis
-The system uses TextBlob for sentiment analysis, combined with keyword detection to:
-- Analyze emotional polarity (positive to negative)
-- Detect distress-related keywords (24+ indicators)
-- Identify potential abuse indicators (16+ indicators)
-- Classify emotional states (positive, neutral, negative, distress)
+### Multi-Emotion Analysis
+The system uses TextBlob for sentiment analysis combined with keyword detection to:
+- Classify one of **6 fine-grained emotions**: joy, sadness, anger, fear, anxiety, or crisis
+- Detect **15+ crisis keywords** for immediate escalation to 988/911
+- Detect **24+ distress keywords** and **16+ abuse indicators**
+- Provide **XAI attribution** — show exactly which keywords drove the classification
+- Fall back to polarity-based classification when no keywords match
 
-### Pattern Tracking
-- **Session-level**: Rolling window of recent emotional states within current session
-- **Multi-day**: Tracks emotional history across sessions (up to 365 days)
-- Tracks consecutive distress messages
-- Calculates emotional trends (improving, stable, declining)
+### Pattern Tracking & Risk Scoring
+- **Session-level**: Rolling window of recent emotional states within the current session
+- **Moving average**: 3-message sliding average smooths out noise
+- **Volatility & stability index**: Measures how consistent mood is (0 = volatile, 1 = stable)
+- **Formula-based risk score**: `base(emotion weights) + consecutive_factor + abuse_boost` → Low / Medium / High / Critical
+- **365-day history**: Tracks emotional snapshots for long-term trend analysis
+
+### Emotion Forecasting
+- **OLS linear regression** on historical sentiment values predicts the next session's mood
+- **Risk escalation prediction**: Forecasts whether risk is trending upward
+- Confidence level grows with more data points (low/medium/high)
 - Monitors for sustained distress patterns
 
 ### Alert System with Safety Features
@@ -210,27 +233,29 @@ The system uses TextBlob for sentiment analysis, combined with keyword detection
 
 ```
 AI-wellness-Buddy/
-├── wellness_buddy.py       # Main application with profile management
-├── emotion_analyzer.py     # Emotion analysis and sentiment detection
-├── pattern_tracker.py      # Emotional pattern tracking
+├── wellness_buddy.py       # Main application / orchestrator (CLI)
+├── emotion_analyzer.py     # Multi-emotion analysis, crisis detection, XAI
+├── pattern_tracker.py      # Pattern tracking, risk scoring, volatility, stability
+├── prediction_agent.py     # OLS emotion & risk forecasting (NEW)
 ├── alert_system.py         # Distress alert management with safety features
-├── conversation_handler.py # Conversation flow management
-├── user_profile.py         # User profile with trusted contacts
-├── data_store.py          # Persistent data storage
-├── config.py              # Configuration settings
-├── ui_app.py              # Streamlit web interface
-├── start_ui.sh            # Local UI launcher script
-├── start_ui_network.sh    # Network UI launcher script (NEW)
+├── conversation_handler.py # Emotion-routed, style-aware response generation
+├── user_profile.py         # Profile, personal history, gamification, badges
+├── data_store.py           # Persistent encrypted data storage
+├── config.py               # Configuration settings
+├── ui_app.py               # Streamlit web interface (4-tab: Chat/Trends/Risk/Report)
+├── start_ui.sh             # Local UI launcher script
+├── start_ui_network.sh     # Network UI launcher script
 ├── .streamlit/
-│   └── config.toml        # Streamlit network configuration
-├── requirements.txt       # Python dependencies
-├── README.md              # This file
-├── USAGE.md               # Quick start guide
-├── UI_GUIDE.md            # Web UI guide
-├── NETWORK_DEPLOYMENT.md  # Network deployment guide
-├── SECURITY.md            # Security features guide (NEW)
-├── DATA_RETENTION.md      # Data tracking and retention guide (NEW)
-├── COMPLETE_FEATURE_GUIDE.md  # Complete feature documentation (NEW)
+│   └── config.toml         # Streamlit network configuration
+├── requirements.txt        # Python dependencies
+├── README.md               # This file
+├── USAGE.md                # Quick start guide
+├── UI_GUIDE.md             # Web UI guide
+├── NETWORK_DEPLOYMENT.md   # Network deployment guide
+├── SECURITY.md             # Security features guide
+├── DATA_RETENTION.md       # Data tracking and retention guide
+├── OPERATION_GUIDE.md      # Full operational guide
+├── COMPLETE_FEATURE_GUIDE.md  # Complete feature documentation
 └── TECHNOLOGIES_AND_DATASETS.md  # Technologies and datasets documentation
 ```
 
