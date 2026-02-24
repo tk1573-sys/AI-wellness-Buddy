@@ -176,9 +176,9 @@ class UserProfile:
         streak = self.profile_data.get('mood_streak', 0)
 
         conditions = {
-            'first_session': session_count >= 0,   # awarded after the first save
-            'sessions_7':    session_count >= 6,
-            'sessions_30':   session_count >= 29,
+            'first_session': session_count >= 1,   # awarded after the first completed session
+            'sessions_7':    session_count >= 7,
+            'sessions_30':   session_count >= 30,
             'streak_3':      streak >= 3,
             'streak_7':      streak >= 7,
             'recovered':     recovered_from_distress,

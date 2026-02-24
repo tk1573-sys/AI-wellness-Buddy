@@ -58,7 +58,7 @@ class PredictionAgent:
 
         # Human-readable interpretation
         if predicted > 0.3:
-            interpretation = 'Positive mood expected — keep nurturing what's working.'
+            interpretation = "Positive mood expected — keep nurturing what is working."
         elif predicted > 0.0:
             interpretation = 'Mildly positive mood expected — gentle progress ahead.'
         elif predicted > -0.3:

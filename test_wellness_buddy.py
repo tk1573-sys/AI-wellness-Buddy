@@ -335,6 +335,212 @@ def test_personalized_responses():
     print("\n✓ Personalized response tests passed")
 
 
+def test_multi_emotion_detection():
+    """Test fine-grained multi-emotion detection and XAI explanation"""
+    print("\n" + "="*70)
+    print("TEST 10: Multi-Emotion Detection & XAI")
+    print("="*70)
+
+    analyzer = EmotionAnalyzer()
+
+    cases = [
+        ("I'm so happy and excited about life!", 'joy'),
+        ("I feel deeply sad and empty inside", 'sadness'),
+        ("I'm furious and so angry at this situation", 'anger'),
+        ("I'm really scared and terrified of what might happen", 'fear'),
+        ("I feel so anxious and overwhelmed by everything", 'anxiety'),
+        ("I want to kill myself and end it all", 'crisis'),
+    ]
+
+    for text, expected_primary in cases:
+        result = analyzer.classify_emotion(text)
+        primary = result['primary_emotion']
+        explanation = result['explanation']
+        print(f"\nText: '{text}'")
+        print(f"  Primary emotion: {primary}  (expected: {expected_primary})")
+        print(f"  Coarse emotion:  {result['emotion']}")
+        print(f"  Explanation:     {explanation}")
+        assert primary == expected_primary, f"Expected '{expected_primary}', got '{primary}'"
+        assert explanation, "Explanation should not be empty"
+
+    # Crisis flag
+    crisis_result = analyzer.classify_emotion("I want to kill myself")
+    assert crisis_result['is_crisis'] is True, "Crisis flag should be True"
+    assert crisis_result['crisis_keywords'], "Crisis keywords should be detected"
+
+    print("\n✓ Multi-emotion detection tests passed")
+
+
+def test_risk_scoring():
+    """Test formula-based risk scoring system"""
+    print("\n" + "="*70)
+    print("TEST 11: Risk Scoring System")
+    print("="*70)
+
+    from pattern_tracker import PatternTracker
+    from emotion_analyzer import EmotionAnalyzer
+
+    analyzer = EmotionAnalyzer()
+    tracker = PatternTracker()
+
+    # Low risk — positive messages
+    for msg in ["I'm happy today", "Life is great", "Feeling wonderful"]:
+        tracker.add_emotion_data(analyzer.classify_emotion(msg))
+
+    score, level = tracker.compute_risk_score()
+    print(f"\nAfter positive messages: score={score:.2f}, level={level}")
+    assert level in ('low', 'medium'), f"Expected low/medium risk, got {level}"
+
+    # Build up to high risk
+    tracker2 = PatternTracker()
+    for msg in ["I feel so sad and hopeless", "I'm scared and anxious",
+                "I feel trapped and afraid", "Everything is terrible"]:
+        tracker2.add_emotion_data(analyzer.classify_emotion(msg))
+
+    score2, level2 = tracker2.compute_risk_score()
+    print(f"After distress messages: score={score2:.2f}, level={level2}")
+    assert level2 in ('medium', 'high', 'critical'), f"Expected elevated risk, got {level2}"
+
+    # Critical risk — crisis message
+    tracker3 = PatternTracker()
+    tracker3.add_emotion_data(analyzer.classify_emotion("I want to kill myself"))
+    score3, level3 = tracker3.compute_risk_score()
+    print(f"After crisis message: score={score3:.2f}, level={level3}")
+    assert level3 in ('high', 'critical'), f"Expected high/critical, got {level3}"
+
+    print("\n✓ Risk scoring tests passed")
+
+
+def test_trend_modeling():
+    """Test moving average, volatility, and stability index"""
+    print("\n" + "="*70)
+    print("TEST 12: Emotional Trend Modeling")
+    print("="*70)
+
+    from pattern_tracker import PatternTracker
+    from emotion_analyzer import EmotionAnalyzer
+
+    analyzer = EmotionAnalyzer()
+    tracker = PatternTracker()
+
+    messages = [
+        "I'm so happy today",
+        "Feeling a bit down",
+        "Great news!",
+        "I'm a bit worried",
+        "Things are looking up",
+    ]
+    for msg in messages:
+        tracker.add_emotion_data(analyzer.classify_emotion(msg))
+
+    ma = tracker.get_moving_average(window=3)
+    print(f"\nMoving average (window=3): {[round(v, 3) for v in ma]}")
+    assert len(ma) == len(messages) - 3 + 1, "Moving average length incorrect"
+
+    volatility, stability = tracker.get_volatility_and_stability()
+    print(f"Volatility: {volatility:.3f}, Stability index: {stability:.3f}")
+    assert 0.0 <= volatility <= 1.0, "Volatility out of range"
+    assert 0.0 <= stability <= 1.0, "Stability out of range"
+    assert abs(volatility + stability - 1.0) < 0.001, "Volatility + Stability should equal 1"
+
+    dist = tracker.get_emotion_distribution()
+    print(f"Emotion distribution: {dist}")
+    assert isinstance(dist, dict), "Distribution should be a dict"
+    assert sum(dist.values()) == len(messages), "Distribution counts should sum to message count"
+
+    print("\n✓ Trend modeling tests passed")
+
+
+def test_prediction_agent():
+    """Test OLS prediction agent"""
+    print("\n" + "="*70)
+    print("TEST 13: Prediction Agent")
+    print("="*70)
+
+    from prediction_agent import PredictionAgent
+
+    agent = PredictionAgent()
+
+    # Insufficient data
+    result = agent.predict_next_sentiment([0.1, 0.2])
+    assert result is None, "Should return None for < 3 data points"
+    print("\nInsufficient data → None (correct)")
+
+    # Improving trend
+    improving = [0.0, 0.1, 0.2, 0.3, 0.4]
+    result_imp = agent.predict_next_sentiment(improving)
+    print(f"Improving trend prediction: {result_imp}")
+    assert result_imp is not None
+    assert result_imp['predicted_value'] > 0.3, "Should predict higher value on upward trend"
+    assert result_imp['trend_slope'] > 0, "Slope should be positive"
+
+    # Declining trend
+    declining = [0.4, 0.3, 0.2, 0.1, 0.0]
+    result_dec = agent.predict_next_sentiment(declining)
+    print(f"Declining trend prediction: {result_dec}")
+    assert result_dec is not None
+    assert result_dec['trend_slope'] < 0, "Slope should be negative"
+
+    # Risk escalation
+    risk_hist = [0.1, 0.2, 0.35, 0.5, 0.65]
+    esc = agent.predict_risk_escalation(risk_hist)
+    print(f"Risk escalation prediction: {esc}")
+    assert esc is not None
+    assert 'will_escalate' in esc
+    assert 'recommendation' in esc
+
+    print("\n✓ Prediction agent tests passed")
+
+
+def test_gamification():
+    """Test mood streak and wellness badges"""
+    print("\n" + "="*70)
+    print("TEST 14: Gamification — Mood Streak & Badges")
+    print("="*70)
+
+    profile = UserProfile('badge_test')
+    profile.set_gender('female')
+
+    # Test mood streak
+    profile.update_mood_streak(0.5)   # positive
+    profile.update_mood_streak(0.3)   # positive
+    profile.update_mood_streak(-0.2)  # negative — resets streak
+    assert profile.get_mood_streak() == 0, "Streak should reset on negative mood"
+
+    profile.update_mood_streak(0.1)   # positive
+    profile.update_mood_streak(0.2)   # positive
+    profile.update_mood_streak(0.4)   # positive
+    assert profile.get_mood_streak() == 3, "Streak should be 3"
+    print(f"\nMood streak: {profile.get_mood_streak()} (expected 3)")
+
+    # Response style
+    profile.set_response_style('short')
+    assert profile.get_response_style() == 'short'
+    profile.set_response_style('invalid')  # should be ignored
+    assert profile.get_response_style() == 'short', "Invalid style should be ignored"
+    print(f"Response style: {profile.get_response_style()} (expected short)")
+
+    # Badge awarding
+    newly = profile.award_badge('first_step')
+    assert newly is True, "Badge should be awarded first time"
+    already = profile.award_badge('first_step')
+    assert already is False, "Badge should not be awarded twice"
+
+    profile.add_trusted_contact('Friend', 'best friend')
+    profile.add_trauma_history('test trauma')
+    awarded = profile.check_and_award_badges(session_avg_sentiment=0.3)
+    print(f"Awarded badges: {awarded}")
+    earned_ids = profile.get_badges()
+    assert 'self_aware' in earned_ids, "self_aware badge should be awarded"
+    assert 'connected' in earned_ids, "connected badge should be awarded"
+
+    display = profile.get_badge_display()
+    print(f"Badge display: {display}")
+    assert len(display) > 0, "Should have at least one badge"
+
+    print("\n✓ Gamification tests passed")
+
+
 def run_all_tests():
     """Run all tests"""
     print("\n" + "="*70)
@@ -351,6 +557,11 @@ def run_all_tests():
         test_full_workflow()
         test_personal_history_profile()
         test_personalized_responses()
+        test_multi_emotion_detection()
+        test_risk_scoring()
+        test_trend_modeling()
+        test_prediction_agent()
+        test_gamification()
         
         print("\n" + "="*70)
         print("   ✓ ALL TESTS COMPLETED SUCCESSFULLY")

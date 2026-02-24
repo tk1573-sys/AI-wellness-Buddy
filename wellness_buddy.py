@@ -458,13 +458,12 @@ class WellnessBuddy:
             avg_sentiment = pattern_summary.get('average_sentiment', 0.0)
         self.user_profile.update_mood_streak(avg_sentiment)
 
-        # Check if recovering from distress
+        # Check if recovering from distress (compare to last completed session)
         prev_history = self.user_profile.get_emotional_history(days=2)
-        recovered = (
-            avg_sentiment > 0 and
-            len(prev_history) >= 2 and
-            prev_history[-2].get('emotion_data', {}).get('risk_level', 'low') in ('high', 'critical')
-        )
+        recovered = False
+        if avg_sentiment > 0 and len(prev_history) >= 1:
+            last_snap = prev_history[-1].get('emotion_data', {})
+            recovered = last_snap.get('risk_level', 'low') in ('high', 'critical')
 
         # Increment session count then check/award badges
         self.user_profile.increment_session_count()
@@ -560,8 +559,10 @@ class WellnessBuddy:
 
         report += f"📅 Period         : Last 7 days\n"
         report += f"✅ Check-ins       : {check_ins}\n"
-        report += f"📈 Average mood    : {avg_weekly:.2f} — {mood_label}\n" if avg_weekly is not None else \
-                  f"📈 Average mood    : N/A\n"
+        if avg_weekly is not None:
+            report += f"📈 Average mood    : {avg_weekly:.2f} — {mood_label}\n"
+        else:
+            report += f"📈 Average mood    : N/A\n"
         report += f"⚠️  Risk incidents  : {risk_incidents}\n"
         report += f"🔥 Mood streak     : {self.user_profile.get_mood_streak()} positive session(s)\n"
 
