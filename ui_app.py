@@ -1,6 +1,7 @@
 """
 Web UI for AI Wellness Buddy using Streamlit.
 Multi-tab layout: Chat | Emotional Trends | Risk Dashboard | Weekly Report
+Supports bilingual Tamil & English with Tanglish and voice input/output.
 Run with: streamlit run ui_app.py
 """
 
@@ -9,6 +10,8 @@ from wellness_buddy import WellnessBuddy
 from user_profile import UserProfile
 from data_store import DataStore
 from prediction_agent import PredictionAgent
+from voice_handler import VoiceHandler
+import config
 import os
 
 # Page configuration
@@ -30,6 +33,8 @@ for key, default in [
     ('show_load', False),
     ('show_create', False),
     ('show_profile_menu', False),
+    ('tts_enabled', True),
+    ('voice_handler', None),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -44,6 +49,8 @@ def init_buddy():
     if st.session_state.buddy is None:
         st.session_state.buddy = WellnessBuddy()
         st.session_state.buddy.data_store = DataStore()
+    if st.session_state.voice_handler is None:
+        st.session_state.voice_handler = VoiceHandler()
 
 
 def load_profile(username):
@@ -111,6 +118,21 @@ def create_new_profile():
             help="Short: brief supportive replies. Detailed: fuller exploration. Balanced: in between."
         )
 
+        language_preference = st.selectbox(
+            "Preferred language / மொழி:",
+            ["English", "Tamil (தமிழ்)", "Bilingual (Tamil + English)"],
+            help=(
+                "English: responses in English only. "
+                "Tamil: responses in Tamil script. "
+                "Bilingual: Tamil + English mixed (best for Tanglish speakers)."
+            ),
+        )
+        _LANG_MAP = {
+            "English": "english",
+            "Tamil (தமிழ்)": "tamil",
+            "Bilingual (Tamil + English)": "bilingual",
+        }
+
         show_safety = False
         if gender == "Female":
             st.info("💙 Specialized support resources for women are available.")
@@ -155,6 +177,8 @@ def create_new_profile():
                 st.session_state.buddy.user_profile.set_relationship_status(marital_status.lower())
             if response_style != "Balanced":
                 st.session_state.buddy.user_profile.set_response_style(response_style.lower())
+            lang_val = _LANG_MAP.get(language_preference, 'english')
+            st.session_state.buddy.user_profile.set_language_preference(lang_val)
             if family_bg.strip():
                 st.session_state.buddy.user_profile.set_family_background(family_bg.strip())
             if trauma_info.strip():
@@ -172,21 +196,119 @@ def create_new_profile():
 
 
 # -----------------------------------------------------------------------
+# Helpers: voice input & TTS output
+# -----------------------------------------------------------------------
+
+def _get_lang_pref() -> str:
+    """Return current user's language preference or default."""
+    try:
+        return st.session_state.buddy.user_profile.get_language_preference()
+    except Exception:
+        return 'english'
+
+
+def _play_tts(text: str):
+    """Render a gTTS audio player for *text* if TTS is enabled."""
+    if not st.session_state.get('tts_enabled', False):
+        return
+    vh: VoiceHandler = st.session_state.voice_handler
+    if vh is None or not vh.tts_available:
+        return
+    lang_pref = _get_lang_pref()
+    audio_bytes = vh.text_to_speech(text, lang_pref)
+    if audio_bytes:
+        st.audio(audio_bytes, format="audio/mp3", autoplay=False)
+
+
+def _handle_voice_input():
+    """Show microphone recorder and return transcribed text or None."""
+    try:
+        from audio_recorder_streamlit import audio_recorder
+    except ImportError:
+        st.caption("🎤 Install `audio-recorder-streamlit` for voice input.")
+        return None
+
+    vh: VoiceHandler = st.session_state.voice_handler
+    if vh is None or not vh.stt_available:
+        st.caption("🎤 Speech recognition unavailable (SpeechRecognition not installed).")
+        return None
+
+    # Minimum bytes for a viable audio sample (~1 second at 16-bit 8kHz mono)
+    MIN_AUDIO_BYTES = 1000
+
+    st.markdown("**🎤 Voice input** — click the mic, speak, click again to stop:")
+    audio_bytes = audio_recorder(
+        text="",
+        recording_color="#e74c3c",
+        neutral_color="#3498db",
+        icon_size="2x",
+        pause_threshold=2.0,
+        key="voice_recorder",
+    )
+    if audio_bytes and len(audio_bytes) > MIN_AUDIO_BYTES:
+        lang_pref = _get_lang_pref()
+        with st.spinner("Transcribing…"):
+            transcript = vh.transcribe_audio(audio_bytes, lang_pref)
+        if transcript:
+            st.success(f"Transcribed: *{transcript}*")
+            return transcript
+        else:
+            st.warning("Could not transcribe audio. Please try again or type your message.")
+    return None
+
+
+# -----------------------------------------------------------------------
 # Main chat interface (tab 1)
 # -----------------------------------------------------------------------
 
 def render_chat_tab():
-    """Render the chat tab"""
-    # Display messages
-    for message in st.session_state.messages:
+    """Render the chat tab with text input, voice input, and TTS output."""
+    lang_pref = _get_lang_pref()
+
+    # Language badge
+    _LANG_LABELS = {
+        'english': '🇬🇧 English',
+        'tamil': '🇮🇳 Tamil (தமிழ்)',
+        'bilingual': '🇮🇳🇬🇧 Bilingual',
+    }
+    st.caption(f"Language: {_LANG_LABELS.get(lang_pref, lang_pref)}")
+
+    # Display chat history
+    for idx, message in enumerate(st.session_state.messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+            # Replay TTS button for assistant messages
+            if message["role"] == "assistant" and st.session_state.get('tts_enabled', False):
+                vh: VoiceHandler = st.session_state.voice_handler
+                if vh and vh.tts_available:
+                    if st.button("🔊", key=f"tts_{idx}",
+                                 help="Listen to this response"):
+                        _play_tts(message["content"])
 
-    # Chat input
-    if prompt := st.chat_input("Share how you're feeling..."):
+    # Voice input section (collapsible)
+    with st.expander("🎤 Voice Input (click to expand)", expanded=False):
+        voice_transcript = _handle_voice_input()
+        if voice_transcript:
+            # Auto-send transcribed text as a message
+            st.session_state.messages.append({"role": "user", "content": voice_transcript})
+            response = st.session_state.buddy.process_message(voice_transcript)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            # Auto-play TTS for voice-initiated responses
+            _play_tts(response)
+            st.rerun()
+
+    # Text chat input
+    placeholder = {
+        'tamil':     'உங்கள் உணர்வுகளை பகிர்ந்துகொள்ளுங்கள்…',
+        'bilingual': 'Share / சொல்லுங்க…',
+    }.get(lang_pref, 'Share how you\'re feeling…')
+
+    if prompt := st.chat_input(placeholder):
         st.session_state.messages.append({"role": "user", "content": prompt})
         response = st.session_state.buddy.process_message(prompt)
         st.session_state.messages.append({"role": "assistant", "content": response})
+        if st.session_state.get('tts_enabled', False):
+            _play_tts(response)
         st.rerun()
 
 
@@ -412,7 +534,7 @@ def show_profile_menu():
         action = st.selectbox("Choose action:",
                               ["Cancel", "Add Trusted Contact", "View Trusted Contacts",
                                "View Personal History", "Add Trauma / Trigger",
-                               "Change Response Style",
+                               "Change Response Style", "Change Language",
                                "Mark Family Unsafe", "Delete All Data"])
 
         if action == "Add Trusted Contact":
@@ -482,6 +604,19 @@ def show_profile_menu():
                 st.success(f"✓ Response style set to '{new_style}'")
                 st.session_state.show_profile_menu = False
 
+        elif action == "Change Language":
+            current_lang = st.session_state.buddy.user_profile.get_language_preference()
+            _LANG_OPTIONS = ["english", "tamil", "bilingual"]
+            _LANG_DISPLAY = ["English", "Tamil (தமிழ்)", "Bilingual (Tamil + English)"]
+            idx = _LANG_OPTIONS.index(current_lang) if current_lang in _LANG_OPTIONS else 0
+            new_lang_display = st.selectbox("Language / மொழி:", _LANG_DISPLAY, index=idx)
+            new_lang = _LANG_OPTIONS[_LANG_DISPLAY.index(new_lang_display)]
+            if st.button("Save Language"):
+                st.session_state.buddy.user_profile.set_language_preference(new_lang)
+                st.session_state.buddy._save_profile()
+                st.success(f"✓ Language set to '{new_lang_display}'")
+                st.session_state.show_profile_menu = False
+
         elif action == "Mark Family Unsafe":
             if st.button("Confirm"):
                 st.session_state.buddy.user_profile.add_unsafe_contact('family/guardians')
@@ -516,14 +651,29 @@ def show_chat_interface():
         if st.session_state.buddy.user_profile:
             sessions = st.session_state.buddy.user_profile.get_profile().get('session_count', 0)
             streak = st.session_state.buddy.user_profile.get_mood_streak()
+            lang_pref = st.session_state.buddy.user_profile.get_language_preference()
             st.markdown(f"**Session:** #{sessions + 1}")
             if streak > 0:
                 st.markdown(f"**🔥 Streak:** {streak} positive")
+            _LANG_ICONS = {'english': '🇬🇧', 'tamil': '🇮🇳', 'bilingual': '🇮🇳🇬🇧'}
+            st.markdown(f"**Lang:** {_LANG_ICONS.get(lang_pref, '🌐')} {lang_pref.capitalize()}")
 
         summary = st.session_state.buddy.pattern_tracker.get_pattern_summary()
         if summary:
             risk_icon = _RISK_COLOUR.get(summary.get('risk_level', 'low'), '⬜')
             st.markdown(f"**Risk:** {risk_icon} {summary.get('risk_level', 'low').upper()}")
+
+        st.markdown("---")
+        # TTS toggle
+        vh: VoiceHandler = st.session_state.voice_handler
+        if vh and vh.tts_available:
+            st.session_state.tts_enabled = st.toggle(
+                "🔊 Voice Responses (TTS)",
+                value=st.session_state.get('tts_enabled', False),
+                help="Auto-play AI responses as audio using Google TTS (requires internet).",
+            )
+        else:
+            st.caption("🔇 TTS unavailable (install gTTS)")
 
         st.markdown("---")
         st.markdown("### Quick Actions")

@@ -92,6 +92,15 @@ GREETING_MESSAGES = [
     "Hi there! This is a safe space. How can I support you today?"
 ]
 
+# Language settings
+SUPPORTED_LANGUAGES = ('english', 'tamil', 'bilingual')
+DEFAULT_LANGUAGE = 'english'   # 'english', 'tamil', or 'bilingual' (Tamil+English)
+
+# Voice / TTS settings
+TTS_ENABLED = True             # Enable text-to-speech responses (requires internet)
+STT_ENABLED = True             # Enable speech-to-text input (requires internet)
+TTS_DEFAULT_LANG = 'en'       # BCP-47 language code used by gTTS
+
 # Alert messages
 DISTRESS_ALERT_MESSAGE = """
 ⚠️ EMOTIONAL DISTRESS ALERT ⚠️

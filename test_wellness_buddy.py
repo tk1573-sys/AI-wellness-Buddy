@@ -541,6 +541,151 @@ def test_gamification():
     print("\n✓ Gamification tests passed")
 
 
+def test_bilingual_language_detection():
+    """Test language detection: English, Tamil Unicode, and Tanglish."""
+    from language_handler import LanguageHandler
+
+    lh = LanguageHandler()
+
+    # English
+    assert lh.detect_script("I'm feeling very sad today") == 'english'
+    print("✓ English detected correctly")
+
+    # Tamil Unicode
+    assert lh.detect_script("நான் மிகவும் துக்கமாக இருக்கிறேன்") == 'tamil'
+    print("✓ Tamil Unicode detected correctly")
+
+    # Tanglish
+    assert lh.detect_script("naan romba kedachu feel panren") == 'tanglish'
+    print("✓ Tanglish detected correctly")
+
+    # Tanglish crisis
+    assert lh.detect_script("ennaku saaga poiren theriuma") == 'tanglish'
+    print("✓ Tanglish crisis script detected correctly")
+
+    print("\n✓ Bilingual language detection tests passed")
+
+
+def test_tanglish_emotion_detection():
+    """Test that Tanglish and Tamil keyword-based emotions are detected correctly."""
+    from emotion_analyzer import EmotionAnalyzer
+    from language_handler import LanguageHandler
+
+    analyzer = EmotionAnalyzer()
+    lh = LanguageHandler()
+
+    # Tanglish sadness
+    result = analyzer.classify_emotion("naan romba kedachu feel panren, valikudu")
+    assert result['detected_script'] == 'tanglish', "Should detect Tanglish script"
+    assert result['primary_emotion'] in ('sadness', 'anxiety', 'fear', 'anger'), (
+        f"Tanglish sad message should be a negative emotion, got {result['primary_emotion']}"
+    )
+    print(f"✓ Tanglish sadness → primary_emotion={result['primary_emotion']}")
+
+    # Tanglish joy
+    result_joy = analyzer.classify_emotion("naan romba santhosham, super ah irukken")
+    assert result_joy['detected_script'] == 'tanglish'
+    assert result_joy['primary_emotion'] == 'joy', (
+        f"Tanglish joy message should be 'joy', got {result_joy['primary_emotion']}"
+    )
+    print(f"✓ Tanglish joy → primary_emotion={result_joy['primary_emotion']}")
+
+    # Tamil Unicode sadness
+    result_ta = analyzer.classify_emotion("நான் மிகவும் துக்கமாக இருக்கிறேன்")
+    assert result_ta['detected_script'] == 'tamil', "Should detect Tamil Unicode"
+    print(f"✓ Tamil Unicode sadness → detected_script={result_ta['detected_script']}, "
+          f"primary_emotion={result_ta['primary_emotion']}")
+
+    # Tanglish language handler keywords
+    tanglish_kws = lh.get_tanglish_keywords_for_emotion('sadness')
+    assert len(tanglish_kws) > 0, "Should have Tanglish sadness keywords"
+    assert 'kedachu' in tanglish_kws
+    print(f"✓ Tanglish keyword list for 'sadness' has {len(tanglish_kws)} entries")
+
+    print("\n✓ Tanglish emotion detection tests passed")
+
+
+def test_bilingual_responses():
+    """Test that language-aware responses are generated correctly."""
+    from conversation_handler import ConversationHandler
+    from emotion_analyzer import EmotionAnalyzer
+    from user_profile import UserProfile
+
+    analyzer = EmotionAnalyzer()
+    handler = ConversationHandler()
+
+    # Tamil response
+    profile_ta = UserProfile('test_tamil_user')
+    profile_ta.set_language_preference('tamil')
+    ctx_ta = profile_ta.get_personal_context()
+    ctx_ta['response_style'] = 'balanced'
+
+    emotion_data = analyzer.classify_emotion("நான் மிகவும் துக்கமாக இருக்கிறேன்")
+    emotion_data['primary_emotion'] = 'sadness'  # force for test
+    handler.add_message("test", emotion_data)
+    response_ta = handler.generate_response(emotion_data, ctx_ta)
+    assert isinstance(response_ta, str) and len(response_ta) > 5
+    print(f"✓ Tamil response generated: '{response_ta[:80]}…'")
+
+    # Bilingual response
+    profile_bi = UserProfile('test_bilingual_user')
+    profile_bi.set_language_preference('bilingual')
+    ctx_bi = profile_bi.get_personal_context()
+    ctx_bi['response_style'] = 'balanced'
+
+    response_bi = handler.generate_response(emotion_data, ctx_bi)
+    assert isinstance(response_bi, str) and len(response_bi) > 5
+    print(f"✓ Bilingual response generated: '{response_bi[:80]}…'")
+
+    # English response (default)
+    profile_en = UserProfile('test_english_user')
+    ctx_en = profile_en.get_personal_context()
+    ctx_en['response_style'] = 'balanced'
+    response_en = handler.generate_response(emotion_data, ctx_en)
+    assert isinstance(response_en, str) and len(response_en) > 5
+    print(f"✓ English response generated: '{response_en[:80]}…'")
+
+    # Verify language_preference is stored/retrieved correctly
+    profile_ta.set_language_preference('tamil')
+    assert profile_ta.get_language_preference() == 'tamil'
+    profile_ta.set_language_preference('invalid')  # silently ignored: 'invalid' not in SUPPORTED_LANGUAGES
+    assert profile_ta.get_language_preference() == 'tamil', "Unsupported language must leave preference unchanged"
+    print("✓ Language preference set/get/validation works")
+
+    print("\n✓ Bilingual response tests passed")
+
+
+def test_voice_handler():
+    """Test VoiceHandler: TTS availability and _strip_markdown helper."""
+    from voice_handler import VoiceHandler, _strip_markdown
+
+    vh = VoiceHandler()
+    # Availability flags are booleans
+    assert isinstance(vh.tts_available, bool)
+    assert isinstance(vh.stt_available, bool)
+    print(f"✓ VoiceHandler: tts_available={vh.tts_available}, stt_available={vh.stt_available}")
+
+    # Markdown stripping
+    raw = "I'm **really** glad! 😊\n\n_(Analysis: Detected 'joy' due to keywords: happy)_"
+    clean = _strip_markdown(raw)
+    assert '**' not in clean, "Bold markers should be removed"
+    assert '_(Analysis:' not in clean, "XAI annotation should be removed"
+    assert 'glad' in clean, "Core text should be preserved"
+    print(f"✓ _strip_markdown works: '{clean[:60]}…'")
+
+    # TTS with empty input returns None
+    result = vh.text_to_speech("", 'english')
+    assert result is None, "Empty text TTS should return None"
+    print("✓ TTS with empty text returns None")
+
+    # STT with empty bytes returns ''
+    result_stt = vh.transcribe_audio(b'', 'english')
+    assert result_stt == '', "Empty audio STT should return ''"
+    print("✓ STT with empty bytes returns empty string")
+
+    print("\n✓ Voice handler tests passed")
+
+
 def run_all_tests():
     """Run all tests"""
     print("\n" + "="*70)
@@ -562,6 +707,10 @@ def run_all_tests():
         test_trend_modeling()
         test_prediction_agent()
         test_gamification()
+        test_bilingual_language_detection()
+        test_tanglish_emotion_detection()
+        test_bilingual_responses()
+        test_voice_handler()
         
         print("\n" + "="*70)
         print("   ✓ ALL TESTS COMPLETED SUCCESSFULLY")

@@ -11,6 +11,8 @@ from conversation_handler import ConversationHandler
 from user_profile import UserProfile
 from data_store import DataStore
 from prediction_agent import PredictionAgent
+from language_handler import LanguageHandler
+import config
 
 
 class WellnessBuddy:
@@ -22,6 +24,7 @@ class WellnessBuddy:
         self.alert_system = AlertSystem()
         self.conversation_handler = ConversationHandler()
         self.prediction_agent = PredictionAgent()
+        self.lang_handler = LanguageHandler()
         self.user_profile = None
         self.data_store = DataStore(data_dir)
         self.session_active = False
@@ -39,7 +42,14 @@ class WellnessBuddy:
         # Load or create user profile
         self._load_or_create_profile()
         
-        print("\n" + self.conversation_handler.get_greeting())
+        # Use language-aware greeting
+        lang_pref = (self.user_profile.get_language_preference()
+                     if self.user_profile else 'english')
+        bilingual_greeting = self.lang_handler.get_greeting(lang_pref)
+        if bilingual_greeting:
+            print("\n" + bilingual_greeting)
+        else:
+            print("\n" + self.conversation_handler.get_greeting())
         print("\n(Commands: 'quit' to end, 'help' for resources, 'status' for analysis, 'report' for weekly summary, 'profile' to manage profile)\n")
         
     def _load_or_create_profile(self):
@@ -117,6 +127,16 @@ class WellnessBuddy:
                         "(single/married/divorced/widowed/other/skip): ").strip().lower()
         if marital and marital not in ['skip', '']:
             self.user_profile.set_relationship_status(marital)
+
+        # Language preference
+        print("\nThis app supports English, Tamil (தமிழ்), and bilingual (Tamil+English).")
+        lang_choice = input("Preferred language? (english/tamil/bilingual/skip): ").strip().lower()
+        if lang_choice in config.SUPPORTED_LANGUAGES:
+            self.user_profile.set_language_preference(lang_choice)
+            if lang_choice == 'tamil':
+                print("  ✓ நான் தமிழில் பதில் சொல்லுவேன்.")
+            elif lang_choice == 'bilingual':
+                print("  ✓ I'll respond in both Tamil and English.")
         
         # Family background
         family_bg = input("\nCan you briefly describe your family situation or background? "

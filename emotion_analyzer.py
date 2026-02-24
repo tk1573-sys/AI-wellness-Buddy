@@ -7,6 +7,11 @@ with XAI-style keyword attribution.
 from textblob import TextBlob
 from datetime import datetime
 import re
+from language_handler import (
+    TANGLISH_EMOTION_KEYWORDS,
+    TAMIL_UNICODE_EMOTION_KEYWORDS,
+    LanguageHandler,
+)
 
 
 class EmotionAnalyzer:
@@ -19,14 +24,16 @@ class EmotionAnalyzer:
             'anxious', 'scared', 'afraid', 'helpless', 'trapped', 'stuck',
             'hurt', 'pain', 'suffering', 'abuse', 'abused', 'victim',
             "can't take it", 'give up', 'end it', 'suicide', 'die',
-            'useless', 'burden', 'tired of living'
+            'useless', 'burden', 'tired of living',
+            # Tanglish distress
+            'kedachu', 'kedaitu', 'kastam', 'kashtam', 'vali', 'valikudu',
         ]
 
         self.abuse_keywords = [
             'abuse', 'abused', 'abusive', 'controlling', 'manipulative',
             'gaslighting', 'threatened', 'intimidated', 'belittled',
             'humiliated', 'isolated', 'trapped', 'toxic relationship',
-            'emotional abuse', 'verbal abuse', 'domestic violence'
+            'emotional abuse', 'verbal abuse', 'domestic violence',
         ]
 
         # --- Crisis / self-harm keywords (immediate escalation) ---
@@ -34,7 +41,12 @@ class EmotionAnalyzer:
             'suicide', 'suicidal', 'kill myself', 'end my life', 'want to die',
             'self-harm', 'self harm', 'cut myself', 'hurt myself',
             'no reason to live', 'better off dead', 'tired of living',
-            'end it all', 'take my own life', 'overdose', 'not worth living'
+            'end it all', 'take my own life', 'overdose', 'not worth living',
+            # Tanglish crisis keywords
+            'saaga poiren', 'saaganum', 'saagavendum',
+            'vazhka venam', 'uyir thola poiren', 'suicide pannuven',
+            # Tamil Unicode crisis keywords
+            'சாகப்போகிறேன்', 'வாழ்க்கை வேண்டாம்', 'தற்கொலை',
         ]
 
         # --- Fine-grained multi-emotion keyword dictionaries ---
@@ -43,29 +55,49 @@ class EmotionAnalyzer:
                 'happy', 'joyful', 'excited', 'wonderful', 'amazing', 'love',
                 'great', 'fantastic', 'thrilled', 'delighted', 'cheerful',
                 'grateful', 'blessed', 'elated', 'euphoric', 'content',
-                'pleased', 'glad', 'overjoyed', 'celebrate', 'proud'
+                'pleased', 'glad', 'overjoyed', 'celebrate', 'proud',
+                # Tanglish joy
+                *TANGLISH_EMOTION_KEYWORDS.get('joy', []),
+                # Tamil Unicode joy
+                *TAMIL_UNICODE_EMOTION_KEYWORDS.get('joy', []),
             ],
             'sadness': [
                 'sad', 'depressed', 'sorrowful', 'miserable', 'grief', 'cry',
                 'crying', 'tears', 'heartbroken', 'devastated', 'melancholy',
                 'gloomy', 'despair', 'hopeless', 'lonely', 'alone',
-                'mourning', 'loss', 'empty', 'numb', 'broken'
+                'mourning', 'loss', 'empty', 'numb', 'broken',
+                # Tanglish sadness
+                *TANGLISH_EMOTION_KEYWORDS.get('sadness', []),
+                # Tamil Unicode sadness
+                *TAMIL_UNICODE_EMOTION_KEYWORDS.get('sadness', []),
             ],
             'anger': [
                 'angry', 'furious', 'annoyed', 'frustrated', 'rage', 'mad',
                 'hate', 'resentful', 'irritated', 'outraged', 'livid',
-                'bitter', 'hostile', 'agitated', 'enraged', 'infuriated'
+                'bitter', 'hostile', 'agitated', 'enraged', 'infuriated',
+                # Tanglish anger
+                *TANGLISH_EMOTION_KEYWORDS.get('anger', []),
+                # Tamil Unicode anger
+                *TAMIL_UNICODE_EMOTION_KEYWORDS.get('anger', []),
             ],
             'fear': [
                 'scared', 'afraid', 'terrified', 'dread', 'frightened',
                 'phobia', 'horror', 'panic', 'timid', 'petrified',
-                'shaking', 'trembling', 'fearful', 'dreading'
+                'shaking', 'trembling', 'fearful', 'dreading',
+                # Tanglish fear
+                *TANGLISH_EMOTION_KEYWORDS.get('fear', []),
+                # Tamil Unicode fear
+                *TAMIL_UNICODE_EMOTION_KEYWORDS.get('fear', []),
             ],
             'anxiety': [
                 'anxious', 'stressed', 'overwhelmed', 'tense', 'uneasy',
                 'worried', 'worry', 'apprehensive', 'restless', 'nervous',
                 'on edge', 'can\'t sleep', 'racing thoughts', 'tight chest',
-                'pit in my stomach', 'catastrophe', 'what if', 'uncertain'
+                'pit in my stomach', 'catastrophe', 'what if', 'uncertain',
+                # Tanglish anxiety
+                *TANGLISH_EMOTION_KEYWORDS.get('anxiety', []),
+                # Tamil Unicode anxiety
+                *TAMIL_UNICODE_EMOTION_KEYWORDS.get('anxiety', []),
             ],
         }
 
@@ -79,6 +111,9 @@ class EmotionAnalyzer:
             'joy':      0.00,
             'neutral':  0.10,
         }
+
+        # Language handler for script detection
+        self._lang_handler = LanguageHandler()
 
     # ------------------------------------------------------------------
     # Sentiment analysis (TextBlob)
@@ -189,6 +224,7 @@ class EmotionAnalyzer:
     def classify_emotion(self, text):
         """
         Classify emotional state based on sentiment and keywords.
+        Handles English, Tamil Unicode, and Tanglish input.
         Returns a dict with both coarse (backward-compat) and fine-grained
         emotion data, plus XAI explanation and crisis flag.
         """
@@ -198,6 +234,16 @@ class EmotionAnalyzer:
         crisis_keywords_found = self.detect_crisis_indicators(text)
 
         polarity = sentiment['polarity']
+
+        # --- Script detection for Tamil / Tanglish ---
+        detected_script = self._lang_handler.detect_script(text)
+
+        # Override primary emotion with Tamil/Tanglish if detected
+        tanglish_emotion = None
+        if detected_script == 'tanglish':
+            tanglish_emotion = self._lang_handler.detect_tanglish_emotion(text)
+        elif detected_script == 'tamil':
+            tanglish_emotion = self._lang_handler.detect_tamil_unicode_emotion(text)
 
         # --- Coarse emotion (backward-compatible) ---
         if crisis_keywords_found:
@@ -224,6 +270,11 @@ class EmotionAnalyzer:
 
         # --- Fine-grained emotion ---
         primary_emotion = self.detect_primary_emotion(text, polarity)
+
+        # Tamil/Tanglish override: if a specific emotion was found, use it
+        if tanglish_emotion:
+            primary_emotion = tanglish_emotion
+
         emotion_scores = self.detect_emotion_scores(text)
         explanation = self.explain_emotion(text, primary_emotion)
 
@@ -246,4 +297,6 @@ class EmotionAnalyzer:
             'explanation': explanation,
             'is_crisis': is_crisis,
             'crisis_keywords': crisis_keywords_found,
+            # Language / script metadata
+            'detected_script': detected_script,
         }

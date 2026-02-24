@@ -27,6 +27,7 @@ class UserProfile:
             'trauma_history': [],    # Personal trauma records for sensitive support
             'personal_triggers': [], # Topics/keywords that are especially sensitive
             'response_style': 'balanced',  # 'short', 'detailed', or 'balanced'
+            'language_preference': config.DEFAULT_LANGUAGE,  # 'english', 'tamil', 'bilingual'
             'mood_streak': 0,        # Consecutive positive-mood sessions
             'wellness_badges': [],   # Earned wellness badges
             'session_count': 0,
@@ -102,6 +103,9 @@ class UserProfile:
             'trauma_count': len(self.profile_data.get('trauma_history', [])),
             'personal_triggers': self.profile_data.get('personal_triggers', []),
             'has_unsafe_family': self.has_unsafe_family(),
+            'language_preference': self.profile_data.get(
+                'language_preference', config.DEFAULT_LANGUAGE
+            ),
         }
     
     def set_response_style(self, style):
@@ -112,6 +116,15 @@ class UserProfile:
     def get_response_style(self):
         """Get preferred response style (default: 'balanced')"""
         return self.profile_data.get('response_style', 'balanced')
+
+    def set_language_preference(self, language):
+        """Set preferred language: 'english', 'tamil', or 'bilingual'."""
+        if language in config.SUPPORTED_LANGUAGES:
+            self.profile_data['language_preference'] = language
+
+    def get_language_preference(self):
+        """Get preferred language (default: 'english')."""
+        return self.profile_data.get('language_preference', config.DEFAULT_LANGUAGE)
 
     # ------------------------------------------------------------------
     # Gamification — mood streak & wellness badges

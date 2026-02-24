@@ -7,6 +7,9 @@ and response-style preferences (short/detailed/balanced).
 import random
 from datetime import datetime
 import config
+from language_handler import LanguageHandler as _LangHandler
+
+_lang_handler = _LangHandler()
 
 
 # -----------------------------------------------------------------------
@@ -178,7 +181,8 @@ class ConversationHandler:
 
     def generate_response(self, emotion_data, user_context=None):
         """Generate a warm, humanoid, personalized response based on
-        emotional state and optional user profile context."""
+        emotional state and optional user profile context.
+        Supports English, Tamil, and bilingual (Tamil+English) responses."""
         primary_emotion = emotion_data.get('primary_emotion', None)
         coarse_emotion = emotion_data['emotion']
         severity = emotion_data['severity']
@@ -187,6 +191,11 @@ class ConversationHandler:
         style = 'balanced'
         if user_context:
             style = user_context.get('response_style', 'balanced')
+
+        # Language preference
+        lang_pref = 'english'
+        if user_context:
+            lang_pref = user_context.get('language_preference', 'english')
 
         # Detect whether the latest message touches a known personal trigger
         triggered = False
@@ -201,23 +210,17 @@ class ConversationHandler:
         marital_status = user_context.get('marital_status') if user_context else None
         family_bg = user_context.get('family_background') if user_context else None
 
-        # ---- Route by fine-grained primary emotion first ----
-        if primary_emotion and primary_emotion in _RESPONSES:
+        # ---- Try bilingual / Tamil pool first (if preference set) ----
+        lang_pool = []
+        if lang_pref in ('tamil', 'bilingual') and primary_emotion:
+            lang_pool = _lang_handler.get_response_pool(primary_emotion, lang_pref)
+
+        if lang_pool:
+            response = random.choice(lang_pool)
+        elif primary_emotion and primary_emotion in _RESPONSES:
+            # ---- Route by fine-grained primary emotion (English) ----
             pool = _RESPONSES[primary_emotion].get(style, _RESPONSES[primary_emotion]['balanced'])
             response = random.choice(pool)
-
-            # Personalise for trauma context on heavier emotions
-            if primary_emotion in ('sadness', 'fear', 'anxiety', 'crisis') and has_trauma:
-                response += (
-                    "\n\nI also want you to know — given everything you've been through before, "
-                    "your resilience is real. You are not alone in this moment. 💙"
-                )
-            if primary_emotion in ('sadness', 'anger') and marital_status in ('divorced', 'widowed', 'separated'):
-                response += (
-                    "\n\nLife transitions like the one you've been through can make these feelings "
-                    "especially heavy. Your emotions are completely understandable, and I'm here. 💙"
-                )
-
         else:
             # ---- Fallback to coarse-emotion logic (backward-compatible) ----
             if coarse_emotion == 'positive':
@@ -255,24 +258,60 @@ class ConversationHandler:
                     )
             response = random.choice(pool)
 
+        # Personalise for trauma context on heavier emotions (English / bilingual)
+        if lang_pref != 'tamil':
+            if primary_emotion in ('sadness', 'fear', 'anxiety', 'crisis') and has_trauma:
+                response += (
+                    "\n\nI also want you to know — given everything you've been through before, "
+                    "your resilience is real. You are not alone in this moment. 💙"
+                )
+            if primary_emotion in ('sadness', 'anger') and marital_status in (
+                    'divorced', 'widowed', 'separated'):
+                response += (
+                    "\n\nLife transitions like the one you've been through can make these feelings "
+                    "especially heavy. Your emotions are completely understandable, and I'm here. 💙"
+                )
+
         # Gently acknowledge if a personal trigger was mentioned
         if triggered:
-            response += (
-                "\n\nI noticed you touched on something that may feel especially sensitive for you. "
-                "It's completely okay to go at your own pace — I'm here with you, no matter what."
-            )
+            if lang_pref == 'tamil':
+                response += (
+                    "\n\nஒரு முக்கியமான விஷயம் பேசுகிறீர்கள். உங்கள் வேகத்தில் போகலாம் — "
+                    "நான் இங்கே இருக்கிறேன். 💙"
+                )
+            elif lang_pref == 'bilingual':
+                response += (
+                    "\n\nநீங்கள் ஒரு முக்கியமான விஷயம் பற்றி பேசுகிறீர்கள். "
+                    "It's okay to take your time — I'm here with you, no matter what. 💙"
+                )
+            else:
+                response += (
+                    "\n\nI noticed you touched on something that may feel especially sensitive for you. "
+                    "It's completely okay to go at your own pace — I'm here with you, no matter what."
+                )
 
         # Add specific support for abuse indicators
         if emotion_data.get('has_abuse_indicators'):
-            response += (
-                "\n\nI want you to know that what you are experiencing is not your fault. "
-                "You deserve to feel safe and respected. Specialized support is available whenever "
-                "you are ready — please type 'help' to see resources, or just keep talking to me. 💙"
-            )
+            if lang_pref == 'tamil':
+                response += (
+                    "\n\nநீங்கள் அனுபவிப்பது உங்கள் தவறு அல்ல. "
+                    "நீங்கள் பாதுகாப்பாக இருக்க வேண்டும். 'help' என்று தட்டச்சு செய்யுங்கள். 💙"
+                )
+            elif lang_pref == 'bilingual':
+                response += (
+                    "\n\nஇது உங்கள் தவறு இல்லை — What you are experiencing is not your fault. "
+                    "You deserve to feel safe. Type 'help' to see resources. 💙"
+                )
+            else:
+                response += (
+                    "\n\nI want you to know that what you are experiencing is not your fault. "
+                    "You deserve to feel safe and respected. Specialized support is available whenever "
+                    "you are ready — please type 'help' to see resources, or just keep talking to me. 💙"
+                )
 
-        # XAI: optionally surface the explanation for transparency
+        # XAI: surface the explanation for transparency (English / bilingual only)
         explanation = emotion_data.get('explanation', '')
-        if explanation and primary_emotion not in (None, 'neutral', 'joy'):
+        if explanation and primary_emotion not in (None, 'neutral', 'joy') and lang_pref != 'tamil':
             response += f"\n\n_(Analysis: {explanation})_"
 
         return response
