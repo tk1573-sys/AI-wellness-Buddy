@@ -184,7 +184,7 @@ The system uses TextBlob for sentiment analysis, combined with keyword detection
 
 ### Pattern Tracking
 - **Session-level**: Rolling window of recent emotional states within current session
-- **Multi-day**: Tracks emotional history across sessions (up to 90 days)
+- **Multi-day**: Tracks emotional history across sessions (up to 365 days)
 - Tracks consecutive distress messages
 - Calculates emotional trends (improving, stable, declining)
 - Monitors for sustained distress patterns

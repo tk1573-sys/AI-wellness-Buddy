@@ -10,11 +10,13 @@ This comprehensive guide covers ALL features available in the AI Wellness Buddy,
 3. [Extended Tracking Features](#extended-tracking-features)
 4. [Security Features](#security-features)
 5. [Specialized Support Features](#specialized-support-features)
-6. [User Interface Options](#user-interface-options)
-7. [Data Management](#data-management)
-8. [Advanced Configuration](#advanced-configuration)
-9. [Feature Comparison](#feature-comparison)
-10. [Frequently Asked Questions](#frequently-asked-questions)
+6. [Guardian Alert System](#guardian-alert-system)
+7. [Government Resources for Women](#government-resources-for-women)
+8. [User Interface Options](#user-interface-options)
+9. [Data Management](#data-management)
+10. [Advanced Configuration](#advanced-configuration)
+11. [Feature Comparison](#feature-comparison)
+12. [Frequently Asked Questions](#frequently-asked-questions)
 
 ---
 
@@ -48,6 +50,19 @@ The AI Wellness Buddy is a comprehensive emotional support system with the follo
 - Trusted contact management
 - Abuse detection and resources
 - Personalized support networks
+
+✅ **Guardian Alert System (NEW)**
+- Emergency contact notification during severe distress
+- Configurable severity thresholds (low/medium/high)
+- Privacy-respecting: asks before notifying guardians
+- Multiple guardian contacts supported
+- Formatted alert messages with crisis resources
+
+✅ **Government Resources for Women (NEW)**
+- 15+ U.S. government agency contacts
+- Legal aid and women's law resources
+- Women-specific mental health services
+- International women's health organizations
 
 ✅ **Multiple Interfaces**
 - Command-line interface (CLI)
@@ -535,6 +550,172 @@ Your trusted contacts:
 
 ---
 
+## Guardian Alert System (NEW)
+
+### Overview
+
+The Guardian Alert System allows designated emergency contacts (therapist, family members, trusted friends) to be automatically notified when sustained emotional distress is detected.
+
+**Configuration (config.py):**
+```python
+ENABLE_GUARDIAN_ALERTS = True      # Enable the system
+GUARDIAN_ALERT_THRESHOLD = 'high'  # When to notify: 'low', 'medium', or 'high'
+AUTO_NOTIFY_GUARDIANS = False      # Ask user first (recommended)
+```
+
+### 1. Adding Guardian Contacts
+
+**Via CLI:**
+```
+You: profile
+> 2. Add/remove guardian contacts
+> 1. Add guardian
+
+Guardian Name: Dr. Smith
+Relationship: Therapist
+Contact: dr.smith@therapy.com
+Notify on severity: high
+```
+
+Guardian contacts are stored in the user profile under `guardian_contacts` and are separate from trusted friends.
+
+### 2. Alert Trigger Conditions
+
+Guardians are notified when ALL of the following are true:
+- Sustained distress is detected (3+ consecutive distress messages by default)
+- The detected severity meets or exceeds `GUARDIAN_ALERT_THRESHOLD`
+- The user has at least one guardian contact configured
+
+**Severity Levels:**
+```
+low    → Mild negative sentiment detected
+medium → Moderate distress or multiple distress keywords
+high   → Severe distress, sustained patterns, or abuse indicators
+```
+
+### 3. Guardian Notification Message
+
+When a guardian alert fires, the system generates:
+
+```
+🚨 WELLNESS ALERT FOR [User] 🚨
+
+This is an automated notification from AI Wellness Buddy.
+
+[User] has shown signs of sustained emotional distress and may need support.
+
+Indicators detected:
+  • Sustained emotional distress detected
+  • 4 consecutive distress messages
+
+What you can do:
+  • Reach out to check on them with care and compassion
+  • Listen without judgment
+  • Offer support and help them access professional resources
+  • Take any mention of self-harm seriously - contact emergency services if needed
+
+Professional Resources:
+  • Crisis Hotline: 988
+  • Emergency Services: 911
+  • Crisis Text Line: Text HOME to 741741
+
+This is a support tool, not a replacement for professional care.
+If there is immediate danger, contact emergency services immediately.
+```
+
+### 4. Privacy-Respecting Design
+
+When `AUTO_NOTIFY_GUARDIANS = False` (default), the system asks the user first:
+
+```
+👨‍👩‍👧‍👦 GUARDIAN NOTIFICATION
+
+Would you like to notify your designated guardians/emergency contacts?
+
+Your guardians:
+  • Dr. Smith (Therapist)
+  • Jane Doe (Sister)
+```
+
+When `AUTO_NOTIFY_GUARDIANS = True`, the message confirms:
+```
+Your designated guardians/emergency contacts have been notified.
+```
+
+### 5. Guardian System Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `ENABLE_GUARDIAN_ALERTS` | `True` | Enable/disable the system |
+| `GUARDIAN_ALERT_THRESHOLD` | `'high'` | Minimum severity to notify |
+| `AUTO_NOTIFY_GUARDIANS` | `False` | Auto-notify vs. ask first |
+
+---
+
+## Government Resources for Women (NEW)
+
+The system includes an extensive database of government-backed and legal resources specifically for women, displayed automatically when abuse indicators are detected in a female user's session.
+
+### U.S. Government Agencies
+
+```
+Office on Women's Health (HHS): 1-800-994-9662
+Women's Bureau (Department of Labor): 1-800-827-5335
+Violence Against Women Office (DOJ): 202-307-6026
+```
+
+### Legal Aid Resources
+
+```
+Legal Services Corporation: 202-295-1500
+National Women's Law Center: 202-588-5180
+American Bar Association Women's Rights: 312-988-5000
+```
+
+### Women's Mental Health Services
+
+```
+Women's Mental Health - NIMH: 1-866-615-6464
+Postpartum Support International: 1-800-944-4773
+Anxiety and Depression Association (Women): 240-485-1001
+```
+
+### International Resources
+
+```
+UN Women Helpline: +1-212-906-6400
+International Women's Health Coalition: +1-212-979-8500
+Global Fund for Women: +1-415-248-4800
+```
+
+### When These Resources Appear
+
+Government resources are included in the distress alert when:
+1. The user is identified as female (gender set to 'female')
+2. Abuse indicators are detected in the current session
+
+**Example Alert (excerpt):**
+```
+🏛️ Government & Legal Resources:
+
+U.S. Government Agencies:
+  • Office on Women's Health (HHS): 1-800-994-9662
+  • Women's Bureau (Department of Labor): 1-800-827-5335
+  • Violence Against Women Office (DOJ): 202-307-6026
+
+Legal Aid:
+  • Legal Services Corporation: 202-295-1500
+  • National Women's Law Center: 202-588-5180
+  • American Bar Association Women's Rights: 312-988-5000
+
+Women's Mental Health:
+  • Women's Mental Health - NIMH: 1-866-615-6464
+  • Postpartum Support International: 1-800-944-4773
+  • Anxiety and Depression Association (Women): 240-485-1001
+```
+
+---
+
 ## User Interface Options
 
 ### 1. Command-Line Interface (CLI)
@@ -792,7 +973,29 @@ SESSION_TIMEOUT_MINUTES = 0     # Disabled
 ENABLE_DATA_ENCRYPTION = True   # Still recommended
 ```
 
-### 4. Conversation Settings
+### 4. Guardian Alert Settings
+
+```python
+# config.py
+
+# Guardian/Emergency Contact Settings
+ENABLE_GUARDIAN_ALERTS = True       # Enable guardian notification system
+GUARDIAN_ALERT_THRESHOLD = 'high'   # 'low', 'medium', or 'high'
+AUTO_NOTIFY_GUARDIANS = False        # Ask user before notifying
+```
+
+**Threshold Guide:**
+- **`'high'`** (default): Only notify for severe, sustained distress
+- **`'medium'`**: Notify for moderate or high distress
+- **`'low'`**: Notify even for mild negative patterns
+
+**Auto-Notify Modes:**
+```python
+AUTO_NOTIFY_GUARDIANS = False   # User is asked first (privacy-first)
+AUTO_NOTIFY_GUARDIANS = True    # Guardians notified automatically
+```
+
+### 5. Conversation Settings
 
 ```python
 # config.py
@@ -830,6 +1033,17 @@ GREETING_MESSAGES = [
 | Account Lockout | No | **Yes** |
 | Data Integrity | No | **SHA-256** |
 | Backups | Manual | **Automatic** |
+
+### Guardian Alert Comparison
+
+| Feature | Previous | **NEW Guardian System** |
+|---------|----------|-------------------------|
+| Guardian Contacts | No | **Yes** |
+| Emergency Notifications | No | **Yes** |
+| Severity Thresholds | No | **Low/Medium/High** |
+| Privacy Control | No | **Ask first option** |
+| Government Resources | No | **15+ agencies** |
+| Auto-Notify Option | No | **Configurable** |
 
 ### Interface Comparison
 
@@ -906,6 +1120,17 @@ A:
 rm -rf ~/.wellness_buddy/
 ```
 
+### Guardian Alerts
+
+**Q: What are guardian contacts?**
+A: Guardian contacts (therapist, family, trusted friends) can be notified when sustained severe distress is detected. Configure using the `profile` command.
+
+**Q: Will guardians be notified automatically?**
+A: By default, the system asks you first (`AUTO_NOTIFY_GUARDIANS = False`). You can enable automatic notification in `config.py`.
+
+**Q: What severity level triggers guardian notifications?**
+A: Default is 'high' severity only. Change `GUARDIAN_ALERT_THRESHOLD` in `config.py` to 'medium' or 'low' for more sensitive alerts.
+
 ---
 
 ## Summary
@@ -937,6 +1162,14 @@ The AI Wellness Buddy provides:
 ✅ Trusted contact management
 ✅ Abuse detection
 ✅ Personalized resources
+✅ Government & legal resources (15+)
+
+### Guardian Alert System
+✅ Emergency contact notifications
+✅ Configurable severity thresholds
+✅ Privacy-first design (ask before notify)
+✅ Multiple guardian contacts
+✅ Formatted alert messages
 
 ### Interfaces
 ✅ Command-line (CLI)
@@ -950,6 +1183,8 @@ The AI Wellness Buddy provides:
 - **Security Guide**: [SECURITY.md](SECURITY.md)
 - **Data Retention**: [DATA_RETENTION.md](DATA_RETENTION.md)
 - **Network Deployment**: [NETWORK_DEPLOYMENT.md](NETWORK_DEPLOYMENT.md)
+- **Operation Guide**: [OPERATION_GUIDE.md](OPERATION_GUIDE.md)
+- **Detailed Setup**: [DETAILED_SETUP_GUIDE.md](DETAILED_SETUP_GUIDE.md)
 - **Quick Start**: [USAGE.md](USAGE.md)
 - **UI Guide**: [UI_GUIDE.md](UI_GUIDE.md)
 

@@ -2,7 +2,7 @@
 
 ## Comprehensive Installation and Configuration Manual
 
-**Last Updated**: [Date]  
+**Last Updated**: February 2026  
 **Version**: 2.0  
 **For**: Windows, macOS, and Linux
 
