@@ -8,6 +8,7 @@ from emotion_analyzer import EmotionAnalyzer
 from pattern_tracker import PatternTracker
 from alert_system import AlertSystem
 from conversation_handler import ConversationHandler
+from prediction_agent import PredictionAgent
 from user_profile import UserProfile
 from data_store import DataStore
 
@@ -20,6 +21,7 @@ class WellnessBuddy:
         self.pattern_tracker = PatternTracker()
         self.alert_system = AlertSystem()
         self.conversation_handler = ConversationHandler()
+        self.prediction_agent = PredictionAgent()
         self.user_profile = None
         self.data_store = DataStore(data_dir)
         self.session_active = False
@@ -172,15 +174,48 @@ class WellnessBuddy:
         
         # Analyze emotion
         emotion_data = self.emotion_analyzer.classify_emotion(user_message)
+
+        # Module 11 — Crisis Detection: immediate response before anything else
+        if emotion_data.get('crisis_detected'):
+            import config as _cfg
+            crisis_msg = _cfg.CRISIS_IMMEDIATE_MESSAGE
+            # Also trigger guardian alert immediately
+            pattern_summary = self.pattern_tracker.get_pattern_summary() or {}
+            profile_data = self.user_profile.get_profile() if self.user_profile else {}
+            crisis_alert = self.alert_system.trigger_distress_alert(
+                {**pattern_summary,
+                 'sustained_distress_detected': True,
+                 'severity_level': 'CRITICAL',
+                 'severity_score': 10.0,
+                 'consecutive_distress': 1,
+                 'abuse_indicators_detected': False},
+                profile_data,
+            )
+            self.pattern_tracker.add_emotion_data(emotion_data)
+            return crisis_msg
         
         # Track patterns
         self.pattern_tracker.add_emotion_data(emotion_data)
+
+        # Feed prediction agent
+        self.prediction_agent.add_data_point(
+            emotion_data['polarity'],
+            emotion_data.get('dominant_emotion', 'neutral'),
+            emotion_data.get('timestamp'),
+        )
         
         # Add to conversation history
         self.conversation_handler.add_message(user_message, emotion_data)
         
         # Generate response
-        response = self.conversation_handler.generate_response(emotion_data)
+        profile_data = self.user_profile.get_profile() if self.user_profile else None
+        response = self.conversation_handler.generate_response(emotion_data, profile_data)
+
+        # Check prediction early warning
+        if len(self.prediction_agent._sentiment_buf) >= 3:
+            prediction = self.prediction_agent.predict_next_state()
+            if prediction.get('warning_message'):
+                response += "\n\n" + prediction['warning_message']
         
         # Check for distress alerts
         pattern_summary = self.pattern_tracker.get_pattern_summary()
@@ -197,6 +232,13 @@ class WellnessBuddy:
             
             # Reset counter after alert
             self.pattern_tracker.reset_consecutive_distress()
+
+        # Module 13 — update mood streak
+        if self.user_profile and pattern_summary:
+            avg_sent = pattern_summary.get('average_sentiment')
+            is_positive = (avg_sent is not None and avg_sent >= 0)
+            self.user_profile.update_mood_streak(is_positive)
+            self.user_profile.calculate_stability_score(pattern_summary)
         
         return response
     

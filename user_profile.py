@@ -16,15 +16,27 @@ class UserProfile:
         current_time = datetime.now()  # Calculate once for consistency
         self.profile_data = {
             'user_id': user_id,
+            'name': None,            # Display / preferred name
+            'age': None,             # Age (integer)
+            'occupation': None,      # Job / student status
+            'primary_concerns': [],  # Reasons for using the app
             'created_at': current_time,
             'last_session': current_time,
             'gender': None,
             'support_preferences': {},
             'demographics': {},
-            'trusted_contacts': [],  # Safe contacts for emergencies
-            'unsafe_contacts': [],   # Family/guardians to avoid in toxic situations
-            'emotional_history': [],  # Long-term emotional tracking (now 1 year)
+            'trusted_contacts': [],    # Safe contacts for emergencies
+            'guardian_contacts': [],   # Guardian / emergency contacts for alerts
+            'unsafe_contacts': [],     # Family/guardians to avoid in toxic situations
+            'emotional_history': [],   # Long-term emotional tracking (now 1 year)
             'session_count': 0,
+            # Gamification (Module 13)
+            'mood_streak': 0,           # Consecutive positive sessions
+            'best_streak': 0,           # Best ever streak
+            'stability_score': 50.0,   # 0-100 emotional stability score
+            'badges': [],              # Earned achievement badges
+            'response_style': 'balanced',  # 'short' | 'balanced' | 'detailed'
+            'response_feedback': {},   # Module 10 RL: template_key -> cumulative score
             # Security fields
             'password_hash': None,  # Hashed password for profile protection
             'salt': None,  # Salt for password hashing
@@ -57,6 +69,42 @@ class UserProfile:
         """Set living situation for safety considerations"""
         self.profile_data['demographics']['living_situation'] = situation
     
+    def set_name(self, name):
+        """Set the user's preferred display name"""
+        self.profile_data['name'] = name
+
+    def set_age(self, age):
+        """Set the user's age"""
+        self.profile_data['age'] = age
+
+    def set_occupation(self, occupation):
+        """Set the user's occupation or student status"""
+        self.profile_data['occupation'] = occupation
+
+    def set_primary_concerns(self, concerns):
+        """Set the user's primary concerns or reasons for using the app"""
+        self.profile_data['primary_concerns'] = concerns
+
+    def get_display_name(self):
+        """Get the best available name to address the user"""
+        return self.profile_data.get('name') or self.profile_data.get('user_id') or 'Friend'
+
+    def add_guardian_contact(self, name, relationship, contact_info=None):
+        """Add a guardian or emergency contact for distress alerts"""
+        contact = {
+            'name': name,
+            'relationship': relationship,
+            'contact_info': contact_info,
+            'added_at': datetime.now()
+        }
+        if 'guardian_contacts' not in self.profile_data:
+            self.profile_data['guardian_contacts'] = []
+        self.profile_data['guardian_contacts'].append(contact)
+
+    def get_guardian_contacts(self):
+        """Get list of guardian / emergency contacts"""
+        return self.profile_data.get('guardian_contacts', [])
+
     def enable_women_support(self):
         """Enable specialized women's support features"""
         self.profile_data['support_preferences']['women_support_enabled'] = True
@@ -203,7 +251,90 @@ class UserProfile:
         """Check if user identifies as female"""
         return self.profile_data.get('gender') == 'female'
     
+    def remove_password(self):
+        """Remove password protection from this profile."""
+        self.profile_data['password_hash'] = None
+        self.profile_data['salt'] = None
+        self.profile_data['security_enabled'] = False
+
+    def reset_lockout(self):
+        """Clear any active lockout and reset failed login attempt counter."""
+        self.profile_data['lockout_until'] = None
+        self.profile_data['failed_login_attempts'] = 0
+
     def needs_women_support(self):
         """Check if women's support features should be enabled"""
-        return (self.is_female() or 
+        return (self.is_female() or
                 self.profile_data.get('support_preferences', {}).get('women_support_enabled', False))
+
+    # ── Module 13: Gamified Wellness Tracking ─────────────────────────────────
+
+    def update_mood_streak(self, is_positive_session: bool):
+        """Update the consecutive-positive-session streak counter."""
+        if is_positive_session:
+            self.profile_data['mood_streak'] = self.profile_data.get('mood_streak', 0) + 1
+            if self.profile_data['mood_streak'] > self.profile_data.get('best_streak', 0):
+                self.profile_data['best_streak'] = self.profile_data['mood_streak']
+        else:
+            self.profile_data['mood_streak'] = 0
+        self.check_and_award_badges()
+
+    def calculate_stability_score(self, pattern_summary):
+        """
+        Derive a 0-100 emotional stability score from the pattern summary.
+        Higher = more stable / positive.
+        """
+        if not pattern_summary:
+            return self.profile_data.get('stability_score', 50.0)
+        avg = pattern_summary.get('average_sentiment', 0.0)
+        distress_ratio = pattern_summary.get('distress_ratio', 0.0)
+        # Map avg sentiment [-1, 1] → [0, 100], penalise distress ratio
+        raw = (avg + 1) / 2 * 100          # 0-100
+        penalty = distress_ratio * 30       # up to 30 points off
+        score = max(0.0, min(100.0, raw - penalty))
+        self.profile_data['stability_score'] = round(score, 1)
+        return self.profile_data['stability_score']
+
+    def check_and_award_badges(self):
+        """Award badges based on current achievements."""
+        current_badge_ids = {b['id'] for b in self.profile_data.get('badges', [])}
+        streak = self.profile_data.get('mood_streak', 0)
+        sessions = self.profile_data.get('session_count', 0)
+
+        candidate_badges = [
+            {'id': 'first_session',  'name': '🌱 First Step',
+             'desc': 'Started your wellness journey', 'cond': True},
+            {'id': 'streak_3',       'name': '🔥 3-Day Streak',
+             'desc': '3 positive sessions in a row',  'cond': streak >= 3},
+            {'id': 'streak_7',       'name': '⭐ Week Warrior',
+             'desc': '7 positive sessions in a row',  'cond': streak >= 7},
+            {'id': 'sessions_10',    'name': '💪 Consistent',
+             'desc': 'Completed 10 sessions',          'cond': sessions >= 10},
+            {'id': 'sessions_30',    'name': '🏆 Monthly Champion',
+             'desc': 'Completed 30 sessions',          'cond': sessions >= 30},
+        ]
+        new_badges = []
+        for badge in candidate_badges:
+            if badge['cond'] and badge['id'] not in current_badge_ids:
+                entry = {'id': badge['id'], 'name': badge['name'],
+                         'desc': badge['desc'], 'earned_at': datetime.now().isoformat()}
+                self.profile_data.setdefault('badges', []).append(entry)
+                new_badges.append(entry)
+        return new_badges
+
+    def set_response_style(self, style: str):
+        """Set preferred response style: 'short', 'balanced', or 'detailed'."""
+        if style in ('short', 'balanced', 'detailed'):
+            self.profile_data['response_style'] = style
+
+    # ── Module 10: RL Response Feedback ──────────────────────────────────────
+
+    def record_response_feedback(self, template_key: str, positive: bool):
+        """Store feedback signal for a template (for RL-style weighting)."""
+        fb = self.profile_data.setdefault('response_feedback', {})
+        current = fb.get(template_key, 0)
+        fb[template_key] = current + (1 if positive else -1)
+
+    def get_response_feedback(self) -> dict:
+        """Return the accumulated response feedback scores."""
+        return dict(self.profile_data.get('response_feedback', {}))
