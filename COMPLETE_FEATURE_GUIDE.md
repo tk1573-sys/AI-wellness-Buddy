@@ -13,16 +13,17 @@ This comprehensive guide covers ALL features available in the AI Wellness Buddy,
 6. [Personal History & Context Awareness](#personal-history--context-awareness)
 7. [Response Style & Personalization](#response-style--personalization)
 8. [Gamification (Mood Streak & Badges)](#gamification-mood-streak--badges)
-9. [Extended Tracking Features](#extended-tracking-features)
-10. [Security Features](#security-features)
-11. [Specialized Support Features](#specialized-support-features)
-12. [Guardian Alert System](#guardian-alert-system)
-13. [Government Resources for Women](#government-resources-for-women)
-14. [User Interface Options](#user-interface-options)
-15. [Data Management](#data-management)
-16. [Advanced Configuration](#advanced-configuration)
-17. [Feature Comparison](#feature-comparison)
-18. [Frequently Asked Questions](#frequently-asked-questions)
+9. [Bilingual Tamil/English & Voice Support](#bilingual-tamilenglish--voice-support)
+10. [Extended Tracking Features](#extended-tracking-features)
+11. [Security Features](#security-features)
+12. [Specialized Support Features](#specialized-support-features)
+13. [Guardian Alert System](#guardian-alert-system)
+14. [Government Resources for Women](#government-resources-for-women)
+15. [User Interface Options](#user-interface-options)
+16. [Data Management](#data-management)
+17. [Advanced Configuration](#advanced-configuration)
+18. [Feature Comparison](#feature-comparison)
+19. [Frequently Asked Questions](#frequently-asked-questions)
 
 ---
 
@@ -95,6 +96,18 @@ The AI Wellness Buddy is a comprehensive emotional support system with the follo
 - Legal aid and women's law resources
 - Women-specific mental health services
 - International women's health organizations
+
+✅ **Bilingual Tamil/English & Tanglish Support**
+- Respond in English, Tamil (Unicode script), or Bilingual (Tamil + English)
+- Tanglish (Tamil written in Roman/English script) auto-detected and understood
+- Emotion keywords for all 6 classes in Tamil Unicode AND Tanglish
+- Language preference stored in user profile and applied to every response
+
+✅ **Voice Input & Text-to-Speech (TTS)**
+- 🎤 Voice input: record your message in the browser — transcribed via Google STT
+- 🔊 TTS toggle: AI responses read aloud via Google TTS (gTTS)
+- Language-aware TTS: Tamil responses read in Tamil (`ta`); English in Indian-English (`en`)
+- Graceful fallback when libraries are unavailable — app always usable
 
 ✅ **Multiple Interfaces**
 - Command-line interface (CLI)
@@ -239,6 +252,7 @@ Please consider reaching out to professional support:
   "trauma_history": [{"description": "...", "date": "2024-01-01"}],
   "personal_triggers": ["abandonment", "criticism"],
   "response_style": "balanced",    # short / balanced / detailed
+  "language_preference": "english", # english / tamil / bilingual
   "mood_streak": 3,                # consecutive positive sessions
   "wellness_badges": ["first_step", "streak_3", "self_aware"],
   "session_count": 14,
@@ -251,6 +265,7 @@ Please consider reaching out to professional support:
 - Gender-specific support
 - Personal history for trauma-aware, trigger-aware responses
 - Response style preference (short/balanced/detailed)
+- Language preference (English / Tamil / Bilingual)
 - Mood streak and badge tracking
 - Trusted contact management
 - Safety preferences
@@ -490,6 +505,135 @@ Type `weekly` (or `report`) to get a 7-day report:
    - Consider reaching out to a friend or trusted contact this week.
    - Try one small act of self-care today — even a short walk helps.
 ```
+
+---
+
+## Bilingual Tamil/English & Voice Support
+
+### Supported Languages
+
+| Mode | Description | Greeting |
+|------|-------------|---------|
+| `english` | English-only responses (default) | "Hello! I'm here to support you." |
+| `tamil` | Tamil Unicode script responses | "வணக்கம்! நான் உங்களுக்கு உதவ இங்கே இருக்கிறேன்." |
+| `bilingual` | Tamil + English mixed (Tanglish-friendly) | "வணக்கம் / Hello! I'm here to support you." |
+
+### Script Auto-Detection
+
+The system automatically detects the language/script of every message before classifying emotion:
+
+| Detected Script | Example input | Action |
+|----------------|--------------|--------|
+| Tamil Unicode | `மனவலி இருக்கு` | Uses Tamil Unicode keyword dictionary |
+| Tanglish | `romba kastam ah iruku` | Uses Tanglish keyword dictionary |
+| English | `I'm feeling anxious` | Uses English keyword dictionary |
+
+Detection priority: **Tamil Unicode** → **Tanglish keywords** → **English (default)**
+
+### Tamil & Tanglish Emotion Keywords
+
+Emotion detection covers all 6 emotion classes in three scripts:
+
+| Emotion | Tanglish examples | Tamil Unicode examples |
+|---------|-------------------|----------------------|
+| `joy` | santhosham, semma, nalla irukken | சந்தோஷம், மகிழ்ச்சி |
+| `sadness` | kastam, dukham, thaniyaa | துக்கம், மனவலி, கஷ்டம் |
+| `anger` | kovam, erichal, ragam | கோபம், எரிச்சல் |
+| `fear` | bayam, bayangara, prachinnai | பயம், அச்சம் |
+| `anxiety` | tension, thavippu, romba stress | டென்ஷன், கவலை, மன அழுத்தம் |
+| `crisis` | saaganum, vazhka venam, suicide pannuven | சாகப்போகிறேன், தற்கொலை |
+
+### Bilingual Response Examples
+
+**Tamil Unicode input:**
+```
+User: மனவலி இருக்கு, யாரும் இல்லை மாதிரி தெரியுது
+AI:   மன்னிக்கவும், நீங்கள் இப்படி உணர்கிறீர்கள் என்பது மிகவும்
+      வருந்துகிறது. நீங்கள் தனியா இல்லை — நான் இங்கே இருக்கிறேன். 💙
+```
+
+**Tanglish input (bilingual mode):**
+```
+User: romba kastam ah iruku, yarum illai
+AI:   Romba valikudu-nu theriyuthu. 💙 I hear you — your sadness is
+      real and valid. நீங்கள் தனியா இல்லை, நான் இங்கே இருக்கிறேன். 💙
+```
+
+**Crisis (any language):**
+```
+User: saaganum, vazhka venam
+AI:   உங்களுக்கு இப்போது உதவி தேவை. Please reach out to a crisis
+      line immediately — 988-ஐ call/text செய்யுங்கள் (24/7 கிடைக்கும்).
+      உங்கள் உயிர் மிகவும் மதிப்புமிக்கது. 💙
+```
+
+### Changing Language Preference
+
+**CLI:**
+```
+You: profile
+> 7. Change language preference
+
+Current language: english
+Choose language:
+  1. English (default)
+  2. Tamil (தமிழ்) — responses in Tamil Unicode
+  3. Bilingual (Tamil + English)
+
+Your choice: 3
+✅ Language set to bilingual.
+```
+
+**Web UI:** Language selector shown in the profile creation form and in the sidebar.
+
+---
+
+### Voice Input (🎤 Speech-to-Text)
+
+Record your message directly in the browser — it is automatically transcribed and sent.
+
+**Web UI — 🎤 Voice Input:**
+1. In the 💬 Chat tab, expand **"🎤 Voice Input"**
+2. Click **"Start Recording"** and speak your message
+3. The transcript appears in the text box — review and click **"Send"**
+
+**Language-aware STT locale:**
+| Language preference | STT locale used |
+|--------------------|----------------|
+| `english` | `en-IN` (Indian English, good for accents) |
+| `tamil` | `ta-IN` (Tamil, India) |
+| `bilingual` | `ta-IN` (Tamil-first) |
+
+**Requirements:** `SpeechRecognition` (pip package) + internet for Google STT.
+
+---
+
+### Text-to-Speech (🔊 TTS)
+
+The AI response is read aloud when TTS is enabled.
+
+**Web UI — 🔊 TTS Toggle:**
+- Toggle **"🔊 Voice Responses"** in the sidebar
+- Each response shows a **🔊** replay button for listening again
+
+**Language-aware TTS:**
+| Language preference | TTS language code |
+|--------------------|------------------|
+| `english` | `en` |
+| `tamil` | `ta` |
+| `bilingual` | `ta` (Tamil speaker; bilingual text handled by gTTS Tamil mode) |
+
+**Requirements:** `gTTS` (pip package) + internet for Google TTS.
+
+---
+
+### New Required Dependencies
+
+```bash
+pip install gTTS>=2.5.4 SpeechRecognition>=3.14.5 langdetect>=1.0.9 audio-recorder-streamlit>=0.0.10
+```
+
+All four are included in `requirements.txt`. The app runs without them (TTS/STT silently disabled).
 
 ---
 
@@ -1037,8 +1181,21 @@ python wellness_buddy.py
 help              - Show support resources and trusted contacts
 status            - View risk level, stability index, emotion distribution, 7-day history
 weekly / report   - Generate 7-day wellness report with AI forecast
-profile           - Manage personal history, response style, contacts, security
+profile           - Manage personal history, response style, language, contacts, security
 quit              - End session and save (streak and badges updated)
+```
+
+**Profile menu options:**
+```
+1. View profile information
+2. Add/remove guardian contacts
+3. Manage trusted friends
+4. View personal history
+5. Add trauma / trigger
+6. Change response style
+7. Change language preference
+8. Change password
+9. Delete all my data
 ```
 
 ### 2. Web Browser UI (Streamlit) — 4-Tab Analytics Dashboard
@@ -1314,6 +1471,29 @@ GREETING_MESSAGES = [
 ]
 ```
 
+### 6. Language & Voice Settings
+
+```python
+# config.py
+
+# Language preference applied at app start (overridden by user profile setting)
+SUPPORTED_LANGUAGES = ('english', 'tamil', 'bilingual')
+DEFAULT_LANGUAGE = 'english'   # 'english', 'tamil', or 'bilingual'
+
+# Text-to-Speech (gTTS) — requires internet
+TTS_ENABLED = True             # Enable TTS responses
+TTS_DEFAULT_LANG = 'en'       # BCP-47 language code for gTTS ('en' / 'ta')
+
+# Speech-to-Text (Google STT) — requires internet
+STT_ENABLED = True             # Enable voice input transcription
+```
+
+**Disabling Voice for Offline Use:**
+```python
+TTS_ENABLED = False   # Responses text-only
+STT_ENABLED = False   # No microphone input
+```
+
 ---
 
 ## Feature Comparison
@@ -1371,6 +1551,17 @@ GREETING_MESSAGES = [
 | Privacy Control | No | **Ask first option** |
 | Government Resources | No | **15+ agencies** |
 | Auto-Notify Option | No | **Configurable** |
+
+### Language & Voice Comparison
+
+| Feature | Previous | **Current** |
+|---------|----------|-------------|
+| Language support | English only | **English / Tamil Unicode / Bilingual** |
+| Tanglish detection | No | **Auto-detected via keyword list** |
+| Tamil emotion keywords | No | **6 emotion classes × Tamil Unicode + Tanglish** |
+| Text-to-Speech | No | **gTTS — language-aware (en / ta)** |
+| Voice input | No | **Google STT — en-IN / ta-IN locale** |
+| Language in profile | No | **`language_preference` stored in profile** |
 
 ### Interface Comparison
 
@@ -1483,6 +1674,14 @@ The AI Wellness Buddy provides:
 ✅ Personal history: trauma, triggers, marital status, family background
 ✅ Response style preference (short/balanced/detailed)
 ✅ Warm, humanoid, context-aware responses
+✅ Language preference: English / Tamil / Bilingual
+
+### Bilingual & Voice
+✅ Tamil Unicode and Tanglish emotion detection
+✅ Tamil-script responses for Tamil speakers
+✅ Bilingual (Tamil + English) mixed responses
+✅ Voice input (STT) via Google Speech Recognition
+✅ Text-to-Speech (TTS) via gTTS — language-aware
 
 ### Gamification
 ✅ Mood streak (consecutive positive sessions)
@@ -1518,7 +1717,7 @@ The AI Wellness Buddy provides:
 
 ### Interfaces
 ✅ Command-line (CLI)
-✅ Web browser (Streamlit) — 4-tab analytics dashboard
+✅ Web browser (Streamlit) — 4-tab analytics dashboard with voice I/O
 ✅ Network access (multi-device)
 
 ---

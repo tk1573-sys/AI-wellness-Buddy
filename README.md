@@ -24,6 +24,14 @@ An AI-based emotional wellness support system that provides continuous text-base
 - **Family Background**: Gives context for empathetic, culturally-aware support
 - **Response Style Preference**: Choose **Short**, **Balanced** (default), or **Detailed** replies to match how you like to communicate
 
+### Bilingual Tamil/English & Voice Support 🌐
+- **Bilingual Responses**: Reply in English, Tamil Unicode (தமிழ்), or Bilingual (Tamil + English mixed)
+- **Tanglish Auto-Detection**: Automatically detects Tamil written in Roman/English script (e.g. "romba kastam") and responds appropriately
+- **Tamil Emotion Keywords**: All 6 emotion classes have Tamil Unicode AND Tanglish keyword dictionaries
+- **Text-to-Speech (TTS)**: AI responses read aloud via gTTS — language-aware (`ta` for Tamil, `en` for English)
+- **Voice Input (STT)**: Record your message in the browser — transcribed via Google Speech Recognition (`en-IN` / `ta-IN`)
+- **Language in Profile**: Language preference stored per user and applied to every session
+
 ### Gamification & Wellness Tracking 🏅
 - **Mood Streak**: Consecutive positive-mood session counter to celebrate progress
 - **Wellness Badges**: Earn 8 badge types — First Step, Consistent (7 sessions), Dedicated (30 sessions), 3-Day Streak, 7-Day Streak, Resilient, Self-Aware, Connected
@@ -189,7 +197,10 @@ The system remembers you! When you return:
 ## 🧠 How It Works
 
 ### User-Centric Design
-The system builds a private profile for each user and continuously understands their emotional history through daily conversations. It tracks personal context — trauma history, personal triggers, marital status, family background — so every response is warm, sensitive, and tailored to the individual.
+The system builds a private profile for each user and continuously understands their emotional history through daily conversations. It tracks personal context — trauma history, personal triggers, marital status, family background, language preference — so every response is warm, sensitive, and tailored to the individual.
+
+### Bilingual Tamil/English Support
+Every message is first checked for script: Tamil Unicode characters trigger Tamil-specific keyword dicts; Tanglish (Roman-script Tamil) is identified via a Tanglish keyword library. Responses are generated in the user's chosen language — English, Tamil (தமிழ்), or Bilingual (Tamil + English). Voice input (STT) and text-to-speech (TTS) are language-aware.
 
 ### Multi-Emotion Analysis
 The system uses TextBlob for sentiment analysis combined with keyword detection to:
@@ -236,11 +247,13 @@ AI-wellness-Buddy/
 ├── wellness_buddy.py       # Main application / orchestrator (CLI)
 ├── emotion_analyzer.py     # Multi-emotion analysis, crisis detection, XAI
 ├── pattern_tracker.py      # Pattern tracking, risk scoring, volatility, stability
-├── prediction_agent.py     # OLS emotion & risk forecasting (NEW)
+├── prediction_agent.py     # OLS emotion & risk forecasting
 ├── alert_system.py         # Distress alert management with safety features
 ├── conversation_handler.py # Emotion-routed, style-aware response generation
 ├── user_profile.py         # Profile, personal history, gamification, badges
 ├── data_store.py           # Persistent encrypted data storage
+├── language_handler.py     # Bilingual Tamil/English/Tanglish support
+├── voice_handler.py        # TTS (gTTS) + STT (SpeechRecognition)
 ├── config.py               # Configuration settings
 ├── ui_app.py               # Streamlit web interface (4-tab: Chat/Trends/Risk/Report)
 ├── start_ui.sh             # Local UI launcher script
@@ -267,9 +280,11 @@ AI-wellness-Buddy/
 - **NLP Libraries**: NLTK (>=3.8.1), TextBlob (>=0.17.1)
 - **Web Framework**: Streamlit (>=1.28.0)
 - **Security**: cryptography (>=41.0.0) for AES-256 encryption
+- **Voice/TTS**: gTTS (>=2.5.4) for text-to-speech, SpeechRecognition (>=3.14.5) for voice input
+- **Language Detection**: langdetect (>=1.0.9), audio-recorder-streamlit (>=0.0.10)
 - **NLTK Datasets**: Brown Corpus, Punkt Tokenizer Models
 - **Storage**: Local JSON files (`~/.wellness_buddy/`) with optional encryption
-- **Privacy**: All processing done locally, no external APIs
+- **Privacy**: All processing done locally, no external APIs (TTS/STT use Google APIs with internet)
 
 ## 📊 Extended Tracking & Data Retention
 
@@ -319,6 +334,10 @@ Key settings can be adjusted in `config.py`:
 - `DISTRESS_THRESHOLD`: Sentiment threshold for distress detection (-0.3)
 - `SUSTAINED_DISTRESS_COUNT`: Messages needed to trigger alert (3)
 - `PATTERN_TRACKING_WINDOW`: Number of messages to analyze (10)
+- `SUPPORTED_LANGUAGES`: Supported response languages (english/tamil/bilingual)
+- `DEFAULT_LANGUAGE`: Default language for responses ('english')
+- `TTS_ENABLED`: Enable/disable text-to-speech responses (True)
+- `STT_ENABLED`: Enable/disable voice input transcription (True)
 
 ## 🤝 Contributing
 
