@@ -213,3 +213,23 @@ WOMEN_SAFETY_MESSAGE = """
 If you're experiencing emotional abuse in your family or relationship,
 please know that you deserve safety and support:
 """
+
+# ── MODULE 11: Crisis Detection ───────────────────────────────────────────────
+CRISIS_RESOURCES = {
+    "crisis_line": "988 — Suicide & Crisis Lifeline (call or text 988)",
+    "crisis_text": "Crisis Text Line — text HOME to 741741",
+    "emergency": "Emergency Services — 911",
+    "chat": "Online chat at 988lifeline.org",
+}
+CRISIS_IMMEDIATE_MESSAGE = (
+    "🆘 **IMMEDIATE SUPPORT AVAILABLE** 🆘\n\n"
+    "I'm deeply concerned about what you've shared. "
+    "Please reach out to a crisis line right now — trained counsellors are available 24/7:\n\n"
+    "📞 **988** — Suicide & Crisis Lifeline (call or text)\n"
+    "💬 **Crisis Text Line** — text HOME to 741741\n"
+    "🚨 **Emergency Services** — 911\n\n"
+    "You are not alone and you matter. 💙"
+)
+
+# ── MODULE 13: Gamification ────────────────────────────────────────────────────
+STREAK_NOTIFICATION_THRESHOLD = 3   # Celebrate streak at this milestone and multiples

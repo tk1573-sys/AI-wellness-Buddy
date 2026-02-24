@@ -174,6 +174,25 @@ class WellnessBuddy:
         
         # Analyze emotion
         emotion_data = self.emotion_analyzer.classify_emotion(user_message)
+
+        # Module 11 — Crisis Detection: immediate response before anything else
+        if emotion_data.get('crisis_detected'):
+            import config as _cfg
+            crisis_msg = _cfg.CRISIS_IMMEDIATE_MESSAGE
+            # Also trigger guardian alert immediately
+            pattern_summary = self.pattern_tracker.get_pattern_summary() or {}
+            profile_data = self.user_profile.get_profile() if self.user_profile else {}
+            crisis_alert = self.alert_system.trigger_distress_alert(
+                {**pattern_summary,
+                 'sustained_distress_detected': True,
+                 'severity_level': 'CRITICAL',
+                 'severity_score': 10.0,
+                 'consecutive_distress': 1,
+                 'abuse_indicators_detected': False},
+                profile_data,
+            )
+            self.pattern_tracker.add_emotion_data(emotion_data)
+            return crisis_msg
         
         # Track patterns
         self.pattern_tracker.add_emotion_data(emotion_data)
@@ -213,6 +232,13 @@ class WellnessBuddy:
             
             # Reset counter after alert
             self.pattern_tracker.reset_consecutive_distress()
+
+        # Module 13 — update mood streak
+        if self.user_profile and pattern_summary:
+            avg_sent = pattern_summary.get('average_sentiment')
+            is_positive = (avg_sent is not None and avg_sent >= 0)
+            self.user_profile.update_mood_streak(is_positive)
+            self.user_profile.calculate_stability_score(pattern_summary)
         
         return response
     

@@ -339,6 +339,21 @@ def show_main_interface():
         sessions = profile_data.get('session_count', 0)
         st.markdown(f"**Session #{sessions + 1}**")
 
+        # Module 13 — Gamification metrics in sidebar
+        streak = profile_data.get('mood_streak', 0)
+        stability = profile_data.get('stability_score', 50.0)
+        badges = profile_data.get('badges', [])
+        if streak > 0:
+            fire = "🔥" * min(streak, 5)
+            st.success(f"{fire} **{streak}-session positive streak!**")
+        col_s1, col_s2 = st.columns(2)
+        col_s1.metric("Stability", f"{stability:.0f}/100")
+        col_s2.metric("Badges", len(badges))
+        if badges:
+            with st.expander("🏆 My Badges"):
+                for b in badges[-5:]:
+                    st.caption(f"{b['name']} — {b['desc']}")
+
         concerns = profile_data.get('primary_concerns', [])
         if concerns:
             st.markdown("**Focus areas:**")
@@ -348,13 +363,13 @@ def show_main_interface():
         st.markdown("---")
         if st.button("📞 Help & Resources", use_container_width=True):
             response = buddy._show_resources()
-            st.session_state.messages.append({"role": "assistant", "content": response})
+            st.session_state.messages.append({"role": "assistant", "content": response, "type": "info"})
         if st.button("⚙️ Manage Profile", use_container_width=True):
             st.session_state.show_profile_menu = True
         st.markdown("---")
         if st.button("🚪 End Session", use_container_width=True):
             response = buddy._end_session()
-            st.session_state.messages.append({"role": "assistant", "content": response})
+            st.session_state.messages.append({"role": "assistant", "content": response, "type": "info"})
             st.session_state.profile_loaded = False
             st.session_state.buddy = None
             st.rerun()
@@ -402,17 +417,72 @@ def _tab_chat(buddy, display_name):
         c4.metric("Sentiment", f"{sent_val:.2f}")
         st.markdown("---")
 
-    # Chat history
-    for message in st.session_state.messages:
+    # Chat history with RL feedback buttons (Module 10)
+    messages = st.session_state.messages
+    for idx, message in enumerate(messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+            # Show 👍/👎 only on regular (non-crisis/alert) assistant messages
+            if (message["role"] == "assistant"
+                    and message.get("type") == "response"):
+                key_base = f"fb_{idx}"
+                c_a, c_b, _ = st.columns([1, 1, 8])
+                with c_a:
+                    if st.button("👍", key=f"{key_base}_up", help="This helped"):
+                        _record_feedback(buddy, message.get("template_key"), positive=True)
+                with c_b:
+                    if st.button("👎", key=f"{key_base}_dn", help="Not helpful"):
+                        _record_feedback(buddy, message.get("template_key"), positive=False)
+
+    # Module 8 — XAI: show explanation for the last analyzed emotion
+    if messages and buddy.pattern_tracker.emotion_history:
+        last_emotion_data = list(buddy.pattern_tracker.emotion_history)[-1]
+        explanation = last_emotion_data.get('keyword_explanation', [])
+        if explanation:
+            with st.expander("🔍 Why did the system classify this emotion? (Explainable AI)"):
+                st.caption("These keywords influenced the emotion classification:")
+                cols_xai = st.columns(min(len(explanation), 4))
+                for i, item in enumerate(explanation[:8]):
+                    with cols_xai[i % len(cols_xai)]:
+                        contrib_color = "🔴" if item['contribution'] == 'high' else "🟠"
+                        st.markdown(
+                            f"{contrib_color} **{item['word']}**  \n"
+                            f"→ _{item['emotion']}_"
+                        )
 
     # Input
     if prompt := st.chat_input(f"Share how you're feeling, {display_name}..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.session_state.messages.append({"role": "user", "content": prompt, "type": "user"})
         response = buddy.process_message(prompt)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        # Determine message type for feedback gating
+        if response.startswith("🆘"):
+            msg_type = "crisis"
+        elif response.startswith("⚠️"):
+            msg_type = "alert"
+        else:
+            msg_type = "response"
+        template_key = buddy.conversation_handler.get_last_template_key()
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response,
+            "type": msg_type,
+            "template_key": template_key,
+        })
+        # Module 11 — show crisis banner prominently at the top
+        if msg_type == "crisis":
+            st.error("🆘 Crisis resources are shown above. Please reach out immediately.", icon="🆘")
         st.rerun()
+
+
+def _record_feedback(buddy, template_key, positive: bool):
+    """Module 10 — record RL feedback for a specific response template_key."""
+    if template_key and buddy.user_profile:
+        buddy.user_profile.record_response_feedback(template_key, positive)
+        buddy._save_profile()
+    if positive:
+        st.toast("Thanks for the feedback! 👍", icon="💙")
+    else:
+        st.toast("Got it — I'll try to respond better. 👎", icon="💬")
 
 
 # ── Tab: Emotional Trends ─────────────────────────────────────────────────────
@@ -549,6 +619,54 @@ def _tab_weekly_summary(buddy):
     c2.metric("Avg Sentiment", f"{df['Avg Sentiment'].mean():.3f}")
     positive_days = (df['Avg Sentiment'] > 0).sum()
     c3.metric("Positive Days", f"{positive_days}/{len(lth)}")
+
+    # Module 6 — Personalised recommendations
+    st.markdown("---")
+    st.subheader("💡 Personalised Recommendations")
+    avg_sent = df['Avg Sentiment'].mean()
+    total_distress = df['Distress Messages'].sum()
+    trend_vals = list(df['Trend'])
+    if avg_sent >= 0.3:
+        st.success("✅ You've had a strong positive week! Keep nurturing the habits that support your wellbeing.")
+    elif avg_sent >= 0.0:
+        st.info("🌤 Your week was mostly stable. Consider light mindfulness or journaling to build on this.")
+    elif avg_sent >= -0.3:
+        st.warning("⚠️ Your week had some difficult moments. Try to schedule breaks and reach out to trusted people.")
+    else:
+        st.error("🔴 Your week was challenging. Please consider speaking with a mental health professional.")
+    if total_distress > 0:
+        st.markdown(f"- You had **{int(total_distress)} distress message(s)** this week — "
+                    "be kind to yourself and use the Help & Resources in the sidebar.")
+    if 'worsening' in trend_vals:
+        st.markdown("- Some sessions showed a **worsening trend** — the Risk Prediction tab may show more insight.")
+    if 'improving' in trend_vals:
+        st.markdown("- Great news: some sessions showed an **improving trend**. 🌟")
+
+    # Module 12 — Export weekly summary as JSON
+    st.markdown("---")
+    st.subheader("📥 Export")
+    import json as _json
+    export_data = {
+        'export_type': 'weekly_summary',
+        'exported_at': datetime.now().isoformat(),
+        'user_id': st.session_state.user_id,
+        'sessions': rows,
+        'avg_sentiment': float(df['Avg Sentiment'].mean()),
+        'positive_days': int(positive_days),
+    }
+    st.download_button(
+        "⬇️ Download Weekly Summary (JSON)",
+        data=_json.dumps(export_data, indent=2),
+        file_name=f"wellness_summary_{datetime.now().strftime('%Y%m%d')}.json",
+        mime="application/json",
+    )
+    if _CHARTS_AVAILABLE:
+        st.download_button(
+            "⬇️ Download Weekly Summary (CSV)",
+            data=df.to_csv(index=False),
+            file_name=f"wellness_summary_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+        )
 
     _show_current_session_summary(buddy)
 
@@ -762,9 +880,29 @@ def _tab_profile(buddy, profile_data, display_name):
         if concerns:
             st.markdown(f"**Primary concerns:** {', '.join(concerns)}")
         st.markdown(f"**Sessions completed:** {profile_data.get('session_count', 0)}")
+        st.markdown(f"**Response style:** {profile_data.get('response_style', 'balanced')}")
 
     with col2:
-        st.subheader("Contacts")
+        st.subheader("Wellness Stats (Module 13)")
+        streak = profile_data.get('mood_streak', 0)
+        best_streak = profile_data.get('best_streak', 0)
+        stability = profile_data.get('stability_score', 50.0)
+        badges = profile_data.get('badges', [])
+        st.metric("Current Streak 🔥", f"{streak} sessions")
+        st.metric("Best Streak ⭐", f"{best_streak} sessions")
+        st.metric("Stability Score 🎯", f"{stability:.0f}/100")
+        if badges:
+            st.markdown("**Earned Badges:**")
+            for b in badges:
+                st.caption(f"{b['name']} — {b['desc']}")
+        else:
+            st.info("No badges yet — keep chatting to earn them!")
+
+    # Contacts in a separate row below
+    st.markdown("---")
+    st.subheader("👥 Contacts")
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
         trusted = buddy.user_profile.get_trusted_contacts()
         if trusted:
             st.markdown("**💚 Trusted Contacts:**")
@@ -773,13 +911,15 @@ def _tab_profile(buddy, profile_data, display_name):
                             + (f" — {c['contact_info']}" if c.get('contact_info') else ""))
         else:
             st.info("No trusted contacts added yet.")
-
+    with col_c2:
         guardians = buddy.user_profile.get_guardian_contacts()
         if guardians:
             st.markdown("**🔔 Guardian Contacts:**")
             for g in guardians:
                 st.markdown(f"• **{g['name']}** ({g['relationship']})"
                             + (f" — {g['contact_info']}" if g.get('contact_info') else ""))
+        else:
+            st.info("No guardian contacts added yet.")
 
     st.markdown("---")
     st.subheader("⚙️ Manage")
@@ -795,6 +935,7 @@ def _tab_profile(buddy, profile_data, display_name):
                                        "Add Guardian Contact",
                                        "Set / Change Password",
                                        "Remove Password",
+                                       "Set Response Style",
                                        "Delete All My Data"])
     if action == "Add Trusted Contact":
         with st.form("add_tc"):
@@ -849,6 +990,25 @@ def _tab_profile(buddy, profile_data, display_name):
                     st.rerun()
                 else:
                     st.error("❌ Incorrect password.")
+    elif action == "Set Response Style":
+        current_style = buddy.user_profile.get_profile().get('response_style', 'balanced')
+        st.info(f"Current style: **{current_style}**")
+        new_style = st.radio(
+            "Choose your preferred response style:",
+            ["short", "balanced", "detailed"],
+            index=["short", "balanced", "detailed"].index(current_style),
+            horizontal=True,
+        )
+        st.caption({
+            "short": "Concise, one-sentence replies.",
+            "balanced": "Standard empathetic responses (default).",
+            "detailed": "Longer replies with a follow-up prompt.",
+        }[new_style])
+        if st.button("💾 Save Response Style"):
+            buddy.user_profile.set_response_style(new_style)
+            buddy._save_profile()
+            st.success(f"✅ Response style set to **{new_style}**.")
+            st.rerun()
     elif action == "Delete All My Data":
         st.warning("⚠️ This cannot be undone!")
         if st.button("Confirm Delete"):
@@ -856,6 +1016,47 @@ def _tab_profile(buddy, profile_data, display_name):
             st.session_state.profile_loaded = False
             st.session_state.buddy = None
             st.rerun()
+
+    # Module 12 — Export Data
+    st.markdown("---")
+    st.subheader("📥 Data Export & Privacy")
+    with st.expander("⬇️ Export My Data (Module 12 — Privacy & Ethical AI)"):
+        import json as _json
+        export_profile = {k: v for k, v in profile_data.items()
+                          if k not in ('password_hash', 'salt')}  # never export credentials
+        st.download_button(
+            "⬇️ Download My Profile Data (JSON)",
+            data=_json.dumps(export_profile, indent=2, default=str),
+            file_name=f"my_wellness_data_{datetime.now().strftime('%Y%m%d')}.json",
+            mime="application/json",
+        )
+        st.caption("⚠️ Password hash and salt are **not** included in the export for your security.")
+
+    with st.expander("🔏 Privacy Policy & Ethical AI"):
+        st.markdown("""
+### Privacy & Ethical AI
+
+**Your data stays with you**
+All profile data is stored only on your device (local filesystem).
+No data is sent to external servers or third parties.
+
+**Password protection**
+Passwords are hashed with SHA-256 + a unique random salt.
+Your plain-text password is never stored.
+
+**Guardian consent**
+Guardian notifications require your explicit consent.
+You are always in control.
+
+**Data deletion**
+You can delete all your data at any time from the Manage section above.
+
+**Ethical AI principles**
+- This tool is **not a replacement** for professional mental health care.
+- Crisis detection triggers immediate hotline resources, not automated calls.
+- Emotion classification is rule-based (explainable) — no black-box models.
+- User feedback (👍/👎) is used locally to personalise responses, not shared.
+        """)
 
 
 # ── Profile menu sidebar ──────────────────────────────────────────────────────

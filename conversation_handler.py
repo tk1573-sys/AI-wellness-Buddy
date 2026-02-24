@@ -4,6 +4,7 @@ Context-aware, emotion-category-specific response generation.
 """
 
 import random
+import hashlib
 from datetime import datetime
 import config
 
@@ -98,6 +99,9 @@ class ConversationHandler:
         Priority:
           1. Use dominant_emotion (multi-emotion category) if available.
           2. Fall back to legacy emotion bucket.
+        Applies:
+          • Module 10 (RL): feedback-weighted template selection
+          • response_style preference: 'short' | 'balanced' | 'detailed'
         """
         name_str, occ_ctx = self._build_name_str(user_profile)
 
@@ -105,7 +109,7 @@ class ConversationHandler:
         dominant = emotion_data.get('dominant_emotion')
         legacy_emotion = emotion_data.get('emotion', 'neutral')
         key = dominant if (dominant and dominant in _TEMPLATES) else legacy_emotion
-        templates = _TEMPLATES.get(key, _TEMPLATES['neutral'])
+        templates = list(_TEMPLATES.get(key, _TEMPLATES['neutral']))
 
         # Abuse-indicator override
         if emotion_data.get('has_abuse_indicators'):
@@ -114,9 +118,22 @@ class ConversationHandler:
                 "You deserve to be safe and respected — specialised support is available."
             ]
 
+        # Module 10 — RL feedback weighting: boost positively-rated templates
+        feedback = (user_profile or {}).get('response_feedback', {})
+        if feedback:
+            def _score(t):
+                t_key = t[:40]   # use first 40 chars as key
+                return feedback.get(t_key, 0)
+            # Sort so higher-scored templates come first, then pick from top half
+            templates_sorted = sorted(templates, key=_score, reverse=True)
+            # Keep at least 2 candidates to preserve variety
+            top_pool = templates_sorted[:max(2, len(templates_sorted) // 2)]
+        else:
+            top_pool = templates
+
         # Context awareness: avoid repeating the last response
         last_resp = getattr(self, '_last_response', None)
-        candidates = [t for t in templates if t != last_resp] or templates
+        candidates = [t for t in top_pool if t != last_resp] or top_pool
         chosen = random.choice(candidates)
 
         # Fill placeholders
@@ -125,7 +142,27 @@ class ConversationHandler:
             occupation_context=occ_ctx,
         )
         self._last_response = chosen
+        self._last_template_key = hashlib.md5(chosen.encode()).hexdigest()[:16]
+
+        # Module 10 — response_style shaping
+        style = (user_profile or {}).get('response_style', 'balanced')
+        if style == 'short':
+            # Return only the first complete sentence (split on '. ' to avoid truncating
+            # abbreviations like 'Dr.' or decimal numbers)
+            parts = response.split('. ')
+            response = (parts[0].rstrip('.') + '.') if parts else response
+        elif style == 'detailed':
+            # Append a gentle follow-up prompt
+            response += (
+                f" I'd love to hear more if you feel comfortable sharing — "
+                "sometimes talking through it helps. 💙"
+            )
+
         return response
+
+    def get_last_template_key(self):
+        """Return the key (first 40 chars) of the last chosen template, for RL feedback."""
+        return getattr(self, '_last_template_key', None)
 
     def get_greeting(self):
         """Get a greeting message."""

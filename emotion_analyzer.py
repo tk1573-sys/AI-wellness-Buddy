@@ -52,6 +52,14 @@ _ABUSE_KEYWORDS = [
     'emotional abuse', 'verbal abuse', 'domestic violence',
 ]
 
+# Crisis / self-harm keywords (Module 11)
+_CRISIS_KEYWORDS = [
+    'kill myself', 'end my life', 'want to die', 'suicide', 'suicidal',
+    'self harm', 'self-harm', 'cut myself', 'hurt myself', 'hurting myself',
+    'no reason to live', 'not worth living', 'better off dead',
+    'take my own life', 'overdose', 'end it all',
+]
+
 # Sentiment polarity ranges for each category (rule-based heuristic)
 _POLARITY_MAP = [
     ('joy',     lambda p: p > 0.25),
@@ -102,6 +110,37 @@ class EmotionAnalyzer:
     def detect_abuse_indicators(self, text):
         text_lower = text.lower()
         return [kw for kw in _ABUSE_KEYWORDS if kw in text_lower]
+
+    def detect_crisis_phrases(self, text):
+        """Module 11: Detect self-harm / crisis phrases."""
+        text_lower = text.lower()
+        return [kw for kw in _CRISIS_KEYWORDS if kw in text_lower]
+
+    def get_keyword_explanation(self, text):
+        """
+        Module 8 — Explainable AI.
+        Returns a list of {word, emotion, contribution} dicts describing
+        which words most influenced the emotion classification.
+        """
+        text_lower = text.lower()
+        explanation = []
+        keyword_map = [
+            ('joy',      _JOY_KEYWORDS),
+            ('sadness',  _SADNESS_KEYWORDS),
+            ('anxiety',  _ANXIETY_KEYWORDS),
+            ('anger',    _ANGER_KEYWORDS),
+            ('distress', _DISTRESS_KEYWORDS),
+            ('crisis',   _CRISIS_KEYWORDS),
+        ]
+        for emotion_cat, keywords in keyword_map:
+            for kw in keywords:
+                if kw in text_lower:
+                    explanation.append({
+                        'word': kw,
+                        'emotion': emotion_cat,
+                        'contribution': 'high' if emotion_cat in ('crisis', 'distress') else 'medium',
+                    })
+        return explanation
 
     # ── Multi-emotion scoring ─────────────────────────────────────────────────
 
@@ -154,7 +193,9 @@ class EmotionAnalyzer:
         sentiment = self.analyze_sentiment(text)
         distress_kws = self.detect_distress_keywords(text)
         abuse_kws = self.detect_abuse_indicators(text)
+        crisis_kws = self.detect_crisis_phrases(text)
         emotion_scores = self.get_emotion_scores(text)
+        keyword_explanation = self.get_keyword_explanation(text)
 
         polarity = sentiment['polarity']
 
@@ -176,6 +217,11 @@ class EmotionAnalyzer:
             if emotion != 'distress':
                 emotion = 'negative'
             severity = 'high' if len(distress_kws) > 2 else 'medium'
+
+        # Override to crisis if crisis phrases detected
+        if crisis_kws:
+            emotion = 'distress'
+            severity = 'high'
 
         # ── Dominant multi-emotion category ──────────────────────────────────
         dominant_emotion = max(emotion_scores, key=emotion_scores.get)
@@ -199,4 +245,9 @@ class EmotionAnalyzer:
             'emotion_scores': emotion_scores,       # {joy, sadness, anxiety, anger, neutral}
             'dominant_emotion': dominant_emotion,   # e.g. 'anxiety'
             'severity_score': severity_score,       # float 0-10
+            # Module 11 — Crisis Detection
+            'crisis_detected': len(crisis_kws) > 0,
+            'crisis_keywords': crisis_kws,
+            # Module 8 — Explainable AI
+            'keyword_explanation': keyword_explanation,
         }

@@ -464,3 +464,218 @@ def test_password_protection():
     print("✓ Password removed — profile now unprotected")
 
     print("\n✓ Password protection test passed")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MODULES 8, 10, 11, 12, 13 TESTS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_crisis_detection():
+    """Test Module 11: Crisis Detection."""
+    print("\n" + "="*70)
+    print("TEST 13: Crisis Detection Module (Module 11)")
+    print("="*70)
+
+    from emotion_analyzer import EmotionAnalyzer
+    analyzer = EmotionAnalyzer()
+
+    # Message with clear crisis phrase
+    crisis_msg = "I want to kill myself, I can't take it anymore"
+    result = analyzer.classify_emotion(crisis_msg)
+    assert result['crisis_detected'], "crisis_detected should be True"
+    assert len(result['crisis_keywords']) > 0, "crisis_keywords should be non-empty"
+    print(f"✓ Crisis detected: {result['crisis_keywords']}")
+
+    # Normal distress message — should not be crisis
+    normal_msg = "I feel so sad and hopeless"
+    result2 = analyzer.classify_emotion(normal_msg)
+    assert not result2['crisis_detected'], "crisis_detected should be False for non-crisis message"
+    print("✓ Non-crisis message correctly not flagged as crisis")
+
+    # Crisis detection also present in detect_crisis_phrases()
+    phrases = analyzer.detect_crisis_phrases("end my life please")
+    assert len(phrases) > 0, "detect_crisis_phrases should find 'end my life'"
+    print(f"✓ detect_crisis_phrases works: {phrases}")
+
+    print("\n✓ Crisis detection test passed")
+
+
+def test_xai_keyword_explanation():
+    """Test Module 8: Explainable AI keyword explanation."""
+    print("\n" + "="*70)
+    print("TEST 14: Explainable AI — Keyword Explanation (Module 8)")
+    print("="*70)
+
+    from emotion_analyzer import EmotionAnalyzer
+    analyzer = EmotionAnalyzer()
+
+    result = analyzer.classify_emotion("I feel so anxious and worried about everything")
+    explanation = result.get('keyword_explanation', [])
+    assert isinstance(explanation, list), "keyword_explanation should be a list"
+    assert len(explanation) > 0, "Should have at least one keyword explanation"
+
+    for item in explanation:
+        assert 'word' in item, "Each item needs 'word'"
+        assert 'emotion' in item, "Each item needs 'emotion'"
+        assert 'contribution' in item, "Each item needs 'contribution'"
+
+    emotions_found = {item['emotion'] for item in explanation}
+    assert 'anxiety' in emotions_found, "Anxiety keywords should be in explanation"
+    print(f"✓ Explanation items: {len(explanation)}")
+    print(f"✓ Emotions in explanation: {emotions_found}")
+
+    # Direct method call
+    expl2 = analyzer.get_keyword_explanation("I am furious and angry")
+    assert any(item['emotion'] == 'anger' for item in expl2), "anger should appear in explanation"
+    print("✓ get_keyword_explanation() works correctly")
+
+    print("\n✓ XAI keyword explanation test passed")
+
+
+def test_gamification():
+    """Test Module 13: Gamified Wellness Tracking."""
+    print("\n" + "="*70)
+    print("TEST 15: Gamified Wellness Tracking (Module 13)")
+    print("="*70)
+
+    from user_profile import UserProfile
+    profile = UserProfile('gamify_test')
+
+    # Initial state
+    assert profile.get_profile()['mood_streak'] == 0
+    assert profile.get_profile()['best_streak'] == 0
+    assert profile.get_profile()['stability_score'] == 50.0
+    assert isinstance(profile.get_profile()['badges'], list)
+    print("✓ Initial gamification state correct")
+
+    # Positive sessions increase streak
+    for _ in range(3):
+        profile.update_mood_streak(True)
+    assert profile.get_profile()['mood_streak'] == 3
+    assert profile.get_profile()['best_streak'] == 3
+    print(f"✓ Streak after 3 positive sessions: {profile.get_profile()['mood_streak']}")
+
+    # Negative session resets streak
+    profile.update_mood_streak(False)
+    assert profile.get_profile()['mood_streak'] == 0
+    assert profile.get_profile()['best_streak'] == 3, "Best streak should not reset"
+    print("✓ Negative session resets streak, best_streak preserved")
+
+    # Check badges awarded (first_session + streak_3 at least)
+    badges = profile.get_profile()['badges']
+    badge_ids = {b['id'] for b in badges}
+    assert 'streak_3' in badge_ids, "streak_3 badge should be awarded"
+    print(f"✓ Badges awarded: {badge_ids}")
+
+    # Stability score calculation
+    summary = {'average_sentiment': 0.3, 'distress_ratio': 0.1}
+    score = profile.calculate_stability_score(summary)
+    assert 0 <= score <= 100
+    print(f"✓ Stability score: {score}/100")
+
+    # Response style
+    profile.set_response_style('short')
+    assert profile.get_profile()['response_style'] == 'short'
+    profile.set_response_style('detailed')
+    assert profile.get_profile()['response_style'] == 'detailed'
+    profile.set_response_style('invalid')   # should not change
+    assert profile.get_profile()['response_style'] == 'detailed'
+    print("✓ Response style set/validated correctly")
+
+    print("\n✓ Gamification test passed")
+
+
+def test_rl_response_feedback():
+    """Test Module 10: RL Response Feedback."""
+    print("\n" + "="*70)
+    print("TEST 16: RL Response Feedback (Module 10)")
+    print("="*70)
+
+    from user_profile import UserProfile
+    from conversation_handler import ConversationHandler
+    from emotion_analyzer import EmotionAnalyzer
+
+    profile = UserProfile('rl_test')
+    handler = ConversationHandler()
+    analyzer = EmotionAnalyzer()
+
+    # Generate a response
+    emotion_data = analyzer.classify_emotion("I'm feeling a bit sad today")
+    response = handler.generate_response(emotion_data, profile.get_profile())
+    template_key = handler.get_last_template_key()
+    assert template_key is not None, "Template key should be set after generate_response"
+    print(f"✓ Template key retrieved: '{template_key}'")
+
+    # Record positive feedback
+    profile.record_response_feedback(template_key, positive=True)
+    fb = profile.get_response_feedback()
+    assert fb.get(template_key, 0) == 1, "Positive feedback should set score to 1"
+    print(f"✓ Positive feedback recorded: {fb}")
+
+    # Record negative feedback
+    profile.record_response_feedback(template_key, positive=False)
+    fb2 = profile.get_response_feedback()
+    assert fb2.get(template_key, 0) == 0, "One negative + one positive = 0"
+    print(f"✓ Negative feedback recorded, cumulative: {fb2}")
+
+    # Response style: short
+    profile.set_response_style('short')
+    short_response = handler.generate_response(emotion_data, profile.get_profile())
+    # short style: should not contain double newline follow-up
+    assert "I'd love to hear more" not in short_response, "Short style should not have follow-up prompt"
+    print(f"✓ Short-style response: '{short_response[:60]}...'")
+
+    # Response style: detailed
+    profile.set_response_style('detailed')
+    detailed_response = handler.generate_response(emotion_data, profile.get_profile())
+    assert "I'd love to hear more" in detailed_response, "Detailed style should have follow-up prompt"
+    print("✓ Detailed-style response contains follow-up prompt")
+
+    print("\n✓ RL response feedback test passed")
+
+
+def test_privacy_export():
+    """Test Module 12: Privacy — data export and removal."""
+    print("\n" + "="*70)
+    print("TEST 17: Privacy & Ethical AI — Data Export (Module 12)")
+    print("="*70)
+
+    import json
+    from user_profile import UserProfile
+
+    profile = UserProfile('privacy_test')
+    profile.set_name("Alice")
+    profile.set_age(25)
+    profile.set_occupation("Student")
+    profile.set_password("SecurePass99!")
+
+    # Simulate what the UI does: export profile without password_hash / salt
+    profile_data = profile.get_profile()
+    export_data = {
+        k: str(v) if not isinstance(v, (str, int, float, list, dict, bool, type(None))) else v
+        for k, v in profile_data.items()
+        if k not in ('password_hash', 'salt')
+    }
+
+    # Sensitive fields must be absent
+    assert 'password_hash' not in export_data, "password_hash must not be in export"
+    assert 'salt' not in export_data, "salt must not be in export"
+    print("✓ password_hash and salt excluded from export")
+
+    # Non-sensitive fields must be present
+    assert export_data.get('name') == 'Alice'
+    assert export_data.get('occupation') == 'Student'
+    print("✓ Profile data present in export")
+
+    # Export must be JSON-serialisable
+    json_str = json.dumps(export_data, default=str)
+    assert isinstance(json_str, str) and len(json_str) > 10
+    print("✓ Export is valid JSON")
+
+    # remove_password clears credentials
+    profile.remove_password()
+    assert profile.get_profile()['password_hash'] is None
+    assert not profile.get_profile()['security_enabled']
+    print("✓ remove_password clears credentials")
+
+    print("\n✓ Privacy & data export test passed")
