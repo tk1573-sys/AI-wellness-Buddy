@@ -246,8 +246,10 @@ def run_t_test(group_a, group_b):
 
     try:
         from scipy import stats
-        df = ((var_a / n_a + var_b / n_b) ** 2
-              / ((var_a / n_a) ** 2 / (n_a - 1) + (var_b / n_b) ** 2 / (n_b - 1)))
+        # Welch-Satterthwaite degrees of freedom — denominator guaranteed > 0
+        # because n_a >= 2 and n_b >= 2 (checked above), so (n-1) >= 1.
+        denom = ((var_a / n_a) ** 2 / (n_a - 1) + (var_b / n_b) ** 2 / (n_b - 1))
+        df = ((var_a / n_a + var_b / n_b) ** 2 / denom) if denom > 0 else 1.0
         p = float(2 * stats.t.sf(abs(t), df))
     except ImportError:
         # Normal approximation (accurate for |t| and large df)
@@ -483,8 +485,12 @@ def simulate_risk_detection_on_scenarios():
     from datetime import datetime
 
     def _make_emotion(polarity):
-        primary = 'joy' if polarity > 0.2 else ('neutral' if polarity > -0.1
-                                                 else 'sadness')
+        if polarity > 0.2:
+            primary = 'joy'
+        elif polarity > -0.1:
+            primary = 'neutral'
+        else:
+            primary = 'sadness'
         return {
             'emotion': 'positive' if polarity > 0 else 'negative',
             'severity': 'low' if polarity > 0 else 'medium',
