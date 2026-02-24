@@ -129,6 +129,26 @@ class PatternTracker:
         return distribution
 
     # ------------------------------------------------------------------
+    # Emotional drift score
+    # ------------------------------------------------------------------
+
+    def get_emotional_drift_score(self):
+        """
+        Compute emotional drift: the mean per-step change in sentiment
+        over the current window.  Positive = improving, negative = worsening.
+        Returns a float in approximately [-1, 1].
+
+        Mathematically equivalent to (values[-1] - values[0]) / (len(values) - 1),
+        i.e. the overall rise divided by the number of steps.
+        """
+        values = list(self.sentiment_history)
+        if len(values) < 2:
+            return 0.0
+        # Mean successive difference == (last - first) / (n - 1)
+        drift = (values[-1] - values[0]) / (len(values) - 1)
+        return round(drift, 4)
+
+    # ------------------------------------------------------------------
     # Formula-based risk scoring
     # ------------------------------------------------------------------
 
@@ -143,6 +163,7 @@ class PatternTracker:
             total  = min(1.0, base + consec + abuse)
 
         Levels:
+            < 0.10  → 'info'
             < 0.20  → 'low'
             < 0.45  → 'medium'
             < 0.70  → 'high'
@@ -169,7 +190,9 @@ class PatternTracker:
 
         total = min(1.0, base_score + consecutive_factor + abuse_boost)
 
-        if total < 0.20:
+        if total < 0.10:
+            level = 'info'
+        elif total < 0.20:
             level = 'low'
         elif total < 0.45:
             level = 'medium'
@@ -233,6 +256,7 @@ class PatternTracker:
             'risk_level': risk_level,
             'moving_average': moving_avg,
             'emotion_distribution': emotion_distribution,
+            'drift_score': self.get_emotional_drift_score(),
         }
 
     def reset_consecutive_distress(self):

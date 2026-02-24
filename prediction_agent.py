@@ -5,6 +5,10 @@ sentiment values to predict the next session's emotional score.
 No external ML dependencies required.
 """
 
+# Minimum slope magnitude considered a "meaningful" declining trend.
+# Smaller slopes are treated as noise / stable.
+_PRE_DISTRESS_SLOPE_THRESHOLD = -0.02
+
 
 class PredictionAgent:
     """Forecasts future emotional state using OLS linear regression."""
@@ -109,3 +113,34 @@ class PredictionAgent:
             'confidence': result['confidence'],
             'recommendation': recommendation,
         }
+
+    def get_pre_distress_warning(self, sentiment_history):
+        """
+        Generate a gentle preventive support message when sentiment is
+        trending downward into the mild-negative zone (pre-distress early
+        warning), before the alert system activates.
+
+        Args:
+            sentiment_history: list of float polarity values (-1 to 1)
+
+        Returns:
+            str warning message, or None if no early warning is warranted.
+        """
+        result = self.predict_next_sentiment(sentiment_history)
+        if result is None:
+            return None
+
+        predicted = result['predicted_value']
+        slope = result['trend_slope']
+
+        # Warn only when sentiment is declining and heading into mild-negative
+        # territory (-0.50 to -0.10).  Deep distress is handled by AlertSystem;
+        # stable/positive trends require no action.
+        if slope < _PRE_DISTRESS_SLOPE_THRESHOLD and -0.50 <= predicted < -0.10:
+            return (
+                "💛 I've noticed your emotional state has been shifting recently. "
+                "Before things feel heavier, this might be a good time to try some "
+                "gentle self-care — a short walk, reaching out to someone you trust, "
+                "or simply taking a few slow breaths. I'm here with you. 💙"
+            )
+        return None

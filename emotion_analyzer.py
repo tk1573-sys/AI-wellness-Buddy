@@ -99,6 +99,15 @@ class EmotionAnalyzer:
                 # Tamil Unicode anxiety
                 *TAMIL_UNICODE_EMOTION_KEYWORDS.get('anxiety', []),
             ],
+            'neutral': [
+                'okay', 'fine', 'alright', 'so-so', 'average', 'ordinary',
+                'normal', 'moderate', 'not bad', 'not great', 'just okay',
+                'managing', 'getting by', 'neither', 'neutral', 'indifferent',
+                # Tanglish neutral
+                *TANGLISH_EMOTION_KEYWORDS.get('neutral', []),
+                # Tamil Unicode neutral
+                *TAMIL_UNICODE_EMOTION_KEYWORDS.get('neutral', []),
+            ],
         }
 
         # Weights for computing emotion scores (higher = more severe)
@@ -166,6 +175,44 @@ class EmotionAnalyzer:
                 if kw in text_lower:
                     scores[emo] += 1
         return scores
+
+    def get_emotion_confidence(self, text):
+        """
+        Return normalized confidence scores (0.0–1.0) per emotion,
+        representing the proportion of matched keywords belonging to each class.
+        Scores for all emotion classes (including 'crisis') sum to 1.0.
+        Falls back to polarity-based distribution when no keywords match.
+        """
+        text_lower = text.lower()
+        # Initialise with all emotion classes plus 'crisis' explicitly upfront
+        raw_scores = {emo: 0 for emo in self.emotion_keywords}
+        raw_scores['crisis'] = 0  # ensures 'crisis' is always present
+
+        for emo, keywords in self.emotion_keywords.items():
+            for kw in keywords:
+                if kw in text_lower:
+                    raw_scores[emo] += 1
+
+        # Count crisis keywords as a separate class
+        crisis_count = sum(1 for kw in self.crisis_keywords if kw in text_lower)
+        raw_scores['crisis'] = crisis_count
+
+        total = sum(raw_scores.values())
+
+        if total == 0:
+            # Polarity-based fallback when no keywords matched
+            sentiment = self.analyze_sentiment(text)
+            polarity = sentiment['polarity']
+            base = {emo: 0.0 for emo in raw_scores}
+            if polarity > 0.2:
+                base['joy'] = 1.0
+            elif polarity > -0.1:
+                base['neutral'] = 1.0
+            else:
+                base['sadness'] = 1.0
+            return base
+
+        return {emo: round(count / total, 4) for emo, count in raw_scores.items()}
 
     def detect_primary_emotion(self, text, polarity):
         """

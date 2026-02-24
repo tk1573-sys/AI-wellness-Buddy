@@ -242,6 +242,13 @@ class WellnessBuddy:
         # Generate response (personalized with user context)
         user_context = self.user_profile.get_personal_context()
         user_context['response_style'] = self.user_profile.get_response_style()
+
+        # Attach pre-distress warning if sentiment is trending downward
+        sentiment_hist = list(self.pattern_tracker.sentiment_history)
+        pre_distress = self.prediction_agent.get_pre_distress_warning(sentiment_hist)
+        if pre_distress:
+            user_context['pre_distress_warning'] = pre_distress
+
         response = self.conversation_handler.generate_response(emotion_data, user_context)
         
         # Check for distress alerts

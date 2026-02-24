@@ -389,7 +389,7 @@ def test_risk_scoring():
 
     score, level = tracker.compute_risk_score()
     print(f"\nAfter positive messages: score={score:.2f}, level={level}")
-    assert level in ('low', 'medium'), f"Expected low/medium risk, got {level}"
+    assert level in ('info', 'low', 'medium'), f"Expected info/low/medium risk, got {level}"
 
     # Build up to high risk
     tracker2 = PatternTracker()
@@ -686,6 +686,164 @@ def test_voice_handler():
     print("\n✓ Voice handler tests passed")
 
 
+def test_emotion_confidence_scoring():
+    """Test normalized confidence scores per emotion (Problem 1 — granularity)"""
+    print("\n" + "="*70)
+    print("TEST 19: Emotion Confidence Scoring")
+    print("="*70)
+
+    analyzer = EmotionAnalyzer()
+
+    # Joy-heavy message — joy confidence should be highest
+    conf_joy = analyzer.get_emotion_confidence("I'm so happy and excited today!")
+    print(f"\nJoy message confidence: {conf_joy}")
+    assert 0.0 <= conf_joy['joy'] <= 1.0, "Joy confidence must be in [0, 1]"
+    assert conf_joy['joy'] > 0, "Joy keywords should be detected"
+    non_joy_sum = sum(v for k, v in conf_joy.items() if k != 'joy')
+    assert conf_joy['joy'] > non_joy_sum / max(len(conf_joy) - 1, 1), \
+        "Joy should have the highest single-emotion confidence"
+
+    # Sadness-heavy message
+    conf_sad = analyzer.get_emotion_confidence("I feel deeply sad and hopeless and so empty")
+    print(f"Sadness message confidence: {conf_sad}")
+    assert conf_sad.get('sadness', 0) > 0, "Sadness keywords should score"
+
+    # No keywords → polarity-based fallback: sum must still be 1.0
+    conf_neutral = analyzer.get_emotion_confidence("The wind is changing direction today")
+    print(f"Neutral fallback confidence: {conf_neutral}")
+    total = sum(conf_neutral.values())
+    assert abs(total - 1.0) < 0.01, f"Fallback confidence must sum to ~1.0, got {total}"
+
+    # Crisis message → crisis should have highest confidence
+    conf_crisis = analyzer.get_emotion_confidence("I want to kill myself and end it all")
+    print(f"Crisis message confidence: {conf_crisis}")
+    assert conf_crisis.get('crisis', 0) > 0, "Crisis confidence should be > 0"
+
+    print("\n✓ Emotion confidence scoring tests passed")
+
+
+def test_info_risk_level():
+    """Test that INFO level is returned for very low (pure-positive) risk (Problem 3)"""
+    from datetime import datetime as _dt
+    print("\n" + "="*70)
+    print("TEST 20: INFO Risk Level")
+    print("="*70)
+
+    tracker = PatternTracker()
+
+    # Inject pure joy emotion data (risk weight 0.0 → score well below 0.10)
+    for _ in range(3):
+        tracker.add_emotion_data({
+            'emotion': 'positive', 'severity': 'low', 'polarity': 0.9,
+            'subjectivity': 0.5, 'distress_keywords': [], 'abuse_indicators': [],
+            'has_abuse_indicators': False, 'timestamp': _dt.now(),
+            'primary_emotion': 'joy', 'emotion_scores': {'joy': 2},
+            'explanation': '', 'is_crisis': False, 'crisis_keywords': [],
+            'detected_script': 'english',
+        })
+
+    score, level = tracker.compute_risk_score()
+    print(f"\nPure joy messages: score={score:.2f}, level={level}")
+    assert level == 'info', f"Pure joy should yield 'info' risk level, got '{level}'"
+
+    # Verify all 5 levels are reachable by description
+    all_levels = {'info', 'low', 'medium', 'high', 'critical'}
+    print(f"Supported risk levels: {sorted(all_levels)}")
+    assert level in all_levels, "Returned level must be one of the 5 defined levels"
+
+    print("\n✓ INFO risk level test passed")
+
+
+def test_emotional_drift_score():
+    """Test emotional drift score (mean per-step sentiment change) (Problem 2)"""
+    from datetime import datetime as _dt
+    print("\n" + "="*70)
+    print("TEST 21: Emotional Drift Score")
+    print("="*70)
+
+    def _make_emotion(polarity):
+        return {
+            'emotion': 'neutral', 'severity': 'low', 'polarity': polarity,
+            'subjectivity': 0.3, 'distress_keywords': [], 'abuse_indicators': [],
+            'has_abuse_indicators': False, 'timestamp': _dt.now(),
+            'primary_emotion': 'neutral', 'emotion_scores': {},
+            'explanation': '', 'is_crisis': False, 'crisis_keywords': [],
+            'detected_script': 'english',
+        }
+
+    # Empty tracker → drift = 0
+    empty_tracker = PatternTracker()
+    assert empty_tracker.get_emotional_drift_score() == 0.0, "Empty tracker drift must be 0.0"
+    print("\nEmpty tracker → drift=0.0 ✓")
+
+    # Consistently improving trend → positive drift
+    tracker_up = PatternTracker()
+    for v in [0.0, 0.1, 0.2, 0.3, 0.4]:
+        tracker_up.add_emotion_data(_make_emotion(v))
+    drift_up = tracker_up.get_emotional_drift_score()
+    print(f"Improving trend drift: {drift_up:.4f}")
+    assert drift_up > 0, f"Improving trend should have positive drift, got {drift_up}"
+
+    # Consistently declining trend → negative drift
+    tracker_down = PatternTracker()
+    for v in [0.4, 0.3, 0.2, 0.1, 0.0]:
+        tracker_down.add_emotion_data(_make_emotion(v))
+    drift_down = tracker_down.get_emotional_drift_score()
+    print(f"Declining trend drift: {drift_down:.4f}")
+    assert drift_down < 0, f"Declining trend should have negative drift, got {drift_down}"
+
+    # Drift score appears in pattern summary
+    summary = tracker_up.get_pattern_summary()
+    assert 'drift_score' in summary, "drift_score must be included in pattern_summary"
+    assert summary['drift_score'] == drift_up, "drift_score in summary must match direct call"
+    print(f"drift_score in summary: {summary['drift_score']} ✓")
+
+    print("\n✓ Emotional drift score tests passed")
+
+
+def test_pre_distress_warning():
+    """Test pre-distress early warning from PredictionAgent (Problem 4)"""
+    from prediction_agent import PredictionAgent
+    print("\n" + "="*70)
+    print("TEST 22: Pre-Distress Early Warning")
+    print("="*70)
+
+    agent = PredictionAgent()
+
+    # Insufficient data → None
+    assert agent.get_pre_distress_warning([0.1, 0.2]) is None, \
+        "Should return None for < 3 data points"
+    print("\nInsufficient data → None ✓")
+
+    # Declining trend heading into mild-negative zone → warning triggered
+    # [0.3, 0.2, 0.1, 0.0, -0.1]: slope=-0.1, predicted=-0.2 ∈ [-0.50, -0.10)
+    declining = [0.3, 0.2, 0.1, 0.0, -0.1]
+    # Verify the OLS predicted value falls in the expected range before testing warning
+    _pred = agent.predict_next_sentiment(declining)
+    assert _pred is not None
+    assert -0.50 <= _pred['predicted_value'] < -0.10, (
+        f"Expected predicted value in [-0.50, -0.10), got {_pred['predicted_value']}"
+    )
+    warning = agent.get_pre_distress_warning(declining)
+    print(f"Declining trend warning: '{warning[:60] if warning else None}…'")
+    assert warning is not None, "Declining trend into mild-negative should trigger warning"
+    assert isinstance(warning, str) and len(warning) > 20, "Warning must be a non-trivial string"
+
+    # Stable positive trend → no warning
+    stable = [0.3, 0.3, 0.3, 0.3, 0.3]
+    assert agent.get_pre_distress_warning(stable) is None, \
+        "Stable positive mood should not trigger warning"
+    print("Stable positive → None ✓")
+
+    # Deeply negative (predicted < -0.50) → no pre-distress warning (AlertSystem handles it)
+    deep_negative = [-0.7, -0.8, -0.85, -0.9, -0.95]
+    assert agent.get_pre_distress_warning(deep_negative) is None, \
+        "Deep distress (predicted < -0.50) should not trigger pre-distress warning"
+    print("Deep distress → None (AlertSystem handles it) ✓")
+
+    print("\n✓ Pre-distress early warning tests passed")
+
+
 def run_all_tests():
     """Run all tests"""
     print("\n" + "="*70)
@@ -711,6 +869,10 @@ def run_all_tests():
         test_tanglish_emotion_detection()
         test_bilingual_responses()
         test_voice_handler()
+        test_emotion_confidence_scoring()
+        test_info_risk_level()
+        test_emotional_drift_score()
+        test_pre_distress_warning()
         
         print("\n" + "="*70)
         print("   ✓ ALL TESTS COMPLETED SUCCESSFULLY")

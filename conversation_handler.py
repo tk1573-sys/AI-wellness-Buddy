@@ -314,6 +314,12 @@ class ConversationHandler:
         if explanation and primary_emotion not in (None, 'neutral', 'joy') and lang_pref != 'tamil':
             response += f"\n\n_(Analysis: {explanation})_"
 
+        # Pre-distress early warning from PredictionAgent
+        if user_context:
+            pre_distress = user_context.get('pre_distress_warning')
+            if pre_distress and primary_emotion not in ('crisis', 'joy'):
+                response += f"\n\n{pre_distress}"
+
         return response
 
     def get_greeting(self):
