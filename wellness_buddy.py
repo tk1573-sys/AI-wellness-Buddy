@@ -10,6 +10,7 @@ from alert_system import AlertSystem
 from conversation_handler import ConversationHandler
 from user_profile import UserProfile
 from data_store import DataStore
+from prediction_agent import PredictionAgent
 
 
 class WellnessBuddy:
@@ -20,6 +21,7 @@ class WellnessBuddy:
         self.pattern_tracker = PatternTracker()
         self.alert_system = AlertSystem()
         self.conversation_handler = ConversationHandler()
+        self.prediction_agent = PredictionAgent()
         self.user_profile = None
         self.data_store = DataStore(data_dir)
         self.session_active = False
@@ -38,7 +40,7 @@ class WellnessBuddy:
         self._load_or_create_profile()
         
         print("\n" + self.conversation_handler.get_greeting())
-        print("\n(Commands: 'quit' to end, 'help' for resources, 'profile' to manage profile)\n")
+        print("\n(Commands: 'quit' to end, 'help' for resources, 'status' for analysis, 'report' for weekly summary, 'profile' to manage profile)\n")
         
     def _load_or_create_profile(self):
         """Load existing profile or create new one"""
@@ -201,6 +203,9 @@ class WellnessBuddy:
         
         if user_message.lower() == 'status':
             return self._show_emotional_status()
+
+        if user_message.lower() in ('weekly', 'report'):
+            return self.generate_weekly_summary()
         
         if user_message.lower() == 'profile':
             return self._manage_profile()
@@ -216,6 +221,7 @@ class WellnessBuddy:
         
         # Generate response (personalized with user context)
         user_context = self.user_profile.get_personal_context()
+        user_context['response_style'] = self.user_profile.get_response_style()
         response = self.conversation_handler.generate_response(emotion_data, user_context)
         
         # Check for distress alerts
@@ -272,10 +278,10 @@ class WellnessBuddy:
     def _show_emotional_status(self):
         """Display current emotional pattern status"""
         summary = self.pattern_tracker.get_pattern_summary()
-        
+
         message = "\n📊 EMOTIONAL PATTERN SUMMARY 📊\n"
         message += "="*70 + "\n"
-        
+
         # Current session
         if summary:
             message += "\nCurrent Session:\n"
@@ -283,30 +289,55 @@ class WellnessBuddy:
             message += f"  Emotional trend: {summary['trend'].upper()}\n"
             message += f"  Average sentiment: {summary['average_sentiment']:.2f} "
             message += f"({'positive' if summary['average_sentiment'] > 0 else 'negative'})\n"
-            
+            message += f"  Risk level: {summary['risk_level'].upper()} (score: {summary['risk_score']:.2f})\n"
+            message += f"  Stability index: {summary['stability_index']:.2f} "
+            message += f"(volatility: {summary['volatility']:.2f})\n"
+
+            # Emotion distribution
+            dist = summary.get('emotion_distribution', {})
+            if dist:
+                message += "\n  Emotion breakdown:\n"
+                for emo, count in sorted(dist.items(), key=lambda x: -x[1]):
+                    message += f"    {emo}: {count} message(s)\n"
+
             if summary['abuse_indicators_detected']:
                 message += "\n  ⚠️ Note: Indicators of difficult situations detected.\n"
                 message += "  Support resources are available - type 'help' to see them.\n"
+            if summary.get('crisis_count', 0) > 0:
+                message += "\n  🚨 Crisis indicators detected. Please reach out for support.\n"
         else:
             message += "\nNot enough data yet for current session.\n"
-        
-        # Long-term history
+
+        # Long-term history + prediction
         history = self.user_profile.get_emotional_history(days=7)
         if history:
             message += f"\nLast 7 Days:\n"
             message += f"  Check-ins: {len(history)}\n"
-            
-            # Calculate average sentiment over time
+            message += f"  Mood streak: {self.user_profile.get_mood_streak()} positive session(s)\n"
+
             avg_sentiments = []
             for snapshot in history:
                 if snapshot.get('session_summary'):
                     avg_sentiments.append(snapshot['session_summary'].get('average_sentiment', 0))
-            
+
             if avg_sentiments:
                 overall_avg = sum(avg_sentiments) / len(avg_sentiments)
                 message += f"  Overall sentiment: {overall_avg:.2f} "
                 message += f"({'positive' if overall_avg > 0 else 'negative'})\n"
-        
+
+                # Prediction
+                forecast = self.prediction_agent.predict_next_sentiment(avg_sentiments)
+                if forecast:
+                    message += f"\n📡 Next-Session Forecast ({forecast['confidence']} confidence):\n"
+                    message += f"  {forecast['interpretation']}\n"
+
+        # Badges
+        badges = self.user_profile.get_badge_display()
+        if badges:
+            message += "\n🏅 Your Wellness Badges:\n"
+            for name, desc in badges:
+                message += f"  {name} — {desc}\n"
+
         message += "="*70
         return message
     
@@ -401,30 +432,50 @@ class WellnessBuddy:
     def _end_session(self):
         """End the wellness buddy session"""
         self.session_active = False
-        
+
         # Ensure profile exists before trying to save
         if not self.user_profile:
             message = "\n" + "="*70 + "\n"
             message += "Session ended.\n"
             message += "="*70 + "\n"
             return message
-        
+
         # Save emotional snapshot to long-term history
         pattern_summary = self.pattern_tracker.get_pattern_summary()
         if pattern_summary and pattern_summary.get('total_messages', 0) > 0:
             emotion_data = {
                 'messages_count': pattern_summary['total_messages'],
                 'distress_messages': pattern_summary['distress_messages'],
-                'abuse_indicators': pattern_summary['abuse_indicators_detected']
+                'abuse_indicators': pattern_summary['abuse_indicators_detected'],
+                'risk_level': pattern_summary.get('risk_level', 'low'),
+                'stability_index': pattern_summary.get('stability_index', 1.0),
             }
             self.user_profile.add_emotional_snapshot(emotion_data, pattern_summary)
-        
-        # Increment session count
+
+        # Update mood streak
+        avg_sentiment = 0.0
+        if pattern_summary:
+            avg_sentiment = pattern_summary.get('average_sentiment', 0.0)
+        self.user_profile.update_mood_streak(avg_sentiment)
+
+        # Check if recovering from distress
+        prev_history = self.user_profile.get_emotional_history(days=2)
+        recovered = (
+            avg_sentiment > 0 and
+            len(prev_history) >= 2 and
+            prev_history[-2].get('emotion_data', {}).get('risk_level', 'low') in ('high', 'critical')
+        )
+
+        # Increment session count then check/award badges
         self.user_profile.increment_session_count()
-        
+        newly_awarded = self.user_profile.check_and_award_badges(
+            session_avg_sentiment=avg_sentiment,
+            recovered_from_distress=recovered
+        )
+
         # Save profile
         self._save_profile()
-        
+
         message = "\n" + "="*70 + "\n"
         message += "Thank you for sharing with me today. Remember:\n\n"
         message += "💙 Your feelings are valid\n"
@@ -432,18 +483,129 @@ class WellnessBuddy:
         message += "💙 Help is always available\n"
         message += "💙 You are not alone\n"
         message += "💙 You are in control\n\n"
-        
-        # Show summary if there's enough data
+
+        # Show session summary
         if pattern_summary and pattern_summary['total_messages'] >= 3:
             message += f"\nToday's session: {pattern_summary['total_messages']} messages, "
-            message += f"trend: {pattern_summary['trend']}\n"
-        
+            message += f"trend: {pattern_summary['trend']}, "
+            message += f"risk: {pattern_summary.get('risk_level', 'low').upper()}\n"
+
+        # Streak info
+        streak = self.user_profile.get_mood_streak()
+        if streak >= 2:
+            message += f"\n🔥 Mood streak: {streak} positive session(s) in a row — great work!\n"
+
+        # Badge notifications
+        if newly_awarded:
+            message += "\n🏅 New badge(s) earned:\n"
+            for badge_name in newly_awarded:
+                message += f"  {badge_name}\n"
+
         message += f"\n✓ Your progress has been saved.\n"
         message += "\nTake care of yourself. I'm here whenever you need support.\n"
         message += "="*70 + "\n"
-        
+
         return message
-    
+
+    def generate_weekly_summary(self):
+        """Generate a weekly emotional wellness summary report."""
+        history = self.user_profile.get_emotional_history(days=7)
+
+        report = "\n📋 WEEKLY WELLNESS SUMMARY REPORT\n"
+        report += "="*70 + "\n"
+        report += f"User: {self.user_id}\n\n"
+
+        if not history:
+            report += "No data available for the last 7 days.\n"
+            report += "Start checking in daily to build your wellness history!\n"
+            report += "="*70 + "\n"
+            return report
+
+        # --- Aggregate stats ---
+        check_ins = len(history)
+        sentiments = []
+        risk_levels = []
+        emotion_counts = {}
+        risk_incidents = 0
+
+        for snap in history:
+            ss = snap.get('session_summary', {}) or {}
+            avg = ss.get('average_sentiment', None)
+            if avg is not None:
+                sentiments.append(avg)
+
+            risk_lv = snap.get('emotion_data', {}).get('risk_level', None)
+            if risk_lv:
+                risk_levels.append(risk_lv)
+                if risk_lv in ('high', 'critical'):
+                    risk_incidents += 1
+
+            dist = ss.get('emotion_distribution', {})
+            for emo, cnt in dist.items():
+                emotion_counts[emo] = emotion_counts.get(emo, 0) + cnt
+
+        avg_weekly = sum(sentiments) / len(sentiments) if sentiments else None
+
+        # Mood label
+        if avg_weekly is None:
+            mood_label = 'unknown'
+        elif avg_weekly > 0.3:
+            mood_label = '😊 Positive'
+        elif avg_weekly > 0:
+            mood_label = '🙂 Mildly Positive'
+        elif avg_weekly > -0.3:
+            mood_label = '😐 Neutral / Mixed'
+        else:
+            mood_label = '😔 Difficult'
+
+        report += f"📅 Period         : Last 7 days\n"
+        report += f"✅ Check-ins       : {check_ins}\n"
+        report += f"📈 Average mood    : {avg_weekly:.2f} — {mood_label}\n" if avg_weekly is not None else \
+                  f"📈 Average mood    : N/A\n"
+        report += f"⚠️  Risk incidents  : {risk_incidents}\n"
+        report += f"🔥 Mood streak     : {self.user_profile.get_mood_streak()} positive session(s)\n"
+
+        # Emotion distribution
+        if emotion_counts:
+            report += "\n🎭 Emotion Distribution:\n"
+            total_emo = sum(emotion_counts.values())
+            for emo, cnt in sorted(emotion_counts.items(), key=lambda x: -x[1]):
+                pct = cnt / total_emo * 100
+                report += f"   {emo:<12} {cnt:>3} messages  ({pct:.0f}%)\n"
+
+        # Trend prediction
+        if len(sentiments) >= 3:
+            forecast = self.prediction_agent.predict_next_sentiment(sentiments)
+            if forecast:
+                report += f"\n📡 Next-Session Forecast ({forecast['confidence']} confidence):\n"
+                report += f"   {forecast['interpretation']}\n"
+                report += f"   Predicted sentiment: {forecast['predicted_value']:.2f}\n"
+
+        # Improvement suggestions
+        report += "\n💡 Suggestions:\n"
+        if avg_weekly is not None and avg_weekly < -0.2:
+            report += "   • Consider reaching out to a trusted contact or professional.\n"
+            report += "   • Try a short mindfulness or breathing exercise daily.\n"
+        elif avg_weekly is not None and avg_weekly < 0:
+            report += "   • Light physical activity can help lift mood.\n"
+            report += "   • Journaling your thoughts may provide clarity.\n"
+        else:
+            report += "   • Keep up the positive routines that are working for you.\n"
+            report += "   • Celebrate small wins — they add up!\n"
+
+        if risk_incidents > 0:
+            report += "   • Professional support is always available — type 'help' to see resources.\n"
+
+        # Badges earned
+        badges = self.user_profile.get_badge_display()
+        if badges:
+            report += "\n🏅 Wellness Badges Earned:\n"
+            for name, desc in badges:
+                report += f"   {name} — {desc}\n"
+
+        report += "\n" + "="*70 + "\n"
+        return report
+
     def run(self):
         """Run the interactive wellness buddy session"""
         self.start_session()

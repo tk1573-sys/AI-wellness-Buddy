@@ -26,6 +26,9 @@ class UserProfile:
             'emotional_history': [],  # Long-term emotional tracking (now 1 year)
             'trauma_history': [],    # Personal trauma records for sensitive support
             'personal_triggers': [], # Topics/keywords that are especially sensitive
+            'response_style': 'balanced',  # 'short', 'detailed', or 'balanced'
+            'mood_streak': 0,        # Consecutive positive-mood sessions
+            'wellness_badges': [],   # Earned wellness badges
             'session_count': 0,
             # Security fields
             'password_hash': None,  # Hashed password for profile protection
@@ -101,6 +104,96 @@ class UserProfile:
             'has_unsafe_family': self.has_unsafe_family(),
         }
     
+    def set_response_style(self, style):
+        """Set preferred response style: 'short', 'detailed', or 'balanced'"""
+        if style in ('short', 'detailed', 'balanced'):
+            self.profile_data['response_style'] = style
+
+    def get_response_style(self):
+        """Get preferred response style (default: 'balanced')"""
+        return self.profile_data.get('response_style', 'balanced')
+
+    # ------------------------------------------------------------------
+    # Gamification — mood streak & wellness badges
+    # ------------------------------------------------------------------
+
+    # Badge definitions: (id, name, description, condition_key)
+    _BADGE_DEFINITIONS = [
+        ('first_step',   '🌱 First Step',       'Completed your first session',            'first_session'),
+        ('consistent',   '🔄 Consistent',        'Completed 7 or more sessions',            'sessions_7'),
+        ('dedicated',    '💪 Dedicated',         'Completed 30 or more sessions',           'sessions_30'),
+        ('streak_3',     '🔥 3-Day Streak',       'Three consecutive positive-mood sessions', 'streak_3'),
+        ('streak_7',     '⭐ 7-Day Streak',       'Seven consecutive positive-mood sessions', 'streak_7'),
+        ('resilient',    '🛡️ Resilient',         'Recovered from distress to positive mood', 'recovered'),
+        ('self_aware',   '🧠 Self-Aware',        'Added personal triggers or trauma history', 'self_aware'),
+        ('connected',    '💚 Connected',         'Added a trusted contact',                  'has_contact'),
+    ]
+
+    def update_mood_streak(self, session_avg_sentiment):
+        """
+        Update the mood streak based on the session average sentiment.
+        Increments streak on positive sessions (avg > 0), resets otherwise.
+        Returns the new streak value.
+        """
+        if session_avg_sentiment > 0:
+            self.profile_data['mood_streak'] = self.profile_data.get('mood_streak', 0) + 1
+        else:
+            self.profile_data['mood_streak'] = 0
+        return self.profile_data['mood_streak']
+
+    def get_mood_streak(self):
+        """Return current mood streak (consecutive positive sessions)"""
+        return self.profile_data.get('mood_streak', 0)
+
+    def award_badge(self, badge_id):
+        """Award a badge if not already earned. Returns True if newly awarded."""
+        badges = self.profile_data.setdefault('wellness_badges', [])
+        if badge_id not in badges:
+            badges.append(badge_id)
+            return True
+        return False
+
+    def get_badges(self):
+        """Return list of earned badge IDs"""
+        return self.profile_data.get('wellness_badges', [])
+
+    def get_badge_display(self):
+        """Return list of (name, description) for earned badges"""
+        earned = set(self.get_badges())
+        return [
+            (name, desc)
+            for bid, name, desc, _ in self._BADGE_DEFINITIONS
+            if bid in earned
+        ]
+
+    def check_and_award_badges(self, session_avg_sentiment=None, recovered_from_distress=False):
+        """
+        Evaluate all badge conditions and award any newly earned badges.
+        Returns a list of newly awarded badge names.
+        """
+        newly_awarded = []
+        session_count = self.profile_data.get('session_count', 0)
+        streak = self.profile_data.get('mood_streak', 0)
+
+        conditions = {
+            'first_session': session_count >= 0,   # awarded after the first save
+            'sessions_7':    session_count >= 6,
+            'sessions_30':   session_count >= 29,
+            'streak_3':      streak >= 3,
+            'streak_7':      streak >= 7,
+            'recovered':     recovered_from_distress,
+            'self_aware':    (len(self.get_trauma_history()) > 0 or
+                              len(self.get_personal_triggers()) > 0),
+            'has_contact':   len(self.get_trusted_contacts()) > 0,
+        }
+
+        for bid, name, desc, cond_key in self._BADGE_DEFINITIONS:
+            if conditions.get(cond_key, False):
+                if self.award_badge(bid):
+                    newly_awarded.append(name)
+
+        return newly_awarded
+
     def enable_women_support(self):
         """Enable specialized women's support features"""
         self.profile_data['support_preferences']['women_support_enabled'] = True
