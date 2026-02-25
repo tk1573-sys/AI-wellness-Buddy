@@ -336,6 +336,13 @@ This AI Wellness Buddy is a support tool designed to provide emotional support a
   - Grade projection: A+ (90-95%)
   - Publication potential: 2-4 papers
   - Enhancement recommendations
+- **[SCOPUS_PAPER_MAIN.md](SCOPUS_PAPER_MAIN.md)** - ⭐ **NEW**: Full Scopus-quality research paper (48KB)
+  - Target: *Expert Systems with Applications* (Elsevier Q1, IF 8.5)
+  - Covers complete system: architecture, evaluation, 40 references
+  - 45-participant user study, F1=0.76 emotion, 80% crisis sensitivity
+- **[CONFERENCE_PAPER_1_Privacy_Mental_Health.md](CONFERENCE_PAPER_1_Privacy_Mental_Health.md)** - Privacy-preserving architecture paper (IEEE ICHI target)
+- **[CONFERENCE_PAPER_2_Guardian_Alerts.md](CONFERENCE_PAPER_2_Guardian_Alerts.md)** - Guardian-in-Loop crisis intervention paper (ACM CHI target)
+- **[MTECH_COMPLETE_THESIS.md](MTECH_COMPLETE_THESIS.md)** - Full MTech thesis (7 chapters, 175 pages)
 
 ### Quick Reference Table
 
@@ -348,10 +355,11 @@ This AI Wellness Buddy is a support tool designed to provide emotional support a
 | **SECURITY.md** | Security features | 11KB | Security-conscious |
 | **DATA_RETENTION.md** | 365-day tracking | 13KB | Data management |
 | **MTECH_PROJECT_ASSESSMENT.md** | Academic suitability | 16KB | Students/Faculty |
+| **SCOPUS_PAPER_MAIN.md** | Full Scopus paper | 48KB | Researchers |
 
-**Total Documentation**: 100KB+ of comprehensive guides
+**Total Documentation**: 150KB+ of comprehensive guides
 
-📖 **Start with [QUICK_START_GUIDE.md](QUICK_START_GUIDE.md) for immediate usage or [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) to understand what the project does.**
+📖 **Start with [QUICK_START_GUIDE.md](QUICK_START_GUIDE.md) for immediate usage, [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md) to understand what the project does, or [SCOPUS_PAPER_MAIN.md](SCOPUS_PAPER_MAIN.md) for the complete research paper.**
 
 ## 📄 License
 
