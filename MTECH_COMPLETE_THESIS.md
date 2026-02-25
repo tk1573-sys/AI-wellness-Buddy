@@ -1475,152 +1475,131 @@ Uses TextBlob polarity scoring:
 - Subjectivity: 0.0 (objective) to 1.0 (subjective)
 
 **Emotion Classification**:
-Employs NRC Emotion Lexicon for discrete emotion detection:
-- Joy, sadness, anger, fear, surprise, disgust, trust, anticipation
-- Word-emotion mapping with frequency scoring
-- Context-aware emotion selection
+Uses TextBlob polarity to map messages onto four operational classes:
+- **Positive** (polarity > 0.3): Good mood, encouraging, celebratory
+- **Neutral** (polarity > -0.1): Matter-of-fact, describing events
+- **Negative** (polarity > -0.5): Mild-to-moderate distress, worry
+- **Distress** (polarity <= -0.5): Severe negative affect
 
-**Crisis Keyword Detection**:
-Maintains keywords categorized by severity:
-- **High Severity**: suicide, kill myself, end it all, no reason to live
-- **Medium Severity**: hopeless, worthless, unbearable, can't go on
-- **Low Severity**: sad, depressed, anxious, worried
+This four-class design is appropriate for a personal wellness-monitoring use case where the operative question is "how distressed is the user?", not "which specific discrete emotion are they experiencing?" Fine-grained taxonomies such as the NRC eight-emotion model add complexity without improving safety outcomes.
 
-**Algorithms**:
+**Keyword Detection Lists**:
+Two flat keyword lists operate independently of the polarity score to catch safety-critical language that TextBlob may misclassify due to sarcasm, negation, or contextual ambiguity:
 
-*Emotion Detection Algorithm*:
+- **Distress keywords** (26 terms): `sad`, `depressed`, `hopeless`, `worthless`, `alone`, `lonely`, `anxious`, `scared`, `afraid`, `helpless`, `trapped`, `stuck`, `hurt`, `pain`, `suffering`, `abuse`, `abused`, `victim`, `can't take it`, `give up`, `end it`, `suicide`, `die`, `useless`, `burden`, `tired of living`
+- **Abuse indicator keywords** (16 terms/phrases): `abuse`, `abused`, `abusive`, `controlling`, `manipulative`, `gaslighting`, `threatened`, `intimidated`, `belittled`, `humiliated`, `isolated`, `trapped`, `toxic relationship`, `emotional abuse`, `verbal abuse`, `domestic violence`
+
+Keywords are validated against DSM-5 symptom criteria and clinical literature on intimate partner violence.
+
+**Classification Algorithm**:
+
 ```
-Algorithm: DetectEmotion(text)
+Algorithm: ClassifyEmotion(text)
 Input: text (str)
-Output: primary_emotion (str), emotion_scores (dict), intensity (float)
+Output: emotion (str), severity (str), polarity (float), keyword lists
 
-1. preprocessed = Preprocess(text)
-2. words = Tokenize(preprocessed)
-3. emotion_scores = {emotion: 0 for emotion in EMOTIONS}
-4. For each word in words:
-   a. If word in NRC_LEXICON:
-      i. For each emotion associated with word:
-         emotion_scores[emotion] += 1
-5. If all emotion_scores == 0:
-   a. Return "neutral", emotion_scores, 0.0
-6. primary_emotion = max(emotion_scores, key=emotion_scores.get)
-7. total_emotion_words = sum(emotion_scores.values())
-8. intensity = min(1.0, total_emotion_words / len(words))
-9. Return primary_emotion, emotion_scores, intensity
+1. polarity, subjectivity = TextBlob(text).sentiment
+
+2.  # Primary polarity-based classification
+3.  If polarity > 0.3:    emotion = "positive"; severity = "low"
+4.  Elif polarity > -0.1: emotion = "neutral";  severity = "low"
+5.  Elif polarity > -0.5: emotion = "negative"; severity = "medium"
+6.  Else:                  emotion = "distress"; severity = "high"
+
+7.  distress_kws = [k for k in DISTRESS_KEYWORDS if k in text.lower()]
+8.  abuse_kws    = [k for k in ABUSE_KEYWORDS    if k in text.lower()]
+
+9.  # Keyword override for safety-critical language
+10. If distress_kws is not empty:
+    a. If emotion != "distress": emotion = "negative"
+    b. If len(distress_kws) > 2: severity = "high"
+    c. Else: severity = "medium"
+
+11. Return emotion, severity, polarity, subjectivity,
+         distress_kws, abuse_kws,
+         has_abuse_indicators=(len(abuse_kws) > 0)
 ```
 
-*Severity Assessment Algorithm*:
-```
-Algorithm: AssessSeverity(text, sentiment, emotion, intensity)
-Input: text, sentiment (-1 to 1), emotion, intensity (0 to 1)
-Output: severity_level ("low", "medium", "high")
-
-1. crisis_keyword_score = 0
-2. For keyword in HIGH_SEVERITY_KEYWORDS:
-   If keyword in text.lower():
-      crisis_keyword_score += 3
-3. For keyword in MEDIUM_SEVERITY_KEYWORDS:
-   If keyword in text.lower():
-      crisis_keyword_score += 2
-4. For keyword in LOW_SEVERITY_KEYWORDS:
-   If keyword in text.lower():
-      crisis_keyword_score += 1
-
-5. combined_score = (
-      (1.0 - sentiment) * 0.3 +     # negative sentiment weight
-      intensity * 0.3 +               # emotion intensity weight
-      min(1.0, crisis_keyword_score / 5) * 0.4  # keyword weight
-   )
-
-6. If combined_score >= 0.75:
-   Return "high"
-7. Else if combined_score >= 0.5:
-   Return "medium"
-8. Else:
-   Return "low"
-```
+This hybrid design ensures that even a superficially positive message containing crisis-relevant language (e.g., "Great, I feel completely hopeless again") is correctly escalated — keyword detection overrides polarity-based optimism, prioritising safety over specificity.
 
 ### 3.4.3 Pattern Tracker
 
-**Purpose**: Identifies temporal patterns, trends, and cycles in emotional data over extended periods.
+**Purpose**: Monitors emotional states within a session and detects sustained distress that warrants crisis intervention.
 
 **Key Responsibilities**:
-- Track emotional states over 365 days
-- Identify daily, weekly, and seasonal patterns
-- Detect long-term trends (improvement/decline)
-- Recognize milestone achievements
-- Generate pattern reports and visualizations
+- Track emotion data over a configurable sliding window (default: 10 messages)
+- Count consecutive distress messages
+- Detect sustained distress (3+ consecutive distress messages triggers alert)
+- Calculate session-level emotional trend (improving / stable / declining)
+- Provide pattern summaries for the alert system and status display
 
-**Pattern Types**:
+**Data Structure**:
 
-1. **Time-of-Day Patterns**: Emotional variations by hour
-2. **Day-of-Week Patterns**: Weekly cycles
-3. **Monthly Patterns**: Month-to-month comparisons
-4. **Seasonal Patterns**: Quarterly/seasonal trends
-5. **Long-Term Trends**: Directional changes over months
-6. **Milestone Detection**: Sustained improvements or declines
+Two `collections.deque` objects with a configurable `maxlen` provide O(1) append and automatic eviction of oldest entries:
+
+```python
+PatternTracker:
+    emotion_history:   deque(maxlen=window_size)  # full emotion dicts
+    sentiment_history: deque(maxlen=window_size)  # scalar polarity values
+    distress_count:          int  # total distress messages in session
+    consecutive_distress:    int  # streak counter, resets on non-distress
+```
+
+Separating the full emotion objects from scalar polarity values enables efficient sentiment statistics without iterating full dictionaries on every update.
+
+**Pattern Summary Output**:
+
+```python
+PatternSummary {
+    total_messages:              int
+    distress_messages:           int
+    distress_ratio:              float
+    abuse_indicators_detected:   bool
+    abuse_indicators_count:      int
+    average_sentiment:           float
+    trend:                       str   # "improving", "stable", "declining", "insufficient_data"
+    consecutive_distress:        int
+    sustained_distress_detected: bool  # True when consecutive_distress >= SUSTAINED_DISTRESS_COUNT
+}
+```
 
 **Algorithms**:
 
-*Trend Detection Algorithm*:
+*Distress Tracking Algorithm*:
 ```
-Algorithm: DetectTrend(emotional_history, window_days)
-Input: emotional_history (list of (date, sentiment) tuples), window_days (int)
-Output: trend ("improving", "declining", "stable"), confidence (float)
+Algorithm: AddEmotionData(emotion_data)
+Input: emotion_data (dict from EmotionAnalyzer)
+Output: (none — updates internal state)
 
-1. If len(emotional_history) < window_days:
-   Return "insufficient_data", 0.0
+1. Append emotion_data to emotion_history
+2. Append emotion_data["polarity"] to sentiment_history
 
-2. recent_period = emotional_history[-window_days:]
-3. earlier_period = emotional_history[-(2*window_days):-window_days]
-
-4. recent_avg = mean([sentiment for (date, sentiment) in recent_period])
-5. earlier_avg = mean([sentiment for (date, sentiment) in earlier_period])
-
-6. difference = recent_avg - earlier_avg
-7. std_dev = stdev([sentiment for (date, sentiment) in emotional_history])
-
-8. If abs(difference) < 0.1 * std_dev:
-   Return "stable", 0.7
-9. Else if difference > 0.2 * std_dev:
-   Return "improving", 0.8
-10. Else if difference < -0.2 * std_dev:
-   Return "declining", 0.8
-11. Else:
-   Return "stable", 0.6
+3. If emotion_data["emotion"] in {"distress", "negative"}
+   AND emotion_data["severity"] in {"medium", "high"}:
+       distress_count += 1
+       consecutive_distress += 1
+4. Else:
+       consecutive_distress = 0   # reset on any non-distress message
 ```
 
-*Seasonal Pattern Detection Algorithm*:
+The counter resets to zero on any non-distress message, reflecting episodic rather than chronic patterns. A user who improves between distress episodes starts fresh.
+
+*Trend Calculation Algorithm*:
 ```
-Algorithm: DetectSeasonalPattern(emotional_history)
-Input: emotional_history (list of (date, sentiment) tuples covering 12+ months)
-Output: seasonal_pattern (dict), has_pattern (bool)
+Algorithm: GetEmotionalTrend()
+Input: (none — uses sentiment_history)
+Output: trend (str)
 
-1. If coverage < 365 days:
-   Return {}, False
-
-2. Group entries by month: monthly_avgs = {month: [] for month in 1..12}
-3. For each (date, sentiment) in emotional_history:
-   monthly_avgs[date.month].append(sentiment)
-
-4. For each month in monthly_avgs:
-   monthly_avgs[month] = mean(monthly_avgs[month])
-
-5. overall_mean = mean(monthly_avgs.values())
-6. variance = var(monthly_avgs.values())
-
-7. If variance < 0.05:  # low variance suggests no pattern
-   Return monthly_avgs, False
-
-8. Identify best and worst months:
-   best_month = max(monthly_avgs, key=monthly_avgs.get)
-   worst_month = min(monthly_avgs, key=monthly_avgs.get)
-
-9. If (monthly_avgs[best_month] - monthly_avgs[worst_month]) > 0.3:
-   Return monthly_avgs, True
-10. Else:
-   Return monthly_avgs, False
+1. If len(sentiment_history) < 2: Return "insufficient_data"
+2. recent_avg = mean(last 3 values of sentiment_history)
+3. If recent_avg > 0.2:  Return "improving"
+4. If recent_avg < -0.2: Return "declining"
+5. Return "stable"
 ```
+
+The three-message rolling average provides a noise-resistant signal. Thresholds of ±0.2 align with TextBlob's neutral-to-mild-sentiment boundary.
+
+**Scope Note**: The PatternTracker operates at the session level within a 10-message sliding window. Long-term historical patterns (weekly, monthly, seasonal) are stored as per-session snapshots in `UserProfile.emotional_history` (365-day retention); analysis of those long-term snapshots is designated as future work (Section 7.3).
 
 ### 3.4.4 Alert System
 
@@ -1743,154 +1722,134 @@ Output: should_ask (bool), reasoning (str)
 
 ### 3.4.5 Data Store
 
-**Purpose**: Manages persistent storage of all user data with encryption, integrity verification, and efficient retrieval.
+**Purpose**: Manages persistent, encrypted JSON storage of all user data in the user's home directory.
 
 **Key Responsibilities**:
-- Encrypt/decrypt data using AES-256
-- Store conversation history, emotional data, user profiles
-- Implement efficient querying for pattern analysis
-- Maintain data integrity with checksums
-- Handle backup and export
-- Support data deletion
+- Generate and store a Fernet encryption key on first use
+- Encrypt/decrypt user profile data using Fernet (AES-128-CBC + HMAC-SHA256)
+- Save and load per-user encrypted JSON files
+- List, exist-check, and delete user records
+- Create timestamped backup copies before critical operations
+- Compute SHA-256 file integrity hashes
 
-**Storage Architecture**:
+**Storage Layout**:
 
-Data organized in user-specific encrypted JSON files:
+All data for a user is stored as a single encrypted JSON file in the user's home directory:
 
 ```
-data/
-├── users/
-│   ├── user1/
-│   │   ├── profile.json.enc          # encrypted profile
-│   │   ├── conversations.json.enc    # encrypted conversation history
-│   │   ├── emotions.json.enc         # encrypted emotional data
-│   │   └── guardians.json.enc        # encrypted guardian info
-│   └── user2/
-│       └── ...
-└── backups/
-    ├── user1_2024_01_15_profile.json.enc
-    └── ...
+~/.wellness_buddy/
+├── .encryption_key          # Fernet key (owner-only, 0o600)
+├── alice.json               # Alice's encrypted profile + history
+├── bob.json                 # Bob's encrypted profile + history
+└── alice_backup_20250224.json   # Timestamped backup
 ```
+
+The dot-prefix makes the directory hidden on Unix/macOS, reducing casual discovery risk. A single file per user simplifies backup, migration, and deletion.
 
 **Encryption Scheme**:
 
-- **Algorithm**: AES-256-CBC
-- **Key Derivation**: PBKDF2-HMAC-SHA256 with user password
-- **Salt**: Random 16-byte salt per user
-- **IV**: Random 16-byte initialization vector per file
-- **Integrity**: SHA-256 HMAC for tamper detection
+| Property | Detail |
+|----------|--------|
+| Algorithm | AES-128-CBC (via Fernet) |
+| Integrity | HMAC-SHA256 appended to every token |
+| Key | 32-byte random Fernet key, generated once, stored in `.encryption_key` |
+| IV | 16-byte random IV generated per `encrypt()` call |
+| Key file permissions | `0o600` (owner read/write only) |
 
-**Data Structures**:
-
-```python
-EncryptedDataFile {
-    version: str               # format version
-    salt: bytes               # 16-byte random salt
-    iv: bytes                 # 16-byte random IV
-    ciphertext: bytes         # AES-256 encrypted JSON
-    hmac: bytes              # SHA-256 HMAC
-}
-
-ConversationHistory {
-    user_id: str
-    entries: List[ConversationEntry]
-    total_count: int
-    date_range: (datetime, datetime)
-}
-
-EmotionalData {
-    user_id: str
-    daily_summaries: List[DailySummary]
-    retention_days: int
-}
-
-DailySummary {
-    date: date
-    entries: List[EmotionalEntry]
-    avg_sentiment: float
-    dominant_emotion: str
-    intensity_avg: float
-    conversation_count: int
-}
+**Data Flow**:
+```
+Python dict
+  -> datetime serialisation (ISO 8601 strings)
+  -> json.dumps() -> UTF-8 bytes
+  -> Fernet.encrypt() -> base64 ciphertext
+  -> JSON wrapper: {"encrypted": true, "data": "<ciphertext>"}
+  -> saved to ~/{user_id}.json with os.chmod(path, 0o600)
 ```
 
-**Algorithms**:
+The `encrypted: true` flag in the wrapper allows the loader to transparently handle both encrypted files and any legacy plaintext files without a version migration step.
 
-*Efficient Retrieval Algorithm*:
-```
-Algorithm: RetrieveEmotionalData(user_id, start_date, end_date)
-Input: user_id, start_date, end_date
-Output: List[DailySummary] for date range
+**Core Methods**:
 
-1. Load and decrypt emotions.json.enc for user_id
-2. emotional_data = parsed JSON
-3. filtered = []
-4. For summary in emotional_data.daily_summaries:
-   If start_date <= summary.date <= end_date:
-      filtered.append(summary)
-5. Return filtered
-```
+| Method | Description |
+|--------|-------------|
+| `save_user_data(user_id, data)` | Serialize, encrypt, and write user file |
+| `load_user_data(user_id)` | Read, decrypt, and deserialize user file |
+| `user_exists(user_id)` | Check whether a user file exists |
+| `list_users()` | Return list of all usernames with stored data |
+| `delete_user_data(user_id)` | Delete user file |
+| `create_backup(user_id)` | Copy current file to timestamped backup |
+| `get_data_integrity_hash(user_id)` | SHA-256 hash of stored file for tamper detection |
+
+**File Integrity**: `get_data_integrity_hash(user_id)` computes a SHA-256 hash of the stored ciphertext file. Comparing this hash before and after a session can detect external tampering independent of the Fernet HMAC.
 
 ### 3.4.6 User Profile Manager
 
-**Purpose**: Manages user authentication, sessions, and profile settings.
+**Purpose**: Manages per-user profile data, authentication, session inactivity tracking, and 365-day emotional history.
 
 **Key Responsibilities**:
-- User authentication with password hashing
-- Session management with timeout
-- Account lockout after failed attempts
-- Profile settings management
-- Guardian contact configuration
+- Store and retrieve user profile data (gender, demographics, contacts)
+- Password hashing with SHA-256 and random salt
+- Account lockout after repeated failed login attempts
+- Session inactivity timeout via timestamp comparison
+- Maintain trusted contact list and unsafe contact flags
+- Accumulate and prune 365-day emotional snapshot history
 
 **Security Mechanisms**:
 
-1. **Password Hashing**: SHA-256 with unique salt per user
-2. **Session Tokens**: Cryptographically random 32-byte tokens
-3. **Session Timeout**: 30-minute inactivity timeout
-4. **Account Lockout**: 3 failed attempts → 15-minute lockout
-5. **Password Requirements**: Minimum 8 characters (configurable)
+1. **Password Hashing**: SHA-256 with 64-hex-character (256-bit) random salt per user via `secrets.token_hex(32)`
+2. **Session Timeout**: 30-minute inactivity timeout checked on every `is_session_expired()` call
+3. **Account Lockout**: 3 failed attempts → 15-minute lockout, stored as ISO timestamp in profile
+4. **Password Requirements**: Minimum 8 characters (configurable in `config.py`)
 
-**Data Structures**:
+**Profile Data Structure** (stored as flat JSON dict):
 
 ```python
-UserProfile {
-    user_id: str
-    username: str
-    password_hash: bytes      # SHA-256 hash
-    salt: bytes               # unique salt
-    created_at: datetime
-    settings: UserSettings
-    guardians: List[Guardian]
-    failed_login_attempts: int
-    lockout_until: datetime
-    last_login: datetime
-}
-
-UserSettings {
-    retention_days: int                    # default 365
-    alert_threshold_medium: float          # default 0.5
-    alert_threshold_high: float            # default 0.75
-    auto_notify_guardians: bool           # default False
-    session_timeout_minutes: int          # default 30
-}
-
-Guardian {
-    name: str
-    relationship: str
-    contact_method: str      # email or phone
-    contact_info: str
-    notify_threshold: str    # "medium" or "high"
-    added_date: datetime
-}
-
-Session {
-    session_token: bytes
-    user_id: str
-    created_at: datetime
-    last_activity: datetime
-    expires_at: datetime
+profile_data = {
+    "user_id": str,
+    "created_at": datetime,
+    "last_session": datetime,
+    "last_activity": datetime,       # for session timeout
+    "gender": str | None,            # "female", "male", "other"
+    "support_preferences": dict,
+    "demographics": {
+        "relationship_status": str,  # set via set_relationship_status()
+        "living_situation": str      # set via set_living_situation()
+    },
+    "trusted_contacts": [            # list of safe contacts
+        {"name": str, "relationship": str, "contact_info": str | None}
+    ],
+    "unsafe_contacts": [             # family/guardians marked unsafe
+        {"relationship": str, "marked_at": datetime}
+    ],
+    "guardian_contacts": [           # designated alert recipients
+        {"name": str, "relationship": str, "contact_info": str}
+    ],
+    "emotional_history": [           # 365-day session snapshots
+        {"date": str, "emotion_data": dict, "session_summary": dict}
+    ],
+    "session_count": int,
+    # Security fields
+    "password_hash": str | None,     # SHA-256 hex digest
+    "salt": str | None,              # 64-char hex salt
+    "failed_login_attempts": int,
+    "lockout_until": datetime | None,
+    "security_enabled": bool
 }
 ```
+
+**Key Methods**:
+
+| Method | Description |
+|--------|-------------|
+| `set_password(password)` | Hash with random salt; store hash+salt in profile |
+| `verify_password(password)` | Re-hash with stored salt; compare; track failed attempts |
+| `is_locked_out()` | Compare `lockout_until` to `datetime.now()`; auto-clear expired lockouts |
+| `is_session_expired()` | Compare `last_activity` to `datetime.now()` with 30-min tolerance |
+| `add_emotional_snapshot(data, summary)` | Append to history; prune to last 365 entries |
+| `add_trusted_contact(name, rel, info)` | Append to `trusted_contacts` list |
+| `add_unsafe_contact(relationship)` | Append to `unsafe_contacts` list |
+| `set_relationship_status(status)` | Set `demographics["relationship_status"]` |
+| `set_living_situation(situation)` | Set `demographics["living_situation"]` |
 
 ## 3.5 Security Architecture
 
@@ -2192,9 +2151,9 @@ def analyze_sentiment(self, text):
     }
 ```
 
-**Signal 2 — Distress Keywords**: Substring matching over 24 curated distress terms. Substring matching (rather than whole-word token matching) ensures "hopeless" triggers on "I feel completely hopeless and alone."
+**Signal 2 — Distress Keywords**: Substring matching over 26 distress terms. Substring matching (rather than whole-word token matching) ensures "hopeless" triggers on "I feel completely hopeless and alone."
 
-**Signal 3 — Abuse Indicators**: Substring matching over 15 abuse-related terms and phrases, detecting not only explicit terms ("domestic violence") but also behavioural descriptions ("gaslighting", "controlling").
+**Signal 3 — Abuse Indicators**: Substring matching over 16 abuse-related terms and phrases, detecting not only explicit terms ("domestic violence") but also behavioural descriptions ("gaslighting", "controlling").
 
 **Fusion and Classification Logic**:
 
@@ -2755,7 +2714,13 @@ These fields inform resource recommendations: users living alone may receive dif
 
 ### 4.9.3 Usage Examples Module
 
-`examples.py` contains twelve annotated demonstration scenarios covering the complete system. Scenarios include basic conversation flow, distress escalation, abuse detection, guardian notification, long-term history simulation, and the full security lifecycle (profile creation, password setup, lockout, unlock). These examples serve as both validation scripts and live demonstrations during thesis defense.
+`examples.py` contains four annotated demonstration scenarios covering the core system capabilities. The four scenarios are:
+1. **General Emotional Support**: Illustrates basic message processing, sentiment analysis, and empathetic response generation for everyday stress
+2. **Sustained Distress Detection and Alert**: Shows how three consecutive distress messages trigger the alert pipeline with crisis hotlines
+3. **Women's Safety and Abuse Support**: Demonstrates abuse indicator detection activating women-specific resources (domestic violence hotline, RAINN, safety planning)
+4. **Positive Check-in and Pattern Tracking**: Shows the `status` command displaying session trend (improving/stable/declining) and sentiment summary
+
+The file serves as a live reference implementation and demonstration aid, running without user interaction.
 
 ### 4.9.4 Launch Scripts
 

@@ -16,7 +16,7 @@ class EmotionAnalyzer:
             'anxious', 'scared', 'afraid', 'helpless', 'trapped', 'stuck',
             'hurt', 'pain', 'suffering', 'abuse', 'abused', 'victim',
             'can\'t take it', 'give up', 'end it', 'suicide', 'die',
-            'worthless', 'useless', 'burden', 'tired of living'
+            'useless', 'burden', 'tired of living'
         ]
         
         self.abuse_keywords = [
