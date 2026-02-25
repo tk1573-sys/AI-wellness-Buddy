@@ -15,12 +15,17 @@ class AlertSystem:
         
     def trigger_distress_alert(self, pattern_summary, user_profile=None):
         """Trigger alert for sustained emotional distress"""
+        severity = self._compute_severity(pattern_summary) if pattern_summary else 'LOW'
         alert = {
             'type': 'distress',
+            'severity': severity,
             'message': config.DISTRESS_ALERT_MESSAGE,
             'resources': config.GENERAL_SUPPORT_RESOURCES,
             'pattern_summary': pattern_summary,
-            'timestamp': datetime.now()
+            'timestamp': datetime.now(),
+            'acknowledged': False,
+            'guardian_consent': False,
+            'escalated_at': None,
         }
         
         # Check if specialized women's support should be included
@@ -60,12 +65,14 @@ class AlertSystem:
     
     def format_guardian_notification(self, alert, user_name="User"):
         """Format notification message for guardians"""
+        severity = alert.get('severity', '').upper()
+        severity_line = f"Alert severity: {severity}\n" if severity else ""
         message = f"""
 🚨 WELLNESS ALERT FOR {user_name} 🚨
 
 This is an automated notification from AI Wellness Buddy.
 
-{user_name} has shown signs of sustained emotional distress and may need support.
+{severity_line}{user_name} has shown signs of sustained emotional distress and may need support.
 
 Indicators detected:
 """
@@ -177,3 +184,77 @@ If there is immediate danger, contact emergency services immediately.
             return False
         
         return pattern_summary.get('sustained_distress_detected', False)
+
+    # ------------------------------------------------------------------
+    # Extended alert management API (backward-compatible)
+    # ------------------------------------------------------------------
+
+    def get_alert_log(self):
+        """Return the list of all triggered alerts."""
+        return self.alerts_triggered
+
+    def grant_guardian_consent(self, alert):
+        """Mark that the user has consented to guardian notification for this alert."""
+        alert['guardian_consent'] = True
+
+    def acknowledge_alert(self, alert):
+        """Mark an alert as acknowledged, recording the timestamp."""
+        alert['acknowledged'] = True
+        alert['acknowledged_at'] = datetime.now()
+
+    def _compute_severity(self, summary):
+        """
+        Compute alert severity level (from ALERT_SEVERITY_LEVELS) based on
+        a pattern_summary dict.  Applies escalation rules:
+        - abuse_indicators → escalate one level
+        - HIGH + sustained_distress → CRITICAL
+        """
+        import config as _cfg
+        levels = _cfg.ALERT_SEVERITY_LEVELS  # ['INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+
+        base = summary.get('severity_level', summary.get('risk_level', 'low')).upper()
+        if base not in levels:
+            base = 'LOW'
+
+        idx = levels.index(base)
+
+        if summary.get('sustained_distress_detected') and base == 'HIGH':
+            return 'CRITICAL'
+
+        if summary.get('abuse_indicators_detected') and idx < len(levels) - 1:
+            idx += 1
+
+        return levels[idx]
+
+    def escalate_pending_alerts(self):
+        """
+        Auto-escalate unacknowledged alerts that have been pending longer
+        than their configured escalation interval.
+
+        Returns the list of alerts that were escalated.
+        """
+        import config as _cfg
+        from datetime import timedelta
+
+        levels = _cfg.ALERT_SEVERITY_LEVELS
+        intervals = _cfg.ESCALATION_INTERVALS
+        escalated = []
+
+        for alert in self.alerts_triggered:
+            if alert.get('acknowledged'):
+                continue
+            sev = alert.get('severity', 'LOW').upper()
+            if sev not in levels:
+                continue
+            interval_min = intervals.get(sev, 30)
+            if interval_min == 0:
+                continue  # CRITICAL — already at max
+            age_min = (datetime.now() - alert['timestamp']).total_seconds() / 60
+            if age_min >= interval_min:
+                idx = levels.index(sev)
+                if idx < len(levels) - 1:
+                    alert['severity'] = levels[idx + 1]
+                    alert['escalated_at'] = datetime.now()
+                    escalated.append(alert)
+
+        return escalated

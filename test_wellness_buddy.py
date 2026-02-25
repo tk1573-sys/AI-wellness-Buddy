@@ -446,7 +446,7 @@ def test_trend_modeling():
     dist = tracker.get_emotion_distribution()
     print(f"Emotion distribution: {dist}")
     assert isinstance(dist, dict), "Distribution should be a dict"
-    assert sum(dist.values()) == len(messages), "Distribution counts should sum to message count"
+    assert abs(sum(dist.values()) - 1.0) < 0.01, "Distribution proportions should sum to ~1.0"
 
     print("\n✓ Trend modeling tests passed")
 

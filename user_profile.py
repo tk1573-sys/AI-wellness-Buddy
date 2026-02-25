@@ -45,6 +45,64 @@ class UserProfile:
         if data:
             self.profile_data = data
             self.user_id = data.get('user_id')
+
+    # ------------------------------------------------------------------
+    # Name / age helpers (backward-compatible with test_full_coverage)
+    # ------------------------------------------------------------------
+
+    def set_name(self, name):
+        """Set display name — stored at top-level and in demographics"""
+        self.profile_data['name'] = name
+        self.profile_data.setdefault('demographics', {})['name'] = name
+
+    def set_age(self, age):
+        """Set user age — stored at top-level and in demographics"""
+        self.profile_data['age'] = age
+        self.profile_data.setdefault('demographics', {})['age'] = age
+
+    def get_display_name(self):
+        """Return best available name: set name > user_id > 'Friend'"""
+        name = (self.profile_data.get('name') or
+                self.profile_data.get('demographics', {}).get('name'))
+        if name:
+            return name
+        if self.user_id:
+            return self.user_id
+        return 'Friend'
+
+    # ------------------------------------------------------------------
+    # Guardian contacts (backward-compat aliases for trusted_contacts)
+    # ------------------------------------------------------------------
+
+    def add_guardian_contact(self, name, relationship, phone=''):
+        """Alias for add_trusted_contact (backward compatibility)"""
+        self.add_trusted_contact(name, relationship, phone or None)
+
+    def get_guardian_contacts(self):
+        """Alias for get_trusted_contacts (backward compatibility)"""
+        return self.get_trusted_contacts()
+
+    # ------------------------------------------------------------------
+    # Primary concerns
+    # ------------------------------------------------------------------
+
+    def set_primary_concerns(self, concerns):
+        """Store a list of primary wellness concerns"""
+        self.profile_data['primary_concerns'] = list(concerns)
+
+    # ------------------------------------------------------------------
+    # Stability score helper
+    # ------------------------------------------------------------------
+
+    def calculate_stability_score(self, summary):
+        """
+        Compute a stability score (0–100) from a pattern summary dict.
+        Score = 50 + 25 * avg_sentiment - 25 * distress_ratio, clamped to [0, 100].
+        """
+        avg_sent = summary.get('average_sentiment', 0.0)
+        distress_ratio = summary.get('distress_ratio', 0.0)
+        score = 50.0 + 25.0 * avg_sent - 25.0 * distress_ratio
+        return max(0.0, min(100.0, score))
     
     def set_gender(self, gender):
         """Set user gender for specialized support"""
@@ -158,6 +216,7 @@ class UserProfile:
     _BADGE_DEFINITIONS = [
         ('first_step',   '🌱 First Step',       'Completed your first session',            'first_session'),
         ('consistent',   '🔄 Consistent',        'Completed 7 or more sessions',            'sessions_7'),
+        ('sessions_10',  '🏆 10 Sessions',        'Completed 10 or more sessions',           'sessions_10'),
         ('dedicated',    '💪 Dedicated',         'Completed 30 or more sessions',           'sessions_30'),
         ('streak_3',     '🔥 3-Day Streak',       'Three consecutive positive-mood sessions', 'streak_3'),
         ('streak_7',     '⭐ 7-Day Streak',       'Seven consecutive positive-mood sessions', 'streak_7'),
@@ -215,6 +274,7 @@ class UserProfile:
         conditions = {
             'first_session': session_count >= 1,   # awarded after the first completed session
             'sessions_7':    session_count >= 7,
+            'sessions_10':   session_count >= 10,
             'sessions_30':   session_count >= 30,
             'streak_3':      streak >= 3,
             'streak_7':      streak >= 7,
@@ -370,7 +430,26 @@ class UserProfile:
         self.profile_data['last_session'] = datetime.now()
     
     def get_profile(self):
-        """Get user profile data"""
+        """Get user profile data.
+
+        Returns the underlying profile_data dict with an additional computed
+        'badges' key (list of dicts with 'id', 'name', 'description') for
+        backward compatibility with callers that use get_profile()['badges'].
+        The primary badge storage key is 'wellness_badges' (list of badge IDs).
+        """
+        badge_lookup = {
+            bid: (name, desc)
+            for bid, name, desc, _ in self._BADGE_DEFINITIONS
+        }
+        raw_badges = self.profile_data.get('wellness_badges', [])
+        self.profile_data['badges'] = [
+            {
+                'id': bid,
+                'name': badge_lookup.get(bid, (bid, ''))[0],
+                'description': badge_lookup.get(bid, ('', ''))[1],
+            }
+            for bid in raw_badges
+        ]
         return self.profile_data
     
     def is_female(self):

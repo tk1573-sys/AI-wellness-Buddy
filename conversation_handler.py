@@ -166,6 +166,7 @@ class ConversationHandler:
 
     def __init__(self):
         self.conversation_history = []
+        self._last_pool_choice = None  # last base template chosen (for dedup)
 
     def add_message(self, user_message, emotion_data):
         """Add a message to conversation history"""
@@ -178,6 +179,17 @@ class ConversationHandler:
         # Limit history size
         if len(self.conversation_history) > config.MAX_CONVERSATION_HISTORY:
             self.conversation_history = self.conversation_history[-config.MAX_CONVERSATION_HISTORY:]
+
+    def _choose_unique(self, pool):
+        """Pick a random item from pool, avoiding consecutive repetition of the same base template."""
+        if len(pool) <= 1:
+            return pool[0] if pool else ''
+        candidates = [t for t in pool if t != self._last_pool_choice]
+        if not candidates:
+            candidates = pool
+        chosen = random.choice(candidates)
+        self._last_pool_choice = chosen
+        return chosen
 
     def generate_response(self, emotion_data, user_context=None):
         """Generate a warm, humanoid, personalized response based on
@@ -219,11 +231,11 @@ class ConversationHandler:
             lang_pool = _lang_handler.get_response_pool(primary_emotion, lang_pref)
 
         if lang_pool:
-            response = random.choice(lang_pool)
+            response = self._choose_unique(lang_pool)
         elif primary_emotion and primary_emotion in _RESPONSES:
             # ---- Route by fine-grained primary emotion (English) ----
             pool = _RESPONSES[primary_emotion].get(style, _RESPONSES[primary_emotion]['balanced'])
-            response = random.choice(pool)
+            response = self._choose_unique(pool)
         else:
             # ---- Fallback to coarse-emotion logic (backward-compatible) ----
             if coarse_emotion == 'positive':
@@ -259,7 +271,7 @@ class ConversationHandler:
                         "Given everything that has shaped your life, what you're feeling makes sense. "
                         "Please know that you are seen, heard, and supported. 💙"
                     )
-            response = random.choice(pool)
+            response = self._choose_unique(pool)
 
         # Personalise for trauma context on heavier emotions (English / bilingual)
         if lang_pref != 'tamil':

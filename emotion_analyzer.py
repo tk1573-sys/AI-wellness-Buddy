@@ -516,6 +516,18 @@ class EmotionAnalyzer:
         has_abuse_indicators = len(abuse_keywords) > 0
         is_crisis = len(crisis_keywords_found) > 0
 
+        # Numeric severity score (0-10) for backward compatibility
+        if is_crisis:
+            severity_score = 10.0
+        elif severity == 'high':
+            severity_score = 7.0
+        elif severity == 'medium':
+            severity_score = 4.0
+        elif polarity > 0:
+            severity_score = 0.0
+        else:
+            severity_score = 2.0
+
         return {
             # Coarse fields (backward-compatible)
             'emotion': emotion,
@@ -534,6 +546,11 @@ class EmotionAnalyzer:
             'crisis_keywords': crisis_keywords_found,
             # Language / script metadata
             'detected_script': detected_script,
+            # Backward-compatibility aliases (for test_full_coverage and external callers)
+            'dominant_emotion': primary_emotion,
+            'crisis_detected': is_crisis,
+            'severity_score': severity_score,
+            'keyword_explanation': explanation,
         }
 
 

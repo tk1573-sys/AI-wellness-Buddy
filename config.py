@@ -101,6 +101,45 @@ TTS_ENABLED = True             # Enable text-to-speech responses (requires inter
 STT_ENABLED = True             # Enable speech-to-text input (requires internet)
 TTS_DEFAULT_LANG = 'en'       # BCP-47 language code used by gTTS
 
+# Prediction agent
+PREDICTION_WINDOW = 10         # Alias for PATTERN_TRACKING_WINDOW (used by PredictionAgent)
+
+# Alert severity system
+ALERT_SEVERITY_LEVELS = ['INFO', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+
+# Alert escalation intervals in minutes (time before auto-escalating unacknowledged alert)
+ESCALATION_INTERVALS = {
+    'INFO': 60,
+    'LOW': 30,
+    'MEDIUM': 15,
+    'HIGH': 5,
+    'CRITICAL': 0,
+}
+
+# Alert log
+MAX_ALERT_LOG_ENTRIES = 100
+
+# Risk scoring parameters
+TIME_DECAY_FACTOR = 0.9        # Exponential decay weight for older entries
+SEVERITY_HIGH_THRESHOLD = 0.6  # risk_score above this → HIGH severity
+
+# Crisis response
+CRISIS_IMMEDIATE_MESSAGE = (
+    "🆘 IMMEDIATE SUPPORT AVAILABLE 🆘\n\n"
+    "Please call or text 988 (Suicide & Crisis Lifeline) right now.\n"
+    "You can also text HOME to 741741 (Crisis Text Line) or call 911 for emergencies.\n"
+    "Trained counsellors are available 24/7 — you do not have to face this alone."
+)
+
+CRISIS_RESOURCES = {
+    'crisis_hotline': '988 (Suicide & Crisis Lifeline)',
+    'emergency': '911',
+    'crisis_text': 'Text HOME to 741741',
+}
+
+# Gamification
+STREAK_NOTIFICATION_THRESHOLD = 3   # Notify user every N sessions on streak milestone
+
 # Alert messages
 DISTRESS_ALERT_MESSAGE = """
 ⚠️ EMOTIONAL DISTRESS ALERT ⚠️

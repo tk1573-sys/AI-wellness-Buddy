@@ -14,9 +14,148 @@ Also provides:
 # Smaller slopes are treated as noise / stable.
 _PRE_DISTRESS_SLOPE_THRESHOLD = -0.02
 
+# Slope magnitude below which a trend is considered "stable" (not improving/worsening)
+_STABLE_SLOPE_THRESHOLD = 0.05
+
 
 class PredictionAgent:
-    """Forecasts future emotional state using OLS linear regression."""
+    """
+    Forecasts future emotional state using OLS linear regression.
+
+    Supports two usage modes:
+    - **Stateless** (pass ``history`` list to each method directly)
+    - **Stateful** (call ``add_data_point()`` to build history, then call
+      ``predict_next_state()`` / ``classify_trend()`` / ``get_metrics()``)
+    """
+
+    def __init__(self):
+        self._history = []          # list of float sentiment values
+        self._last_prediction = None  # last predict_next_state() result
+        self._mae_sum = 0.0
+        self._rmse_sum = 0.0
+        self._n_evaluated = 0
+        self._pending_actual = None  # sentiment we are waiting to evaluate against
+
+    # ------------------------------------------------------------------
+    # Stateful API (backward-compatible with test_full_coverage)
+    # ------------------------------------------------------------------
+
+    def add_data_point(self, sentiment, emotion=None):  # noqa: ARG002 (emotion unused but accepted)
+        """Append a new sentiment value to the internal history buffer."""
+        self._history.append(float(sentiment))
+        # If there is a pending prediction, evaluate it against this actual value
+        if self._pending_actual is not None:
+            error = abs(self._pending_actual - float(sentiment))
+            self._mae_sum += error
+            self._rmse_sum += error ** 2
+            self._n_evaluated += 1
+            self._pending_actual = None
+
+    def predict_next_state(self):
+        """
+        Run OLS forecast on the current internal history.
+
+        Returns a dict with:
+          trend (str): 'insufficient_data' | 'improving' | 'stable' | 'worsening'
+          confidence (float): 0.0 (no data) or value from predict_next_sentiment
+          predicted_sentiment (float | None): clamped to [-1, 1]
+          early_warning (bool): True when pre-distress threshold triggered
+          warning_message (str | None): message when early_warning is True
+        """
+        if len(self._history) < 2:
+            return {
+                'trend': 'insufficient_data',
+                'confidence': 0.0,
+                'predicted_sentiment': None,
+                'early_warning': False,
+                'warning_message': None,
+            }
+
+        result = self.predict_next_sentiment(self._history)
+        if result is None:
+            return {
+                'trend': 'insufficient_data',
+                'confidence': 0.0,
+                'predicted_sentiment': None,
+                'early_warning': False,
+                'warning_message': None,
+            }
+
+        predicted = result['predicted_value']
+        slope = result['trend_slope']
+        conf_map = {'low': 0.3, 'medium': 0.6, 'high': 0.9}
+        confidence = conf_map.get(result['confidence'], 0.3)
+
+        trend = self.classify_trend()
+        warning = self.get_pre_distress_warning(self._history)
+        self._pending_actual = predicted  # store so next add_data_point can evaluate it
+
+        return {
+            'trend': trend,
+            'confidence': confidence,
+            'predicted_sentiment': predicted,
+            'early_warning': warning is not None,
+            'warning_message': warning,
+        }
+
+    def classify_trend(self):
+        """
+        Classify current trend as 'improving', 'worsening', or 'stable'
+        based on OLS slope over the internal history.
+        """
+        result = self.predict_next_sentiment(self._history)
+        if result is None:
+            return 'insufficient_data'
+        slope = result['trend_slope']
+        if slope > _STABLE_SLOPE_THRESHOLD:
+            return 'improving'
+        if slope < -_STABLE_SLOPE_THRESHOLD:
+            return 'worsening'
+        return 'stable'
+
+    def get_metrics(self):
+        """Return accumulated performance metrics for the stateful session."""
+        mae = self._mae_sum / self._n_evaluated if self._n_evaluated > 0 else 0.0
+        rmse = (self._rmse_sum / self._n_evaluated) ** 0.5 if self._n_evaluated > 0 else 0.0
+        return {
+            'mae': round(mae, 6),
+            'rmse': round(rmse, 6),
+            'n_predictions': self._n_evaluated,
+            'data_points': len(self._history),
+            'trend': self.classify_trend() if len(self._history) >= 2 else 'insufficient_data',
+        }
+
+    def get_forecast_series(self, steps=3):
+        """
+        Predict the next ``steps`` sentiment values using OLS extrapolation.
+        Returns a list of floats, each clamped to [-1.0, 1.0].
+        """
+        if len(self._history) < 2:
+            return [0.0] * steps
+
+        history = list(self._history)
+        result = self.predict_next_sentiment(history)
+        if result is None:
+            return [0.0] * steps
+
+        slope = result['trend_slope']
+        n = len(history)
+        x = list(range(n))
+        y = history
+        x_mean = sum(x) / n
+        y_mean = sum(y) / n
+        denom = sum((xi - x_mean) ** 2 for xi in x)
+        intercept = y_mean - slope * x_mean if denom != 0 else y_mean
+
+        forecasts = []
+        for step in range(1, steps + 1):
+            pred = slope * (n - 1 + step) + intercept
+            forecasts.append(max(-1.0, min(1.0, pred)))
+        return forecasts
+
+    # ------------------------------------------------------------------
+    # Stateless prediction methods (original API)
+    # ------------------------------------------------------------------
 
     def predict_next_sentiment(self, history):
         """

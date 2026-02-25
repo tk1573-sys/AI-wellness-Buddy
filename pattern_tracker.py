@@ -119,14 +119,23 @@ class PatternTracker:
 
     def get_emotion_distribution(self):
         """
-        Count occurrences of each fine-grained primary emotion in the
-        current window.  Returns a dict {emotion_name: count}.
+        Return proportions (0.0–1.0) for each known emotion class over
+        the current window.  Always includes all 7 standard classes so
+        callers can rely on a consistent key set.
+        Returns a dict {emotion_name: proportion}.
         """
-        distribution = {}
+        _ALL_EMOTIONS = ('joy', 'sadness', 'anger', 'fear', 'anxiety', 'neutral', 'crisis')
+        counts = {e: 0 for e in _ALL_EMOTIONS}
+        total = len(self.emotion_history)
+        if total == 0:
+            return {e: 0.0 for e in _ALL_EMOTIONS}
         for e in self.emotion_history:
             label = e.get('primary_emotion', e.get('emotion', 'neutral'))
-            distribution[label] = distribution.get(label, 0) + 1
-        return distribution
+            if label in counts:
+                counts[label] += 1
+            else:
+                counts['neutral'] += 1  # bucket unknown labels as neutral
+        return {e: round(counts[e] / total, 4) for e in _ALL_EMOTIONS}
 
     # ------------------------------------------------------------------
     # Emotional drift score
@@ -254,6 +263,9 @@ class PatternTracker:
             'stability_index': stability_index,
             'risk_score': risk_score,
             'risk_level': risk_level,
+            # Uppercase aliases (used by test_full_coverage and UI display)
+            'severity_level': risk_level.upper(),
+            'severity_score': risk_score,
             'moving_average': moving_avg,
             'emotion_distribution': emotion_distribution,
             'drift_score': self.get_emotional_drift_score(),
