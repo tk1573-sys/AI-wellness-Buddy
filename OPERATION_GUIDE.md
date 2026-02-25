@@ -266,11 +266,26 @@ While in a session, you can use these commands:
   1. Add/remove trusted contacts
   2. Add/remove guardian contacts
   3. Update safety settings
-  4. View personal history
-  5. Add trauma / trigger
+  4. Update personal history (trauma / triggers)
+  5. View personal history
   6. Change response style
-  7. Change password
-  8. Delete all data
+  7. Change language preference
+  8. Change password
+  9. Delete all data
+  ```
+
+  **View Personal History** shows:
+  ```
+  Relationship status    : divorced
+  Living situation       : Alone
+  Family responsibilities: Single parent
+  Occupation             : Employed (full-time)
+  Family background      : Estranged from parents.
+  Trauma records:
+    • Lost spouse in 2023.
+  Personal triggers:
+    • death
+    • hospital
   ```
 
 - **`quit`** - End session and save
@@ -303,7 +318,10 @@ The system analyzes your messages for:
 
 4. **Personal Context**
    - Your trauma history and personal triggers make responses more sensitive
-   - Your marital status and family background inform empathy
+   - Your marital/relationship status and family background inform empathy
+   - Your **living situation** (alone, with family, etc.) is factored into safety-aware responses
+   - Your **family responsibilities** (caretaker, single parent, breadwinner) are acknowledged when expressing distress
+   - Your **occupation** provides work-stress context for anxiety/anger responses
 
 5. **Distress Indicators**
    - Patterns of sustained negative emotion trigger alerts

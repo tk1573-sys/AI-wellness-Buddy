@@ -112,6 +112,29 @@ def create_new_profile():
             ["Skip", "Single", "Married", "Divorced", "Widowed", "In a relationship", "Other"]
         )
 
+        living_situation = st.selectbox(
+            "Current living situation:",
+            ["Skip", "Alone", "With family", "With partner", "With roommates",
+             "In hostel / PG", "Other"],
+            help="Helps me respond with awareness of your home environment."
+        )
+
+        family_responsibilities = st.selectbox(
+            "Family responsibilities:",
+            ["Skip", "None", "Caretaker (elderly / sick family member)",
+             "Single parent", "Breadwinner / main earner",
+             "Supporting siblings", "Multiple responsibilities", "Other"],
+            help="Understanding your responsibilities helps me acknowledge the load you carry."
+        )
+
+        occupation = st.selectbox(
+            "Occupation / work situation:",
+            ["Skip", "Student", "Employed (full-time)", "Employed (part-time)",
+             "Self-employed", "Unemployed / job-seeking", "Homemaker",
+             "On leave / career break", "Retired", "Other"],
+            help="Work stress is a significant factor in emotional wellbeing."
+        )
+
         response_style = st.selectbox(
             "Preferred response style:",
             ["Balanced", "Short", "Detailed"],
@@ -175,6 +198,13 @@ def create_new_profile():
                 st.session_state.buddy.user_profile.add_unsafe_contact('family/guardians')
             if marital_status != "Skip":
                 st.session_state.buddy.user_profile.set_relationship_status(marital_status.lower())
+            if living_situation != "Skip":
+                st.session_state.buddy.user_profile.set_living_situation(living_situation)
+            if family_responsibilities != "Skip":
+                st.session_state.buddy.user_profile.set_family_responsibilities(
+                    family_responsibilities)
+            if occupation != "Skip":
+                st.session_state.buddy.user_profile.set_occupation(occupation)
             if response_style != "Balanced":
                 st.session_state.buddy.user_profile.set_response_style(response_style.lower())
             lang_val = _LANG_MAP.get(language_preference, 'english')
@@ -565,6 +595,9 @@ def show_profile_menu():
             demographics = profile.get_profile().get('demographics', {})
             st.markdown("**📋 Your Personal History**")
             st.write(f"**Relationship:** {demographics.get('relationship_status', 'not set')}")
+            st.write(f"**Living situation:** {demographics.get('living_situation', 'not set')}")
+            st.write(f"**Family responsibilities:** {demographics.get('family_responsibilities', 'not set')}")
+            st.write(f"**Occupation:** {demographics.get('occupation', 'not set')}")
             st.write(f"**Family background:** {demographics.get('family_background', 'not set')}")
             st.write(f"**Response style:** {profile.get_response_style()}")
             trauma = profile.get_trauma_history()

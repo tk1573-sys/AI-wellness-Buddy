@@ -55,6 +55,9 @@ The AI Wellness Buddy is a comprehensive emotional support system with the follo
 - Personal triggers flagged for gentle acknowledgement
 - Marital/relationship status used for life-transition empathy
 - Family background for culturally-aware context
+- **Living situation** — alone, with family, in hostel, etc. (safety-aware responses)
+- **Family responsibilities** — caretaker, single parent, breadwinner (acknowledges burden)
+- **Occupation** — work stress factor used for anxiety/anger personalisation
 
 ✅ **Response Style Personalization**
 - Choose Short, Balanced (default), or Detailed replies
@@ -392,13 +395,19 @@ No external ML dependencies required — pure Python OLS.
 | `personal_triggers` | Words/topics to acknowledge gently if mentioned in a message |
 | `relationship_status` | Used for life-transition empathy (divorce, bereavement, etc.) |
 | `family_background` | Background context for culturally-sensitive responses |
+| `living_situation` | Home environment (alone, with family, in hostel) — safety-aware responses |
+| `family_responsibilities` | Caretaker / single parent / breadwinner — acknowledges the extra load you carry |
+| `occupation` | Student / employed / unemployed / homemaker — work-stress-aware personalisation |
 
 ### Setting Up in the CLI
 
 During profile creation you will be asked:
 ```
 Relationship / marital status: divorced
-Family background (optional): Single parent; estranged from parents.
+Living situation (alone/with family/other/skip): Alone
+Family responsibilities (caretaker/single parent/none/skip): Single parent
+Occupation (student/employed/unemployed/homemaker/skip): Employed (full-time)
+Family background (optional): Estranged from parents.
 Any trauma or significant loss? (optional): Lost spouse in 2023.
 Sensitive topics (comma-separated, optional): death, hospital
 ```
@@ -406,8 +415,8 @@ Sensitive topics (comma-separated, optional): death, hospital
 You can also add or update this information later:
 ```
 You: profile
-> 4. View personal history
-> 5. Add trauma / trigger
+> 4. Update personal history (trauma / triggers)
+> 5. View personal history
 ```
 
 ### How It Affects Responses
@@ -422,6 +431,26 @@ When the user has trauma history and expresses sadness:
 ```
 I also want you to know — given everything you've been through before, your
 resilience is real. You are not alone in this moment. 💙
+```
+
+When the user has family responsibilities and expresses anxiety:
+```
+I also hear the weight of your responsibilities — carrying so much for others
+while managing your own feelings takes real strength. Please remember that
+taking care of yourself is just as important. 💙
+```
+
+When the user has an occupation and expresses work-related anxiety or anger:
+```
+Work and daily responsibilities can add a great deal of pressure.
+It's okay to acknowledge that stress — you don't have to push through it alone. 💙
+```
+
+When the user lives alone and expresses fear or crisis-level distress:
+```
+Your living situation is something I'm keeping in mind. If you ever feel unsafe
+or need support, please don't hesitate to reach out to a trusted person or type
+'help' to see resources. 💙
 ```
 
 ---

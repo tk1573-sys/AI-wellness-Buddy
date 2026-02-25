@@ -66,6 +66,27 @@ class UserProfile:
     def set_family_background(self, info):
         """Store family background / situation for context-aware support"""
         self.profile_data['demographics']['family_background'] = info
+
+    def set_family_responsibilities(self, responsibilities):
+        """Store the user's family responsibilities (e.g. caretaker, single parent, breadwinner)"""
+        self.profile_data['demographics']['family_responsibilities'] = responsibilities
+
+    def get_family_responsibilities(self):
+        """Return the user's family responsibilities string"""
+        return self.profile_data.get('demographics', {}).get('family_responsibilities')
+
+    def set_occupation(self, occupation):
+        """Store the user's occupation / work situation for stress-context-aware support"""
+        self.profile_data['demographics']['occupation'] = occupation
+
+    def get_occupation(self):
+        """Return the user's occupation string"""
+        return self.profile_data.get('demographics', {}).get('occupation')
+
+    def get_living_situation(self):
+        """Return the user's living situation string"""
+        return self.profile_data.get('demographics', {}).get('living_situation')
+
     
     def add_trauma_history(self, description, approximate_date=None):
         """Record a past trauma so responses can be more sensitive"""
@@ -99,6 +120,9 @@ class UserProfile:
             'gender': self.profile_data.get('gender'),
             'marital_status': demographics.get('relationship_status'),
             'family_background': demographics.get('family_background'),
+            'family_responsibilities': demographics.get('family_responsibilities'),
+            'occupation': demographics.get('occupation'),
+            'living_situation': demographics.get('living_situation'),
             'has_trauma_history': len(self.profile_data.get('trauma_history', [])) > 0,
             'trauma_count': len(self.profile_data.get('trauma_history', [])),
             'personal_triggers': self.profile_data.get('personal_triggers', []),

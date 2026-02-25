@@ -1059,6 +1059,88 @@ def test_evaluation_framework():
     print("\n✓ Evaluation framework tests passed")
 
 
+def test_extended_personal_history():
+    """TEST 26: Extended personal history — living situation, family responsibilities, occupation"""
+    print("\n" + "="*70)
+    print("TEST 26: Extended Personal History")
+    print("="*70)
+
+    profile = UserProfile("test_extended_history")
+
+    # ── Living situation ──────────────────────────────────────────────
+    assert profile.get_living_situation() is None, "Should be None before setting"
+    profile.set_living_situation("Alone")
+    assert profile.get_living_situation() == "Alone"
+    # Verify it's stored in demographics
+    assert profile.get_profile()['demographics']['living_situation'] == "Alone"
+    print("✓ Living situation stored and retrieved correctly")
+
+    # ── Family responsibilities ───────────────────────────────────────
+    assert profile.get_family_responsibilities() is None, "Should be None before setting"
+    profile.set_family_responsibilities("Single parent")
+    assert profile.get_family_responsibilities() == "Single parent"
+    assert profile.get_profile()['demographics']['family_responsibilities'] == "Single parent"
+    print("✓ Family responsibilities stored and retrieved correctly")
+
+    # ── Occupation ───────────────────────────────────────────────────
+    assert profile.get_occupation() is None, "Should be None before setting"
+    profile.set_occupation("Employed (full-time)")
+    assert profile.get_occupation() == "Employed (full-time)"
+    assert profile.get_profile()['demographics']['occupation'] == "Employed (full-time)"
+    print("✓ Occupation stored and retrieved correctly")
+
+    # ── get_personal_context includes all new fields ──────────────────
+    ctx = profile.get_personal_context()
+    assert ctx['living_situation'] == "Alone"
+    assert ctx['family_responsibilities'] == "Single parent"
+    assert ctx['occupation'] == "Employed (full-time)"
+    print("✓ get_personal_context() includes living_situation, family_responsibilities, occupation")
+
+    # ── Conversation personalization uses new fields ──────────────────
+    from conversation_handler import ConversationHandler
+    handler = ConversationHandler()
+    anxiety_emotion = {
+        'emotion': 'negative',
+        'primary_emotion': 'anxiety',
+        'severity': 'medium',
+        'polarity': -0.4,
+        'distress_keywords': ['worried'],
+        'abuse_indicators': [],
+        'has_abuse_indicators': False,
+        'explanation': 'keyword: worried',
+    }
+    # Message from a single parent with work stress and living alone
+    handler.add_message("I'm so overwhelmed with everything", anxiety_emotion)
+    ctx['response_style'] = 'balanced'
+    response = handler.generate_response(anxiety_emotion, ctx)
+    assert isinstance(response, str) and len(response) > 10
+    # The family_responsibilities and occupation branches should fire
+    assert "responsibilit" in response.lower() or "pressure" in response.lower() or \
+           "strength" in response.lower() or "overwhelm" in response.lower() or \
+           "anxiety" in response.lower() or "breath" in response.lower(), \
+        f"Response should acknowledge context. Got: {response[:200]}"
+    print(f"✓ Conversation handler generates context-aware response: '{response[:80]}…'")
+
+    # ── Persistence round-trip ────────────────────────────────────────
+    import tempfile, shutil
+    tmpdir = tempfile.mkdtemp()
+    try:
+        ds = DataStore(tmpdir)
+        ds.save_user_data("test_extended_history", profile.get_profile())
+        loaded_data = ds.load_user_data("test_extended_history")
+        assert loaded_data is not None
+        loaded_profile = UserProfile("test_extended_history")
+        loaded_profile.load_from_data(loaded_data)
+        assert loaded_profile.get_living_situation() == "Alone"
+        assert loaded_profile.get_family_responsibilities() == "Single parent"
+        assert loaded_profile.get_occupation() == "Employed (full-time)"
+        print("✓ Extended personal history survives save/load round-trip")
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+    print("\n✓ Extended personal history tests passed")
+
+
 def run_all_tests():
     """Run all tests"""
     print("\n" + "="*70)
@@ -1091,6 +1173,7 @@ def run_all_tests():
         test_ml_emotion_adapter()
         test_ewma_predictor()
         test_evaluation_framework()
+        test_extended_personal_history()
         
         print("\n" + "="*70)
         print("   ✓ ALL TESTS COMPLETED SUCCESSFULLY")

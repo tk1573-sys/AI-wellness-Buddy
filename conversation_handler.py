@@ -209,6 +209,9 @@ class ConversationHandler:
         has_trauma = user_context and user_context.get('has_trauma_history', False)
         marital_status = user_context.get('marital_status') if user_context else None
         family_bg = user_context.get('family_background') if user_context else None
+        family_resp = user_context.get('family_responsibilities') if user_context else None
+        occupation = user_context.get('occupation') if user_context else None
+        living_situation = user_context.get('living_situation') if user_context else None
 
         # ---- Try bilingual / Tamil pool first (if preference set) ----
         lang_pool = []
@@ -270,6 +273,26 @@ class ConversationHandler:
                 response += (
                     "\n\nLife transitions like the one you've been through can make these feelings "
                     "especially heavy. Your emotions are completely understandable, and I'm here. 💙"
+                )
+            # Family responsibilities context
+            if family_resp and primary_emotion in ('sadness', 'anxiety', 'anger', 'fear'):
+                response += (
+                    f"\n\nI also hear the weight of your responsibilities — carrying so much for "
+                    f"others while managing your own feelings takes real strength. "
+                    f"Please remember that taking care of yourself is just as important. 💙"
+                )
+            # Occupation / work stress context
+            if occupation and primary_emotion in ('anxiety', 'anger', 'sadness'):
+                response += (
+                    f"\n\nWork and daily responsibilities can add a great deal of pressure. "
+                    f"It's okay to acknowledge that stress — you don't have to push through it alone. 💙"
+                )
+            # Living situation context (e.g. alone, unsafe home)
+            if living_situation and primary_emotion in ('fear', 'anxiety', 'sadness', 'crisis'):
+                response += (
+                    f"\n\nYour living situation is something I'm keeping in mind. "
+                    f"If you ever feel unsafe or need support, please don't hesitate to reach out "
+                    f"to a trusted person or type 'help' to see resources. 💙"
                 )
 
         # Gently acknowledge if a personal trigger was mentioned

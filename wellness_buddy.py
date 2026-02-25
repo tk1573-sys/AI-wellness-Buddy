@@ -128,6 +128,24 @@ class WellnessBuddy:
         if marital and marital not in ['skip', '']:
             self.user_profile.set_relationship_status(marital)
 
+        # Living situation
+        living = input("What is your current living situation? "
+                       "(e.g. alone/with family/with partner/in hostel/other/skip): ").strip()
+        if living and living.lower() not in ['skip', '']:
+            self.user_profile.set_living_situation(living)
+
+        # Family responsibilities
+        family_resp = input("\nDo you have family responsibilities? "
+                            "(e.g. caretaker/single parent/breadwinner/none/skip): ").strip()
+        if family_resp and family_resp.lower() not in ['skip', '']:
+            self.user_profile.set_family_responsibilities(family_resp)
+
+        # Occupation
+        occupation = input("\nWhat is your occupation or work situation? "
+                           "(e.g. student/employed/unemployed/homemaker/skip): ").strip()
+        if occupation and occupation.lower() not in ['skip', '']:
+            self.user_profile.set_occupation(occupation)
+
         # Language preference
         print("\nThis app supports English, Tamil (தமிழ்), and bilingual (Tamil+English).")
         lang_choice = input("Preferred language? (english/tamil/bilingual/skip): ").strip().lower()
@@ -137,13 +155,13 @@ class WellnessBuddy:
                 print("  ✓ நான் தமிழில் பதில் சொல்லுவேன்.")
             elif lang_choice == 'bilingual':
                 print("  ✓ I'll respond in both Tamil and English.")
-        
+
         # Family background
         family_bg = input("\nCan you briefly describe your family situation or background? "
                           "(optional — press Enter to skip): ").strip()
         if family_bg:
             self.user_profile.set_family_background(family_bg)
-        
+
         # Trauma history
         has_trauma = input("\nHave you experienced significant trauma or loss you'd like me "
                            "to be aware of? (yes/no/skip): ").strip().lower()
@@ -153,7 +171,7 @@ class WellnessBuddy:
             if trauma_desc:
                 self.user_profile.add_trauma_history(trauma_desc)
                 print("  ✓ I'll keep this in mind and respond with extra care.")
-        
+
         # Personal triggers
         add_triggers = input("\nAre there topics or words that you find especially distressing? "
                              "(yes/no/skip): ").strip().lower()
@@ -165,7 +183,7 @@ class WellnessBuddy:
                     break
                 self.user_profile.add_personal_trigger(trigger)
                 print(f"  ✓ I'll be especially gentle around '{trigger}'.")
-        
+
         # Save the new profile
         self._save_profile()
         print("\n✓ Profile created and saved securely.\n")
@@ -429,8 +447,11 @@ class WellnessBuddy:
         elif choice == '5':
             msg = "\n📋 YOUR PERSONAL HISTORY\n" + "="*70 + "\n"
             demographics = self.user_profile.get_profile().get('demographics', {})
-            msg += f"\nRelationship status: {demographics.get('relationship_status', 'not set')}\n"
-            msg += f"Family background: {demographics.get('family_background', 'not set')}\n"
+            msg += f"\nRelationship status    : {demographics.get('relationship_status', 'not set')}\n"
+            msg += f"Living situation       : {demographics.get('living_situation', 'not set')}\n"
+            msg += f"Family responsibilities: {demographics.get('family_responsibilities', 'not set')}\n"
+            msg += f"Occupation             : {demographics.get('occupation', 'not set')}\n"
+            msg += f"Family background      : {demographics.get('family_background', 'not set')}\n"
             trauma = self.user_profile.get_trauma_history()
             if trauma:
                 msg += "\nTrauma records:\n"

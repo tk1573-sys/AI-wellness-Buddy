@@ -22,6 +22,9 @@ An AI-based emotional wellness support system that provides continuous text-base
 - **Personal Triggers**: Flag topics or words that are especially sensitive — the system responds with extra care when they arise
 - **Marital / Relationship Status**: Used to personalise responses for transitions like divorce or loss
 - **Family Background**: Gives context for empathetic, culturally-aware support
+- **Living Situation**: Whether you live alone, with family, in a hostel, etc. — safety-aware responses
+- **Family Responsibilities**: Caretaker, single parent, breadwinner — the system acknowledges the weight you carry
+- **Occupation**: Student, employed, unemployed, homemaker — work-stress context used for anxiety/anger personalisation
 - **Response Style Preference**: Choose **Short**, **Balanced** (default), or **Detailed** replies to match how you like to communicate
 
 ### Bilingual Tamil/English & Voice Support 🌐

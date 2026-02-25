@@ -901,8 +901,17 @@ You can skip any question by pressing Enter.
 Relationship / marital status (single/married/divorced/other/skip):
 > divorced
 
+Living situation (alone/with family/with partner/in hostel/other/skip):
+> Alone
+
+Family responsibilities (caretaker/single parent/breadwinner/none/skip):
+> Single parent
+
+Occupation (student/employed/unemployed/homemaker/skip):
+> Employed (full-time)
+
 Family background (optional):
-> Single parent; estranged from parents.
+> Estranged from parents.
 
 Any trauma or significant loss? (optional):
 > Lost spouse in 2023.

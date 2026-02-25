@@ -77,11 +77,14 @@ When you first run, you'll be asked:
 2. Password: ********** (min 8 characters)
 3. Gender (optional): female/male/other/skip
 4. Marital / relationship status (optional)
-5. Response style: short / balanced (default) / detailed
-6. Family background (optional)
-7. Trauma or significant loss (optional)
-8. Sensitive topics / personal triggers (optional, comma-separated)
-9. Safe with family? (optional): yes/no/skip
+5. Living situation (alone/with family/in hostel/other/skip)
+6. Family responsibilities (caretaker/single parent/breadwinner/none/skip)
+7. Occupation (student/employed/unemployed/homemaker/skip)
+8. Response style: short / balanced (default) / detailed
+9. Family background (optional)
+10. Trauma or significant loss (optional)
+11. Sensitive topics / personal triggers (optional, comma-separated)
+12. Safe with family? (optional): yes/no/skip
 ```
 
 **That's it! You're ready to use the system.**
