@@ -75,7 +75,7 @@ The AI Wellness Buddy is a comprehensive emotional support system with the follo
   "subjectivity": 0.6,       # 0 (objective) to 1 (subjective)
   "emotion": "positive",     # Category: positive, neutral, negative, distress
   "severity": "low",         # Severity: low, medium, high
-  "distress_keywords": [],   # 24 distress indicators detected
+  "distress_keywords": [],   # 26 distress indicators detected
   "abuse_indicators": []     # 16 abuse-related keywords detected
 }
 ```
