@@ -219,22 +219,46 @@ While in a session, you can use these commands:
     • Emma (best friend): 555-1234
   ```
 
-- **`status`** - View your emotional patterns
+- **`status`** - View emotional patterns and risk level
   ```
   You: status
   
   📊 Current Session:
-    Messages: 12
-    Average sentiment: +0.15
-    Trend: Stable
-  
+    Messages analyzed: 8
+    Emotional trend: DECLINING
+    Average sentiment: -0.28
+    Risk level: HIGH (score: 0.61)
+    Stability index: 0.78 (volatility: 0.22)
+    
+    Emotion breakdown:
+      sadness: 4 messages
+      anxiety: 3 messages
+      neutral: 1 message
+    
   📊 Last 7 Days:
     Check-ins: 5
-    Average sentiment: +0.25
-    Trend: Improving ✨
+    Mood streak: 0 positive session(s)
+    Overall sentiment: -0.15
+
+  📡 Next-Session Forecast (medium confidence):
+    Neutral to slightly low mood expected — extra self-care may help.
   ```
 
-- **`profile`** - Manage contacts and settings
+- **`weekly`** / **`report`** - Generate 7-day wellness summary
+  ```
+  You: weekly
+  
+  📋 WEEKLY WELLNESS SUMMARY
+  📅 Period: Last 7 days
+  ✅ Check-ins: 5
+  📈 Average mood: -0.08 — 😐 Neutral / Mixed
+  ⚠️  Risk incidents: 1
+  🎭 Emotion Distribution: sadness 60%, anxiety 20%, neutral 20%
+  📡 Forecast: Neutral to slightly low mood expected.
+  💡 Suggestions: ...
+  ```
+
+- **`profile`** - Manage contacts, personal history, and settings
   ```
   You: profile
   
@@ -242,14 +266,34 @@ While in a session, you can use these commands:
   1. Add/remove trusted contacts
   2. Add/remove guardian contacts
   3. Update safety settings
-  4. Change password
-  5. Delete all data
+  4. Update personal history (trauma / triggers)
+  5. View personal history
+  6. Change response style
+  7. Change language preference
+  8. Change password
+  9. Delete all data
+  ```
+
+  **View Personal History** shows:
+  ```
+  Relationship status    : divorced
+  Living situation       : Alone
+  Family responsibilities: Single parent
+  Occupation             : Employed (full-time)
+  Family background      : Estranged from parents.
+  Trauma records:
+    • Lost spouse in 2023.
+  Personal triggers:
+    • death
+    • hospital
   ```
 
 - **`quit`** - End session and save
   ```
   You: quit
   
+  🔥 Mood Streak: 2 consecutive positive session(s)
+  🏅 New badge: 💪 Dedicated — "30 sessions completed"
   Session saved successfully.
   Take care! 💙
   ```
@@ -258,20 +302,30 @@ While in a session, you can use these commands:
 
 The system analyzes your messages for:
 
-1. **Emotional Content**
-   - Sentiment (positive, neutral, negative)
-   - Intensity (low, medium, high)
-   - Specific emotions (sad, anxious, hopeful, etc.)
+1. **Fine-Grained Emotion** (6 classes)
+   - joy, sadness, anger, fear, anxiety, crisis
+   - Keyword-driven with polarity fallback
+   - Crisis always triggers 988/911 escalation
 
-2. **Distress Indicators**
-   - Keywords related to emotional distress
-   - Patterns of sustained negative emotion
-   - Mentions of self-harm or crisis
+2. **XAI Explanation**
+   - Every response shows which keywords drove the classification
+   - Example: *"(Analysis: Detected 'anxiety' due to keywords: anxious, overwhelmed)"*
 
-3. **Abuse Indicators** (for women's safety)
-   - Keywords related to emotional/physical abuse
-   - Controlling behavior patterns
-   - Safety concerns
+3. **Risk Level** (updated every message)
+   - Low 🟢 / Medium 🟡 / High 🔴 / Critical 🚨
+   - Shown in sidebar of the web UI
+   - Formula-based, not just a threshold
+
+4. **Personal Context**
+   - Your trauma history and personal triggers make responses more sensitive
+   - Your marital/relationship status and family background inform empathy
+   - Your **living situation** (alone, with family, etc.) is factored into safety-aware responses
+   - Your **family responsibilities** (caretaker, single parent, breadwinner) are acknowledged when expressing distress
+   - Your **occupation** provides work-stress context for anxiety/anger responses
+
+5. **Distress Indicators**
+   - Patterns of sustained negative emotion trigger alerts
+   - Abuse keywords provide specialized women's resources
 
 ---
 

@@ -14,44 +14,49 @@ The **AI Wellness Buddy** is an intelligent emotional support system that uses n
 
 **What it does:**
 - Analyzes conversations to understand emotional state
-- Tracks sentiment over time (positive, neutral, negative)
-- Identifies specific emotions (anxious, sad, hopeful, etc.)
+- Classifies one of **6 fine-grained emotions**: joy, sadness, anger, fear, anxiety, crisis
+- Detects crisis keywords for immediate 988/911 escalation
+- Provides XAI attribution — explains *why* an emotion was classified
 - Monitors patterns across days, weeks, and months
 
 **How it works:**
 - Uses TextBlob for sentiment analysis (-1 to +1 scale)
 - NLTK Brown Corpus for language understanding
-- Custom keyword detection for distress and abuse indicators
+- Per-emotion keyword dictionaries (joy: 21 keywords, sadness: 21, anger: 16, fear: 14, anxiety: 18, crisis: 15+)
+- 24+ distress keywords, 16+ abuse keywords
 - Pattern tracking over 365-day rolling window
 
 **Example:**
 ```
-User: "I'm feeling stressed about work"
+User: "I'm feeling really anxious and overwhelmed"
 Analysis:
-  - Sentiment: -0.3 (moderate negative)
-  - Emotion: anxiety/stress
-  - Severity: medium
-  - Pattern: First distress message today
+  - Sentiment: -0.35 (moderate negative)
+  - Primary emotion: anxiety
+  - XAI: "Detected 'anxiety' due to keywords: anxious, overwhelmed"
+  - Risk level: Medium (score: 0.38)
+  - Stability index: 0.82
 ```
 
 ### 2. Crisis Detection & Alerts
 
 **What it does:**
+- Detects 15+ crisis keywords (self-harm, suicidal ideation) with immediate escalation
 - Detects sustained emotional distress (3+ consecutive messages)
-- Identifies crisis keywords (self-harm, hopelessness, etc.)
-- Triggers multi-level alert system
+- Computes formula-based risk score: Low / Medium / High / Critical
 - Provides immediate crisis resources
+- Forecasts risk escalation with OLS regression
 
 **How it works:**
-- Monitors consecutive distress messages
-- Analyzes severity levels (low, medium, high)
-- Compares against configurable thresholds
-- Triggers appropriate support resources
+- Crisis keywords bypass all other logic and trigger immediate 988/911 response
+- Risk score formula: `base(emotion weights) + consecutive_factor + abuse_boost`
+- OLS prediction on historical sentiment values for next-session forecast
+- Configurable thresholds for guardian notifications
 
 **Example:**
 ```
-After 3 distress messages:
+After 4 consecutive distress messages (High risk):
 ⚠️ EMOTIONAL DISTRESS ALERT ⚠️
+Risk level: HIGH (score: 0.66)
 Resources provided:
   • Crisis Hotline: 988
   • Text Line: 741741
@@ -199,46 +204,48 @@ For women who can't rely on family:
 ### Components
 
 ```
-┌─────────────────────────────────────────┐
-│         User Interfaces                 │
-│  (CLI, Web UI, Network UI)             │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│      Core Processing Layer              │
-│                                         │
-│  ┌─────────────────────────────────┐  │
-│  │ Wellness Buddy (Main Engine)    │  │
-│  │  - Session Management           │  │
-│  │  - User Interaction             │  │
-│  │  - Command Processing           │  │
-│  └────────┬────────────────────────┘  │
-│           │                            │
-│  ┌────────▼────────┐  ┌──────────┐   │
-│  │ Emotion Analyzer│  │ Pattern   │   │
-│  │  - TextBlob     │  │ Tracker   │   │
-│  │  - NLTK        │  │  - Trends │   │
-│  │  - Keywords    │  │  - History│   │
-│  └────────┬────────┘  └────┬─────┘   │
-│           │                 │         │
-│  ┌────────▼─────────────────▼──────┐ │
-│  │      Alert System               │ │
-│  │  - Distress Detection           │ │
-│  │  - Guardian Notification        │ │
-│  │  - Resource Provision           │ │
-│  └────────┬────────────────────────┘ │
-└───────────┼──────────────────────────┘
-            │
-┌───────────▼──────────────────────────┐
-│      Data Layer                      │
-│                                      │
-│  ┌────────────┐  ┌───────────────┐ │
-│  │User Profile│  │  Data Store   │ │
-│  │ - Security │  │  - Encryption │ │
-│  │ - Contacts │  │  - Backups    │ │
-│  │ - History  │  │  - Integrity  │ │
-│  └────────────┘  └───────────────┘ │
-└──────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│                 User Interfaces                  │
+│  CLI  |  Web UI (4-tab)  |  Network UI          │
+└─────────────────┬───────────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────────┐
+│            Core Processing Layer                 │
+│                                                  │
+│  ┌────────────────────────────────────────────┐ │
+│  │ WellnessBuddy (Orchestrator)               │ │
+│  │  - Session management, commands, weekly    │ │
+│  └──┬─────────────────────────────────────────┘ │
+│     │                                            │
+│  ┌──▼──────────────┐  ┌──────────────────────┐ │
+│  │ EmotionAnalyzer │  │  PatternTracker       │ │
+│  │  - 6 emotions   │  │  - Moving average     │ │
+│  │  - Crisis det.  │  │  - Volatility/Stab.   │ │
+│  │  - XAI attrib.  │  │  - Risk scoring       │ │
+│  └──┬──────────────┘  └────────┬─────────────┘ │
+│     │                           │                │
+│  ┌──▼───────────────────────────▼─────────────┐ │
+│  │  ConversationHandler                        │ │
+│  │  - 6-emotion × 3-style response templates  │ │
+│  │  - Trauma / trigger / marital awareness     │ │
+│  └─────────────────────────────────────────────┘ │
+│                                                  │
+│  ┌──────────────────┐  ┌───────────────────────┐ │
+│  │  PredictionAgent │  │  AlertSystem           │ │
+│  │  - OLS forecast  │  │  - Distress detection  │ │
+│  │  - Risk escalat. │  │  - Guardian notify     │ │
+│  └──────────────────┘  └───────────────────────┘ │
+└─────────────────┬───────────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────────┐
+│                  Data Layer                      │
+│  ┌────────────────────┐  ┌──────────────────┐   │
+│  │  UserProfile        │  │  DataStore       │   │
+│  │  - Personal history │  │  - Encryption    │   │
+│  │  - Gamification     │  │  - Backups       │   │
+│  │  - Response style   │  │  - Integrity     │   │
+│  └────────────────────┘  └──────────────────┘   │
+└─────────────────────────────────────────────────┘
 ```
 
 ### Data Flow
@@ -246,19 +253,30 @@ For women who can't rely on family:
 ```
 1. User Input
    ↓
-2. Emotion Analysis (TextBlob + NLTK)
+2. Multi-Emotion Analysis (TextBlob + NLTK + keyword dicts)
+   → primary_emotion + XAI explanation + is_crisis flag
    ↓
-3. Pattern Tracking (add to history)
+3. Pattern Tracking
+   → risk score (Low/Medium/High/Critical)
+   → volatility + stability index
+   → moving average + emotion distribution
    ↓
 4. Alert Evaluation
+   → sustained distress → distress alert
+   → crisis keywords → immediate 988/911 response
    ↓
-5. Response Generation
+5. Response Generation (ConversationHandler)
+   → emotion × style template
+   → personalised for trauma/triggers/marital status
+   → XAI annotation appended
    ↓
 6. Resource Provision (if needed)
    ↓
 7. Guardian Notification (if threshold met)
    ↓
-8. Data Storage (encrypted)
+8. Prediction (OLS) surfaced in status / weekly / UI tabs
+   ↓
+9. Data Storage (encrypted) + streak/badge update at session end
 ```
 
 ---
@@ -267,16 +285,22 @@ For women who can't rely on family:
 
 | Feature | Description | Benefit |
 |---------|-------------|---------|
-| **Emotion Analysis** | NLP-based sentiment analysis | Understand emotional state |
+| **Multi-Emotion Analysis** | 6 fine-grained emotions + crisis | Nuanced understanding |
+| **XAI Attribution** | Keyword-driven explanation | Transparent AI |
+| **Risk Scoring** | Formula-based Low/Medium/High/Critical | Intelligent, not threshold-based |
+| **Stability Index** | Volatility + stability (0–1) | Mood consistency insight |
+| **OLS Forecasting** | Next-session mood & risk prediction | Proactive support |
+| **Personal History** | Trauma, triggers, marital status | Truly personalised responses |
+| **Response Styles** | Short / Balanced / Detailed | User preference |
+| **Gamification** | Streak + 8 badges | Engagement & motivation |
+| **Weekly Report** | 7-day summary + suggestions | Self-awareness |
 | **365-Day Tracking** | Full year of history | Long-term pattern insights |
-| **Crisis Detection** | Automatic distress alerts | Timely support provision |
+| **Crisis Detection** | 15+ crisis keywords → 988/911 | Timely intervention |
 | **Guardian Alerts** | Emergency contact notification | External support layer |
-| **Women's Safety** | Abuse detection + resources | Specialized support |
-| **Government Resources** | Official agencies | Trusted help channels |
+| **Women's Safety** | Abuse detection + resources | Specialised support |
+| **Government Resources** | 15+ official agencies | Trusted help channels |
 | **Encryption** | AES-256 data encryption | Privacy protection |
-| **Multi-Interface** | CLI, Web, Network | Accessibility |
-| **Trusted Network** | Non-family contacts | Safe support options |
-| **Professional Resources** | Crisis hotlines | 24/7 help access |
+| **4-Tab Web UI** | Chat/Trends/Risk/Report | Health analytics dashboard |
 
 ---
 
@@ -427,57 +451,82 @@ For women who can't rely on family:
 
 ### What Makes This Project Special
 
-1. **Women-Specific Safety Features**
+1. **Multi-Emotion AI with XAI**
+   - 6 fine-grained emotions (not just positive/negative)
+   - Crisis keyword detection with immediate escalation
+   - XAI attribution — shows which words drove classification
+   - Formula-based risk scoring (not simple threshold)
+
+2. **Emotion Forecasting**
+   - OLS linear regression on historical sentiment
+   - Next-session mood prediction with confidence level
+   - Risk escalation forecast
+   - No external ML dependencies
+
+3. **Personal History & Deep Personalization**
+   - Trauma history stored for extra-sensitive responses
+   - Personal triggers for gentle acknowledgement
+   - Marital/relationship context for life-transition empathy
+   - Response style preference (short/balanced/detailed)
+
+4. **Gamified Mental Wellness Tracking**
+   - Mood streak (consecutive positive sessions)
+   - 8 wellness badge types
+   - Weekly summary report with OLS forecast
+
+5. **Women-Specific Safety Features**
    - Abuse detection algorithms
    - Non-family support networks
    - Government resource integration
    - Legal aid connections
 
-2. **Guardian Alert System**
+6. **Guardian Alert System**
    - Configurable thresholds
    - Privacy-respecting notifications
    - Actionable information for guardians
    - Multi-level severity
 
-3. **Extended Tracking (365 Days)**
+7. **Extended Tracking (365 Days)**
    - 4x longer than typical apps
    - Seasonal pattern detection
    - Long-term progress visualization
-   - Milestone tracking
 
-4. **Complete Privacy**
+8. **Complete Privacy**
    - Local storage only
    - No cloud, no external APIs
    - Full user control
    - Military-grade encryption
 
-5. **Multi-Layer Security**
+9. **Multi-Layer Security**
    - Password protection
    - Session timeouts
    - Account lockout
    - Data integrity checks
    - Automatic backups
 
-6. **Multi-Interface Flexibility**
-   - CLI for quick access
-   - Web UI for daily use
-   - Network UI for mobile devices
-   - Same data across all interfaces
+10. **Multi-Interface Flexibility**
+    - CLI for quick access
+    - Web UI (4-tab analytics dashboard) for daily use
+    - Network UI for mobile devices
+    - Same data across all interfaces
 
 ---
 
 ## Project Metrics
 
 ### Code Metrics
-- **Total Lines of Code**: ~5,000+
-- **Python Modules**: 12 core modules
+- **Total Lines of Code**: 6,000+
+- **Python Modules**: 8 core modules (emotion_analyzer, pattern_tracker, prediction_agent, conversation_handler, alert_system, user_profile, data_store, wellness_buddy)
 - **Documentation**: 100KB+ (comprehensive)
-- **Test Coverage**: Core functionality tested
+- **Test Coverage**: 14 automated tests
 
 ### Feature Metrics
+- **Emotion Classes**: 6 fine-grained (joy/sadness/anger/fear/anxiety/crisis)
+- **Emotion Keywords**: 90+ (per-emotion dictionaries + crisis + distress + abuse)
+- **Response Templates**: 6 emotions × 3 styles = 18 template sets
+- **Wellness Badges**: 8 badge types
 - **Support Resources**: 30+ hotlines/organizations
 - **Government Agencies**: 15+ women-specific
-- **Emotion Keywords**: 40+ tracked
 - **Retention Period**: 365 days
 - **Security Layers**: 7 distinct features
 
@@ -525,39 +574,48 @@ For women who can't rely on family:
 
 ### Planned Features
 1. **Mobile Apps** (iOS/Android native)
-2. **Voice Interface** (speech-to-text)
+2. **Voice Interface** (speech-to-text + tone analysis)
 3. **Multilingual Support** (Spanish, French, etc.)
-4. **Advanced Analytics** (ML-based predictions)
-5. **Wearable Integration** (heart rate, sleep)
+4. **Transformer-Based Emotion Model** (fine-tuned BERT/RoBERTa)
+5. **Wearable Integration** (heart rate, sleep data)
 6. **Group Support** (anonymous peer support)
 7. **Professional Dashboard** (for therapists)
 8. **SMS/Email Alerts** (guardian notifications)
 
+### Already Implemented (From Roadmap)
+✅ **Multi-Emotion Classification** — 6 fine-grained emotions  
+✅ **Predictive Analytics** — OLS next-session and risk escalation forecast  
+✅ **Personalization** — personal history, response styles, gamification  
+✅ **XAI / Explainability** — keyword attribution in every response  
+✅ **Advanced Visualization** — 4-tab analytics dashboard  
+
 ### Research Directions
-1. **Improved NLP** (transformer models)
-2. **Predictive Analytics** (crisis prediction)
-3. **Personalization** (adaptive responses)
-4. **Integration** (EHR systems)
+1. **Transformer Models** (BERT/RoBERTa for emotion classification)
+2. **Reinforcement Learning** (adaptive response optimization)
+3. **Multimodal Input** (voice + text)
+4. **EHR Integration** (clinical use cases)
 
 ---
 
 ## Conclusion
 
 The AI Wellness Buddy is a comprehensive emotional support system that combines:
-- Advanced NLP for emotion understanding
+- **Multi-emotion AI** with 6 fine-grained emotion classes and XAI attribution
+- **Formula-based risk scoring** (Low/Medium/High/Critical)
+- **OLS forecasting** for next-session mood and risk escalation prediction
+- **Personal history awareness** — trauma, triggers, marital status, family background
+- **Gamification** — mood streak, 8 wellness badges, weekly summary reports
 - Long-term pattern tracking (365 days)
-- Multi-level crisis detection
-- Guardian notification system
-- Specialized women's safety features
-- Military-grade security
-- Complete privacy
+- Multi-level crisis detection and guardian notification system
+- Specialized women's safety features and government resources
+- Military-grade security and complete privacy
 
 It serves as a bridge between individuals and professional mental health care, providing:
-- Continuous monitoring
+- Continuous, intelligent monitoring
 - Timely crisis intervention
-- Resource connections
-- Safe support networks
-- Progress tracking
+- Warm, humanoid, personalized responses
+- Resource connections and safe support networks
+- Progress tracking and wellness gamification
 
 **Mission**: Make emotional support accessible, private, and effective for everyone, with specialized features for vulnerable populations.
 

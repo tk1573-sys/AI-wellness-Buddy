@@ -16,27 +16,21 @@ class UserProfile:
         current_time = datetime.now()  # Calculate once for consistency
         self.profile_data = {
             'user_id': user_id,
-            'name': None,            # Display / preferred name
-            'age': None,             # Age (integer)
-            'occupation': None,      # Job / student status
-            'primary_concerns': [],  # Reasons for using the app
             'created_at': current_time,
             'last_session': current_time,
             'gender': None,
             'support_preferences': {},
             'demographics': {},
-            'trusted_contacts': [],    # Safe contacts for emergencies
-            'guardian_contacts': [],   # Guardian / emergency contacts for alerts
-            'unsafe_contacts': [],     # Family/guardians to avoid in toxic situations
-            'emotional_history': [],   # Long-term emotional tracking (now 1 year)
+            'trusted_contacts': [],  # Safe contacts for emergencies
+            'unsafe_contacts': [],   # Family/guardians to avoid in toxic situations
+            'emotional_history': [],  # Long-term emotional tracking (now 1 year)
+            'trauma_history': [],    # Personal trauma records for sensitive support
+            'personal_triggers': [], # Topics/keywords that are especially sensitive
+            'response_style': 'balanced',  # 'short', 'detailed', or 'balanced'
+            'language_preference': config.DEFAULT_LANGUAGE,  # 'english', 'tamil', 'bilingual'
+            'mood_streak': 0,        # Consecutive positive-mood sessions
+            'wellness_badges': [],   # Earned wellness badges
             'session_count': 0,
-            # Gamification (Module 13)
-            'mood_streak': 0,           # Consecutive positive sessions
-            'best_streak': 0,           # Best ever streak
-            'stability_score': 50.0,   # 0-100 emotional stability score
-            'badges': [],              # Earned achievement badges
-            'response_style': 'balanced',  # 'short' | 'balanced' | 'detailed'
-            'response_feedback': {},   # Module 10 RL: template_key -> cumulative score
             # Security fields
             'password_hash': None,  # Hashed password for profile protection
             'salt': None,  # Salt for password hashing
@@ -51,6 +45,64 @@ class UserProfile:
         if data:
             self.profile_data = data
             self.user_id = data.get('user_id')
+
+    # ------------------------------------------------------------------
+    # Name / age helpers (backward-compatible with test_full_coverage)
+    # ------------------------------------------------------------------
+
+    def set_name(self, name):
+        """Set display name — stored at top-level and in demographics"""
+        self.profile_data['name'] = name
+        self.profile_data.setdefault('demographics', {})['name'] = name
+
+    def set_age(self, age):
+        """Set user age — stored at top-level and in demographics"""
+        self.profile_data['age'] = age
+        self.profile_data.setdefault('demographics', {})['age'] = age
+
+    def get_display_name(self):
+        """Return best available name: set name > user_id > 'Friend'"""
+        name = (self.profile_data.get('name') or
+                self.profile_data.get('demographics', {}).get('name'))
+        if name:
+            return name
+        if self.user_id:
+            return self.user_id
+        return 'Friend'
+
+    # ------------------------------------------------------------------
+    # Guardian contacts (backward-compat aliases for trusted_contacts)
+    # ------------------------------------------------------------------
+
+    def add_guardian_contact(self, name, relationship, phone=''):
+        """Alias for add_trusted_contact (backward compatibility)"""
+        self.add_trusted_contact(name, relationship, phone or None)
+
+    def get_guardian_contacts(self):
+        """Alias for get_trusted_contacts (backward compatibility)"""
+        return self.get_trusted_contacts()
+
+    # ------------------------------------------------------------------
+    # Primary concerns
+    # ------------------------------------------------------------------
+
+    def set_primary_concerns(self, concerns):
+        """Store a list of primary wellness concerns"""
+        self.profile_data['primary_concerns'] = list(concerns)
+
+    # ------------------------------------------------------------------
+    # Stability score helper
+    # ------------------------------------------------------------------
+
+    def calculate_stability_score(self, summary):
+        """
+        Compute a stability score (0–100) from a pattern summary dict.
+        Score = 50 + 25 * avg_sentiment - 25 * distress_ratio, clamped to [0, 100].
+        """
+        avg_sent = summary.get('average_sentiment', 0.0)
+        distress_ratio = summary.get('distress_ratio', 0.0)
+        score = 50.0 + 25.0 * avg_sent - 25.0 * distress_ratio
+        return max(0.0, min(100.0, score))
     
     def set_gender(self, gender):
         """Set user gender for specialized support"""
@@ -69,41 +121,175 @@ class UserProfile:
         """Set living situation for safety considerations"""
         self.profile_data['demographics']['living_situation'] = situation
     
-    def set_name(self, name):
-        """Set the user's preferred display name"""
-        self.profile_data['name'] = name
+    def set_family_background(self, info):
+        """Store family background / situation for context-aware support"""
+        self.profile_data['demographics']['family_background'] = info
 
-    def set_age(self, age):
-        """Set the user's age"""
-        self.profile_data['age'] = age
+    def set_family_responsibilities(self, responsibilities):
+        """Store the user's family responsibilities (e.g. caretaker, single parent, breadwinner)"""
+        self.profile_data['demographics']['family_responsibilities'] = responsibilities
+
+    def get_family_responsibilities(self):
+        """Return the user's family responsibilities string"""
+        return self.profile_data.get('demographics', {}).get('family_responsibilities')
 
     def set_occupation(self, occupation):
-        """Set the user's occupation or student status"""
-        self.profile_data['occupation'] = occupation
+        """Store the user's occupation / work situation for stress-context-aware support"""
+        self.profile_data['demographics']['occupation'] = occupation
 
-    def set_primary_concerns(self, concerns):
-        """Set the user's primary concerns or reasons for using the app"""
-        self.profile_data['primary_concerns'] = concerns
+    def get_occupation(self):
+        """Return the user's occupation string"""
+        return self.profile_data.get('demographics', {}).get('occupation')
 
-    def get_display_name(self):
-        """Get the best available name to address the user"""
-        return self.profile_data.get('name') or self.profile_data.get('user_id') or 'Friend'
+    def get_living_situation(self):
+        """Return the user's living situation string"""
+        return self.profile_data.get('demographics', {}).get('living_situation')
 
-    def add_guardian_contact(self, name, relationship, contact_info=None):
-        """Add a guardian or emergency contact for distress alerts"""
-        contact = {
-            'name': name,
-            'relationship': relationship,
-            'contact_info': contact_info,
-            'added_at': datetime.now()
+    
+    def add_trauma_history(self, description, approximate_date=None):
+        """Record a past trauma so responses can be more sensitive"""
+        entry = {
+            'description': description,
+            'recorded_at': datetime.now()
         }
-        if 'guardian_contacts' not in self.profile_data:
-            self.profile_data['guardian_contacts'] = []
-        self.profile_data['guardian_contacts'].append(contact)
+        if approximate_date:
+            entry['approximate_date'] = approximate_date
+        self.profile_data.setdefault('trauma_history', []).append(entry)
+    
+    def add_personal_trigger(self, trigger):
+        """Add a topic or keyword that is especially sensitive for this user"""
+        triggers = self.profile_data.setdefault('personal_triggers', [])
+        normalized = trigger.strip().lower()
+        if normalized and normalized not in triggers:
+            triggers.append(normalized)
+    
+    def get_personal_triggers(self):
+        """Return the list of personal trigger words/phrases"""
+        return self.profile_data.get('personal_triggers', [])
+    
+    def get_trauma_history(self):
+        """Return the list of recorded trauma entries"""
+        return self.profile_data.get('trauma_history', [])
+    
+    def get_personal_context(self):
+        """Return a context dict used to personalize conversation responses"""
+        demographics = self.profile_data.get('demographics', {})
+        return {
+            'gender': self.profile_data.get('gender'),
+            'marital_status': demographics.get('relationship_status'),
+            'family_background': demographics.get('family_background'),
+            'family_responsibilities': demographics.get('family_responsibilities'),
+            'occupation': demographics.get('occupation'),
+            'living_situation': demographics.get('living_situation'),
+            'has_trauma_history': len(self.profile_data.get('trauma_history', [])) > 0,
+            'trauma_count': len(self.profile_data.get('trauma_history', [])),
+            'personal_triggers': self.profile_data.get('personal_triggers', []),
+            'has_unsafe_family': self.has_unsafe_family(),
+            'language_preference': self.profile_data.get(
+                'language_preference', config.DEFAULT_LANGUAGE
+            ),
+        }
+    
+    def set_response_style(self, style):
+        """Set preferred response style: 'short', 'detailed', or 'balanced'"""
+        if style in ('short', 'detailed', 'balanced'):
+            self.profile_data['response_style'] = style
 
-    def get_guardian_contacts(self):
-        """Get list of guardian / emergency contacts"""
-        return self.profile_data.get('guardian_contacts', [])
+    def get_response_style(self):
+        """Get preferred response style (default: 'balanced')"""
+        return self.profile_data.get('response_style', 'balanced')
+
+    def set_language_preference(self, language):
+        """Set preferred language: 'english', 'tamil', or 'bilingual'."""
+        if language in config.SUPPORTED_LANGUAGES:
+            self.profile_data['language_preference'] = language
+
+    def get_language_preference(self):
+        """Get preferred language (default: 'english')."""
+        return self.profile_data.get('language_preference', config.DEFAULT_LANGUAGE)
+
+    # ------------------------------------------------------------------
+    # Gamification — mood streak & wellness badges
+    # ------------------------------------------------------------------
+
+    # Badge definitions: (id, name, description, condition_key)
+    _BADGE_DEFINITIONS = [
+        ('first_step',   '🌱 First Step',       'Completed your first session',            'first_session'),
+        ('consistent',   '🔄 Consistent',        'Completed 7 or more sessions',            'sessions_7'),
+        ('sessions_10',  '🏆 10 Sessions',        'Completed 10 or more sessions',           'sessions_10'),
+        ('dedicated',    '💪 Dedicated',         'Completed 30 or more sessions',           'sessions_30'),
+        ('streak_3',     '🔥 3-Day Streak',       'Three consecutive positive-mood sessions', 'streak_3'),
+        ('streak_7',     '⭐ 7-Day Streak',       'Seven consecutive positive-mood sessions', 'streak_7'),
+        ('resilient',    '🛡️ Resilient',         'Recovered from distress to positive mood', 'recovered'),
+        ('self_aware',   '🧠 Self-Aware',        'Added personal triggers or trauma history', 'self_aware'),
+        ('connected',    '💚 Connected',         'Added a trusted contact',                  'has_contact'),
+    ]
+
+    def update_mood_streak(self, session_avg_sentiment):
+        """
+        Update the mood streak based on the session average sentiment.
+        Increments streak on positive sessions (avg > 0), resets otherwise.
+        Returns the new streak value.
+        """
+        if session_avg_sentiment > 0:
+            self.profile_data['mood_streak'] = self.profile_data.get('mood_streak', 0) + 1
+        else:
+            self.profile_data['mood_streak'] = 0
+        return self.profile_data['mood_streak']
+
+    def get_mood_streak(self):
+        """Return current mood streak (consecutive positive sessions)"""
+        return self.profile_data.get('mood_streak', 0)
+
+    def award_badge(self, badge_id):
+        """Award a badge if not already earned. Returns True if newly awarded."""
+        badges = self.profile_data.setdefault('wellness_badges', [])
+        if badge_id not in badges:
+            badges.append(badge_id)
+            return True
+        return False
+
+    def get_badges(self):
+        """Return list of earned badge IDs"""
+        return self.profile_data.get('wellness_badges', [])
+
+    def get_badge_display(self):
+        """Return list of (name, description) for earned badges"""
+        earned = set(self.get_badges())
+        return [
+            (name, desc)
+            for bid, name, desc, _ in self._BADGE_DEFINITIONS
+            if bid in earned
+        ]
+
+    def check_and_award_badges(self, session_avg_sentiment=None, recovered_from_distress=False):
+        """
+        Evaluate all badge conditions and award any newly earned badges.
+        Returns a list of newly awarded badge names.
+        """
+        newly_awarded = []
+        session_count = self.profile_data.get('session_count', 0)
+        streak = self.profile_data.get('mood_streak', 0)
+
+        conditions = {
+            'first_session': session_count >= 1,   # awarded after the first completed session
+            'sessions_7':    session_count >= 7,
+            'sessions_10':   session_count >= 10,
+            'sessions_30':   session_count >= 30,
+            'streak_3':      streak >= 3,
+            'streak_7':      streak >= 7,
+            'recovered':     recovered_from_distress,
+            'self_aware':    (len(self.get_trauma_history()) > 0 or
+                              len(self.get_personal_triggers()) > 0),
+            'has_contact':   len(self.get_trusted_contacts()) > 0,
+        }
+
+        for bid, name, desc, cond_key in self._BADGE_DEFINITIONS:
+            if conditions.get(cond_key, False):
+                if self.award_badge(bid):
+                    newly_awarded.append(name)
+
+        return newly_awarded
 
     def enable_women_support(self):
         """Enable specialized women's support features"""
@@ -244,97 +430,33 @@ class UserProfile:
         self.profile_data['last_session'] = datetime.now()
     
     def get_profile(self):
-        """Get user profile data"""
+        """Get user profile data.
+
+        Returns the underlying profile_data dict with an additional computed
+        'badges' key (list of dicts with 'id', 'name', 'description') for
+        backward compatibility with callers that use get_profile()['badges'].
+        The primary badge storage key is 'wellness_badges' (list of badge IDs).
+        """
+        badge_lookup = {
+            bid: (name, desc)
+            for bid, name, desc, _ in self._BADGE_DEFINITIONS
+        }
+        raw_badges = self.profile_data.get('wellness_badges', [])
+        self.profile_data['badges'] = [
+            {
+                'id': bid,
+                'name': badge_lookup.get(bid, (bid, ''))[0],
+                'description': badge_lookup.get(bid, ('', ''))[1],
+            }
+            for bid in raw_badges
+        ]
         return self.profile_data
     
     def is_female(self):
         """Check if user identifies as female"""
         return self.profile_data.get('gender') == 'female'
     
-    def remove_password(self):
-        """Remove password protection from this profile."""
-        self.profile_data['password_hash'] = None
-        self.profile_data['salt'] = None
-        self.profile_data['security_enabled'] = False
-
-    def reset_lockout(self):
-        """Clear any active lockout and reset failed login attempt counter."""
-        self.profile_data['lockout_until'] = None
-        self.profile_data['failed_login_attempts'] = 0
-
     def needs_women_support(self):
         """Check if women's support features should be enabled"""
-        return (self.is_female() or
+        return (self.is_female() or 
                 self.profile_data.get('support_preferences', {}).get('women_support_enabled', False))
-
-    # ── Module 13: Gamified Wellness Tracking ─────────────────────────────────
-
-    def update_mood_streak(self, is_positive_session: bool):
-        """Update the consecutive-positive-session streak counter."""
-        if is_positive_session:
-            self.profile_data['mood_streak'] = self.profile_data.get('mood_streak', 0) + 1
-            if self.profile_data['mood_streak'] > self.profile_data.get('best_streak', 0):
-                self.profile_data['best_streak'] = self.profile_data['mood_streak']
-        else:
-            self.profile_data['mood_streak'] = 0
-        self.check_and_award_badges()
-
-    def calculate_stability_score(self, pattern_summary):
-        """
-        Derive a 0-100 emotional stability score from the pattern summary.
-        Higher = more stable / positive.
-        """
-        if not pattern_summary:
-            return self.profile_data.get('stability_score', 50.0)
-        avg = pattern_summary.get('average_sentiment', 0.0)
-        distress_ratio = pattern_summary.get('distress_ratio', 0.0)
-        # Map avg sentiment [-1, 1] → [0, 100], penalise distress ratio
-        raw = (avg + 1) / 2 * 100          # 0-100
-        penalty = distress_ratio * 30       # up to 30 points off
-        score = max(0.0, min(100.0, raw - penalty))
-        self.profile_data['stability_score'] = round(score, 1)
-        return self.profile_data['stability_score']
-
-    def check_and_award_badges(self):
-        """Award badges based on current achievements."""
-        current_badge_ids = {b['id'] for b in self.profile_data.get('badges', [])}
-        streak = self.profile_data.get('mood_streak', 0)
-        sessions = self.profile_data.get('session_count', 0)
-
-        candidate_badges = [
-            {'id': 'first_session',  'name': '🌱 First Step',
-             'desc': 'Started your wellness journey', 'cond': True},
-            {'id': 'streak_3',       'name': '🔥 3-Day Streak',
-             'desc': '3 positive sessions in a row',  'cond': streak >= 3},
-            {'id': 'streak_7',       'name': '⭐ Week Warrior',
-             'desc': '7 positive sessions in a row',  'cond': streak >= 7},
-            {'id': 'sessions_10',    'name': '💪 Consistent',
-             'desc': 'Completed 10 sessions',          'cond': sessions >= 10},
-            {'id': 'sessions_30',    'name': '🏆 Monthly Champion',
-             'desc': 'Completed 30 sessions',          'cond': sessions >= 30},
-        ]
-        new_badges = []
-        for badge in candidate_badges:
-            if badge['cond'] and badge['id'] not in current_badge_ids:
-                entry = {'id': badge['id'], 'name': badge['name'],
-                         'desc': badge['desc'], 'earned_at': datetime.now().isoformat()}
-                self.profile_data.setdefault('badges', []).append(entry)
-                new_badges.append(entry)
-        return new_badges
-
-    def set_response_style(self, style: str):
-        """Set preferred response style: 'short', 'balanced', or 'detailed'."""
-        if style in ('short', 'balanced', 'detailed'):
-            self.profile_data['response_style'] = style
-
-    # ── Module 10: RL Response Feedback ──────────────────────────────────────
-
-    def record_response_feedback(self, template_key: str, positive: bool):
-        """Store feedback signal for a template (for RL-style weighting)."""
-        fb = self.profile_data.setdefault('response_feedback', {})
-        current = fb.get(template_key, 0)
-        fb[template_key] = current + (1 if positive else -1)
-
-    def get_response_feedback(self) -> dict:
-        """Return the accumulated response feedback scores."""
-        return dict(self.profile_data.get('response_feedback', {}))

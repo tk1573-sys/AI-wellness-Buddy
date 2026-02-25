@@ -49,10 +49,11 @@ Wellness Buddy: I can sense you're going through a difficult time...
 
 While in a session, you can type:
 
-- `help` - View crisis resources and your trusted contacts
-- `status` - See your emotional patterns (current session + last 7 days)
-- `profile` - Manage your trusted contacts or delete your data
-- `quit` - End the session and save your progress
+- `help` — View crisis resources and your trusted contacts
+- `status` — See risk level, stability index, emotion breakdown, and 7-day history
+- `weekly` / `report` — Get a 7-day wellness summary with AI forecast and suggestions
+- `profile` — Manage personal history, response style, contacts, or delete data
+- `quit` — End the session and save your progress (streak and badges updated)
 
 ### 6. Example Session
 

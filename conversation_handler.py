@@ -1,169 +1,362 @@
 """
-Response Generation Agent — Module 4
-Context-aware, emotion-category-specific response generation.
+Conversation handler for managing emotional support interactions.
+Supports fine-grained emotion routing (joy/sadness/anger/fear/anxiety/crisis)
+and response-style preferences (short/detailed/balanced).
 """
 
 import random
-import hashlib
 from datetime import datetime
 import config
+from language_handler import LanguageHandler as _LangHandler
+
+_lang_handler = _LangHandler()
 
 
-# ── Response template bank ────────────────────────────────────────────────────
-# Keyed by dominant_emotion (multi-emotion categories from Module 1).
-# Each entry is a list of templates; {name} and {occupation} are filled at runtime.
+# -----------------------------------------------------------------------
+# Response templates keyed by (primary_emotion, style)
+# Each entry is a list; one is chosen at random.
+# -----------------------------------------------------------------------
+_RESPONSES = {
+    # ---- joy ----
+    'joy': {
+        'short': [
+            "That's wonderful! 😊 Hold onto this feeling.",
+            "So glad to hear that! 💛 Keep shining.",
+        ],
+        'detailed': [
+            "I'm really glad to hear that! 😊 Moments like these are precious — hold onto this feeling. "
+            "What's been bringing you the most joy today?",
+            "That's wonderful to hear! Your happiness genuinely matters to me, and I'm here to celebrate "
+            "these moments with you. 💛 These positive feelings are worth cherishing.",
+        ],
+        'balanced': [
+            "I'm really glad to hear that! 😊 Moments like these are precious — hold onto this feeling.",
+            "That's wonderful to hear! Your happiness genuinely matters to me. 💛",
+            "It's so good to see you in a positive space today. You deserve every bit of joy! 🌟",
+        ],
+    },
 
-_TEMPLATES = {
-    'joy': [
-        "That's wonderful to hear{name}! 😊 Savour this positive moment — it matters.",
-        "Your happiness is contagious{name}! Keep nurturing those good feelings. 🌟",
-        "It's great to see you in such good spirits{name}! What's been making you smile?",
-        "I love hearing that you're feeling positive{name}. Celebrate these moments! 🎉",
-    ],
-    'neutral': [
-        "Thanks for sharing{name}. I'm here whenever you want to talk more.",
-        "I hear you{name}. Would you like to explore what's on your mind a bit deeper?",
-        "I'm listening{name} — feel free to share more, there's no rush.",
-        "It sounds like you're taking things one step at a time{name}. How can I support you today?",
-    ],
-    'sadness': [
-        "I'm sorry you're feeling this way{name}. 💙 Sadness is a natural emotion, and I'm here with you.",
-        "It takes courage to share how you feel{name}. Your pain is valid — you don't have to carry it alone.",
-        "I hear the sadness in your words{name}. Let's take this one moment at a time together.",
-        "Thank you for opening up{name}. Grief and sadness deserve acknowledgement — I see you. 💙",
-    ],
-    'anxiety': [
-        "I can sense the worry in your words{name}. Let's breathe through this together. 🌿",
-        "Anxiety can be overwhelming{name}{occupation_context}. You're not alone — I'm here to help you find calm.",
-        "It sounds like you're carrying a lot of stress{name}. Can we talk about what's weighing on you most?",
-        "I hear how anxious you're feeling{name}. One small step at a time — you've got this. 💙",
-    ],
-    'anger': [
-        "It sounds like you're really frustrated{name}. Those feelings are valid — I'm listening.",
-        "Anger often signals something important{name}. Would you like to talk about what's driving it?",
-        "I hear you{name} — it's okay to feel angry. Let's work through this together.",
-        "Your feelings of frustration make sense{name}. Tell me more so I can better support you.",
-    ],
-    # Fallbacks for legacy emotion buckets
-    'positive': [
-        "I'm so glad to hear you're feeling positive{name}! That's wonderful. 😊",
-        "It's great to see you in good spirits{name}! Keep nurturing those positive feelings.",
-        "You're doing great{name}! Positive energy like this is worth holding onto. 🌟",
-        "That sounds really encouraging{name}! I'm here to celebrate these moments with you.",
-    ],
-    'negative': [
-        "I can sense you're going through a difficult time{name}. I'm here to support you. 💙",
-        "That sounds challenging{name}. Remember, it's okay to feel this way.",
-        "Thank you for opening up{name}. Your feelings are valid, and I'm here for you.",
-        "I hear how hard things feel right now{name}{occupation_context}. You don't have to carry this alone.",
-    ],
-    'distress': [
-        "I hear that you're really struggling right now{name}. You don't have to go through this alone. 💙",
-        "What you're feeling sounds incredibly difficult{name}. Your wellbeing matters deeply — I'm here.",
-        "I'm concerned about how you're feeling{name}. These emotions are heavy, but support is available.",
-        "You reached out, and that takes courage{name}. I'm right here. Let's get through this together. 💙",
-    ],
+    # ---- neutral ----
+    'neutral': {
+        'short': [
+            "I hear you. I'm here whenever you're ready to share more.",
+            "Thank you for checking in. How can I support you today?",
+        ],
+        'detailed': [
+            "Thank you for sharing. I'm fully here with you — there's no rush, take all the time you need. "
+            "Even 'just okay' days tell us something about how we're doing.",
+            "I hear you. Sometimes 'just okay' is a completely valid place to be. "
+            "Would you like to explore what's on your mind, or simply know that I'm here?",
+        ],
+        'balanced': [
+            "Thank you for sharing. I'm fully here with you — there's no rush, take all the time you need.",
+            "I hear you. Sometimes 'just okay' is a completely valid place to be. "
+            "Would you like to explore what's on your mind?",
+            "I appreciate you checking in. I'm listening, and we can go wherever feels right for you.",
+        ],
+    },
+
+    # ---- sadness ----
+    'sadness': {
+        'short': [
+            "I'm so sorry you're feeling this way. I'm right here with you. 💙",
+            "Your sadness is real and valid. I'm here and I care. 💙",
+        ],
+        'detailed': [
+            "I'm so sorry you're carrying this sadness. It takes real courage to acknowledge it, "
+            "and I want you to know you're not alone — I'm right here with you. 💙 "
+            "Would you like to talk about what's weighing on you?",
+            "Sadness can feel so heavy, and what you're feeling is completely valid. "
+            "Please know that reaching out was the right thing to do — I'm here for you. 💙",
+        ],
+        'balanced': [
+            "I'm so sorry you're feeling this way. Your sadness is real and it matters — I'm here with you. 💙",
+            "That sounds incredibly painful. You don't have to carry this alone; I'm right here. 💙",
+            "I can hear how heavy this feels. Your feelings are completely valid, and I care deeply. 💙",
+        ],
+    },
+
+    # ---- anger ----
+    'anger': {
+        'short': [
+            "It's okay to feel angry. I'm here to listen without judgment.",
+            "Your frustration is valid. Take a breath — I'm with you.",
+        ],
+        'detailed': [
+            "It's completely valid to feel angry, and I want to hear what's driving that. "
+            "Anger often signals that something important to us has been hurt or threatened. "
+            "I'm here to listen without judgment — what's going on?",
+            "I hear your frustration, and it makes sense. Anger is a signal worth paying attention to. "
+            "Let's explore what's underneath this together, at your pace.",
+        ],
+        'balanced': [
+            "It's completely okay to feel angry. I'm here to listen without judgment. 💙",
+            "That frustration sounds real and valid. I'm with you — tell me more when you're ready.",
+            "I hear you. Anger is a signal worth listening to; I'm here with you.",
+        ],
+    },
+
+    # ---- fear ----
+    'fear': {
+        'short': [
+            "You're not facing this fear alone — I'm right here with you. 💙",
+            "Fear can feel overwhelming. I'm here and I care.",
+        ],
+        'detailed': [
+            "Fear can feel truly overwhelming, and I want you to know that you are not facing this alone. "
+            "What you're experiencing is real, and there is support available. "
+            "I'm right here with you — tell me more about what's frightening you. 💙",
+            "I hear that fear in what you're sharing. That takes courage to admit. "
+            "You don't have to face this by yourself — I'm here with you every step of the way. 💙",
+        ],
+        'balanced': [
+            "You're not facing this fear alone — I'm right here with you. 💙",
+            "Fear is incredibly hard to carry. I hear you, and I care about what you're going through.",
+            "That sounds really frightening. Please know that you don't have to face this alone. 💙",
+        ],
+    },
+
+    # ---- anxiety ----
+    'anxiety': {
+        'short': [
+            "Anxiety is exhausting. Take a slow breath — I'm here with you.",
+            "You're not alone with this worry. I'm right here. 💙",
+        ],
+        'detailed': [
+            "Anxiety can be completely exhausting — your mind and body are working so hard. "
+            "I want you to know that what you're feeling is real and understandable, "
+            "and I'm here to sit with you through it. 💙 "
+            "Sometimes it helps to just name what you're anxious about — would you like to try?",
+            "The overwhelm you're feeling makes complete sense. Anxiety has a way of magnifying "
+            "everything at once. Take a gentle breath — I'm here with you, and we can work through "
+            "this together one step at a time. 💙",
+        ],
+        'balanced': [
+            "Anxiety is exhausting, and I hear you. Take a slow breath — I'm right here with you. 💙",
+            "You're not alone in this worry. What you're feeling is valid, and I care deeply. 💙",
+            "I can hear how overwhelmed you feel. Let's take this one moment at a time — I'm with you.",
+        ],
+    },
+
+    # ---- crisis ----
+    'crisis': {
+        'short': [
+            "I'm very concerned about you right now. Please reach out to a crisis line immediately — "
+            "988 (call/text) is available 24/7. I'm here. 💙",
+        ],
+        'detailed': [
+            "What you've shared frightens me deeply, and I want you to know that your life matters "
+            "immensely. Please reach out to the 988 Suicide & Crisis Lifeline right now — "
+            "call or text 988, available 24/7, completely free and confidential. "
+            "If you're in immediate danger, please call 911 or go to your nearest emergency room. "
+            "I'm here with you, and you are not alone. 💙",
+        ],
+        'balanced': [
+            "I'm very concerned about what you've shared, and I want you to know that your life matters "
+            "deeply. Please reach out to the 988 Suicide & Crisis Lifeline (call or text 988) right now — "
+            "they're available 24/7 and here for you. If you're in immediate danger, call 911. "
+            "I'm here with you. 💙",
+        ],
+    },
 }
 
 
 class ConversationHandler:
-    """Manages conversation flow and context-aware responses."""
+    """Manages conversation flow and responses"""
 
     def __init__(self):
         self.conversation_history = []
+        self._last_pool_choice = None  # last base template chosen (for dedup)
 
     def add_message(self, user_message, emotion_data):
-        """Add a message to conversation history."""
+        """Add a message to conversation history"""
         self.conversation_history.append({
             'timestamp': datetime.now(),
             'user_message': user_message,
-            'emotion_data': emotion_data,
+            'emotion_data': emotion_data
         })
+
+        # Limit history size
         if len(self.conversation_history) > config.MAX_CONVERSATION_HISTORY:
             self.conversation_history = self.conversation_history[-config.MAX_CONVERSATION_HISTORY:]
 
-    def _build_name_str(self, user_profile):
-        """Return " Name" string or empty string."""
-        if not user_profile:
-            return '', ''
-        display_name = user_profile.get('name') or user_profile.get('user_id', '')
-        name_str = f" {display_name}" if display_name else ''
-        occ = user_profile.get('occupation', '')
-        occ_ctx = f" as a {occ}" if occ else ''
-        return name_str, occ_ctx
-
-    def generate_response(self, emotion_data, user_profile=None):
-        """
-        Generate a context-aware, personalised response.
-
-        Priority:
-          1. Use dominant_emotion (multi-emotion category) if available.
-          2. Fall back to legacy emotion bucket.
-        Applies:
-          • Module 10 (RL): feedback-weighted template selection
-          • response_style preference: 'short' | 'balanced' | 'detailed'
-        """
-        name_str, occ_ctx = self._build_name_str(user_profile)
-
-        # Pick template bank
-        dominant = emotion_data.get('dominant_emotion')
-        legacy_emotion = emotion_data.get('emotion', 'neutral')
-        key = dominant if (dominant and dominant in _TEMPLATES) else legacy_emotion
-        templates = list(_TEMPLATES.get(key, _TEMPLATES['neutral']))
-
-        # Abuse-indicator override
-        if emotion_data.get('has_abuse_indicators'):
-            templates = list(templates) + [
-                f"I notice you mentioned something that may signal an unsafe situation{name_str}. "
-                "You deserve to be safe and respected — specialised support is available."
-            ]
-
-        # Module 10 — RL feedback weighting: boost positively-rated templates
-        feedback = (user_profile or {}).get('response_feedback', {})
-        if feedback:
-            def _score(t):
-                t_key = t[:40]   # use first 40 chars as key
-                return feedback.get(t_key, 0)
-            # Sort so higher-scored templates come first, then pick from top half
-            templates_sorted = sorted(templates, key=_score, reverse=True)
-            # Keep at least 2 candidates to preserve variety
-            top_pool = templates_sorted[:max(2, len(templates_sorted) // 2)]
-        else:
-            top_pool = templates
-
-        # Context awareness: avoid repeating the last response
-        last_resp = getattr(self, '_last_response', None)
-        candidates = [t for t in top_pool if t != last_resp] or top_pool
+    def _choose_unique(self, pool):
+        """Pick a random item from pool, avoiding consecutive repetition of the same base template."""
+        if len(pool) <= 1:
+            return pool[0] if pool else ''
+        candidates = [t for t in pool if t != self._last_pool_choice]
+        if not candidates:
+            candidates = pool
         chosen = random.choice(candidates)
+        self._last_pool_choice = chosen
+        return chosen
 
-        # Fill placeholders
-        response = chosen.format(
-            name=name_str,
-            occupation_context=occ_ctx,
-        )
-        self._last_response = chosen
-        self._last_template_key = hashlib.md5(chosen.encode()).hexdigest()[:16]
+    def generate_response(self, emotion_data, user_context=None):
+        """Generate a warm, humanoid, personalized response based on
+        emotional state and optional user profile context.
+        Supports English, Tamil, and bilingual (Tamil+English) responses."""
+        primary_emotion = emotion_data.get('primary_emotion', None)
+        coarse_emotion = emotion_data['emotion']
+        severity = emotion_data['severity']
 
-        # Module 10 — response_style shaping
-        style = (user_profile or {}).get('response_style', 'balanced')
-        if style == 'short':
-            # Return only the first complete sentence (split on '. ' to avoid truncating
-            # abbreviations like 'Dr.' or decimal numbers)
-            parts = response.split('. ')
-            response = (parts[0].rstrip('.') + '.') if parts else response
-        elif style == 'detailed':
-            # Append a gentle follow-up prompt
-            response += (
-                f" I'd love to hear more if you feel comfortable sharing — "
-                "sometimes talking through it helps. 💙"
-            )
+        # Determine response style
+        style = 'balanced'
+        if user_context:
+            style = user_context.get('response_style', 'balanced')
+
+        # Language preference
+        lang_pref = 'english'
+        if user_context:
+            lang_pref = user_context.get('language_preference', 'english')
+
+        # Detect whether the latest message touches a known personal trigger
+        triggered = False
+        if user_context and self.conversation_history:
+            last_msg = self.conversation_history[-1]['user_message'].lower()
+            for trigger in user_context.get('personal_triggers', []):
+                if trigger in last_msg:
+                    triggered = True
+                    break
+
+        has_trauma = user_context and user_context.get('has_trauma_history', False)
+        marital_status = user_context.get('marital_status') if user_context else None
+        family_bg = user_context.get('family_background') if user_context else None
+        family_resp = user_context.get('family_responsibilities') if user_context else None
+        occupation = user_context.get('occupation') if user_context else None
+        living_situation = user_context.get('living_situation') if user_context else None
+
+        # ---- Try bilingual / Tamil pool first (if preference set) ----
+        lang_pool = []
+        if lang_pref in ('tamil', 'bilingual') and primary_emotion:
+            lang_pool = _lang_handler.get_response_pool(primary_emotion, lang_pref)
+
+        if lang_pool:
+            response = self._choose_unique(lang_pool)
+        elif primary_emotion and primary_emotion in _RESPONSES:
+            # ---- Route by fine-grained primary emotion (English) ----
+            pool = _RESPONSES[primary_emotion].get(style, _RESPONSES[primary_emotion]['balanced'])
+            response = self._choose_unique(pool)
+        else:
+            # ---- Fallback to coarse-emotion logic (backward-compatible) ----
+            if coarse_emotion == 'positive':
+                pool = _RESPONSES['joy'].get(style, _RESPONSES['joy']['balanced'])
+            elif coarse_emotion == 'neutral':
+                pool = _RESPONSES['neutral'].get(style, _RESPONSES['neutral']['balanced'])
+            elif coarse_emotion == 'negative' and severity == 'medium':
+                pool = _RESPONSES['sadness'].get(style, _RESPONSES['sadness']['balanced'])
+                if has_trauma:
+                    pool = pool + [
+                        "I hear you, and given what you've already been through, it makes complete sense "
+                        "that this feels heavy. You've shown real strength before, and I'm right here. 💙"
+                    ]
+                if marital_status in ('divorced', 'widowed', 'separated'):
+                    pool = pool + [
+                        "Life transitions like the one you've been through can make hard days feel even "
+                        "harder. Your feelings are understandable, and I'm here to listen. 💙"
+                    ]
+            else:  # distress or high severity
+                pool = _RESPONSES['sadness'].get(style, _RESPONSES['sadness']['balanced']) + [
+                    "I hear you, and I want you to know you are not alone in this moment. "
+                    "Your pain is real and it matters deeply. 💙",
+                    "I'm genuinely concerned about how you're feeling. "
+                    "You don't have to face this alone; help is always here for you. 💙",
+                ]
+                if has_trauma:
+                    pool.append(
+                        "I can hear how much pain you're in, and I want you to know that your past "
+                        "experiences don't define your worth. You have survived hard things before. 💙"
+                    )
+                if family_bg:
+                    pool.append(
+                        "Given everything that has shaped your life, what you're feeling makes sense. "
+                        "Please know that you are seen, heard, and supported. 💙"
+                    )
+            response = self._choose_unique(pool)
+
+        # Personalise for trauma context on heavier emotions (English / bilingual)
+        if lang_pref != 'tamil':
+            if primary_emotion in ('sadness', 'fear', 'anxiety', 'crisis') and has_trauma:
+                response += (
+                    "\n\nI also want you to know — given everything you've been through before, "
+                    "your resilience is real. You are not alone in this moment. 💙"
+                )
+            if primary_emotion in ('sadness', 'anger') and marital_status in (
+                    'divorced', 'widowed', 'separated'):
+                response += (
+                    "\n\nLife transitions like the one you've been through can make these feelings "
+                    "especially heavy. Your emotions are completely understandable, and I'm here. 💙"
+                )
+            # Family responsibilities context
+            if family_resp and primary_emotion in ('sadness', 'anxiety', 'anger', 'fear'):
+                response += (
+                    f"\n\nI also hear the weight of your responsibilities — carrying so much for "
+                    f"others while managing your own feelings takes real strength. "
+                    f"Please remember that taking care of yourself is just as important. 💙"
+                )
+            # Occupation / work stress context
+            if occupation and primary_emotion in ('anxiety', 'anger', 'sadness'):
+                response += (
+                    f"\n\nWork and daily responsibilities can add a great deal of pressure. "
+                    f"It's okay to acknowledge that stress — you don't have to push through it alone. 💙"
+                )
+            # Living situation context (e.g. alone, unsafe home)
+            if living_situation and primary_emotion in ('fear', 'anxiety', 'sadness', 'crisis'):
+                response += (
+                    f"\n\nYour living situation is something I'm keeping in mind. "
+                    f"If you ever feel unsafe or need support, please don't hesitate to reach out "
+                    f"to a trusted person or type 'help' to see resources. 💙"
+                )
+
+        # Gently acknowledge if a personal trigger was mentioned
+        if triggered:
+            if lang_pref == 'tamil':
+                response += (
+                    "\n\nஒரு முக்கியமான விஷயம் பேசுகிறீர்கள். உங்கள் வேகத்தில் போகலாம் — "
+                    "நான் இங்கே இருக்கிறேன். 💙"
+                )
+            elif lang_pref == 'bilingual':
+                response += (
+                    "\n\nநீங்கள் ஒரு முக்கியமான விஷயம் பற்றி பேசுகிறீர்கள். "
+                    "It's okay to take your time — I'm here with you, no matter what. 💙"
+                )
+            else:
+                response += (
+                    "\n\nI noticed you touched on something that may feel especially sensitive for you. "
+                    "It's completely okay to go at your own pace — I'm here with you, no matter what."
+                )
+
+        # Add specific support for abuse indicators
+        if emotion_data.get('has_abuse_indicators'):
+            if lang_pref == 'tamil':
+                response += (
+                    "\n\nநீங்கள் அனுபவிப்பது உங்கள் தவறு அல்ல. "
+                    "நீங்கள் பாதுகாப்பாக இருக்க வேண்டும். 'help' என்று தட்டச்சு செய்யுங்கள். 💙"
+                )
+            elif lang_pref == 'bilingual':
+                response += (
+                    "\n\nஇது உங்கள் தவறு இல்லை — What you are experiencing is not your fault. "
+                    "You deserve to feel safe. Type 'help' to see resources. 💙"
+                )
+            else:
+                response += (
+                    "\n\nI want you to know that what you are experiencing is not your fault. "
+                    "You deserve to feel safe and respected. Specialized support is available whenever "
+                    "you are ready — please type 'help' to see resources, or just keep talking to me. 💙"
+                )
+
+        # XAI: surface the explanation for transparency (English / bilingual only)
+        explanation = emotion_data.get('explanation', '')
+        if explanation and primary_emotion not in (None, 'neutral', 'joy') and lang_pref != 'tamil':
+            response += f"\n\n_(Analysis: {explanation})_"
+
+        # Pre-distress early warning from PredictionAgent
+        if user_context:
+            pre_distress = user_context.get('pre_distress_warning')
+            if pre_distress and primary_emotion not in ('crisis', 'joy'):
+                response += f"\n\n{pre_distress}"
 
         return response
 
-    def get_last_template_key(self):
-        """Return the key (first 40 chars) of the last chosen template, for RL feedback."""
-        return getattr(self, '_last_template_key', None)
-
     def get_greeting(self):
-        """Get a greeting message."""
+        """Get a greeting message"""
         return random.choice(config.GREETING_MESSAGES)
