@@ -51,6 +51,7 @@ This paper makes the following contributions:
 4. **Optional-ML Architecture**: GoEmotions DistilRoBERTa adapter with graceful offline fallback — enabling ML capability without mandating cloud dependency
 5. **OLS vs EWMA Comparison**: Model comparison demonstrating OLS as the stronger linear-trend predictor (MAE 0.13 vs 0.27)
 6. **Bilingual Support**: Tamil/Tanglish emotion classification and voice I/O for 77M Tamil speakers
+7. **Personal History & Context Awareness**: Structured user profile capturing trauma history, personal triggers, marital status, family background, living situation, family responsibilities, and occupation — enabling clinically-grounded, context-sensitive response personalization
 
 ### 1.5 Paper Organization
 
@@ -176,11 +177,15 @@ While existing work addresses either mental health support OR privacy preservati
 
 **Key Components**:
 
-1. **User Interfaces**: Multiple access modes (CLI, Web, Network) for different use cases
-2. **Emotion Analyzer**: Local NLP using TextBlob and NLTK (no API calls)
-3. **Pattern Tracker**: 365-day history analysis with trend detection
-4. **Alert System**: Crisis detection and guardian notification
-5. **Encrypted Storage**: AES-256 encrypted local data with SHA-256 integrity checks
+1. **User Interfaces**: Multiple access modes (CLI, 4-tab Web UI, Network) for different use cases
+2. **Emotion Analyzer**: Local NLP using TextBlob and NLTK with 7-class classification + XAI + Tamil/Tanglish keyword support (no API calls)
+3. **Pattern Tracker**: 365-day history analysis with trend detection, moving average, volatility, 5-level risk scoring, and drift score
+4. **Prediction Agent**: OLS + EWMA model comparison, pre-distress early warning, risk escalation forecast
+5. **Conversation Handler**: Emotion-routed, response-style-aware, personal-context-sensitive replies with RL feedback
+6. **Alert System**: 5-level formula-based distress scoring with guardian notification
+7. **User Profile**: 7-field personal history, gamification (streak + 8 badges), language preference, response style
+8. **Language/Voice**: Tamil/Tanglish language handler, gTTS TTS, SpeechRecognition STT
+9. **Encrypted Storage**: AES-256 encrypted local data with SHA-256 integrity checks
 
 ### 3.3 Data Flow
 
@@ -193,7 +198,83 @@ While existing work addresses either mental health support OR privacy preservati
 
 All steps execute on user's device. No network requests for analysis.
 
-### 3.4 Privacy Mechanisms
+---
+
+### 3.4 Personal History & Context Awareness
+
+A key differentiator of AI Wellness Buddy is its **clinically-grounded personal profile** — a structured record of user life context that allows the system to generate responses that are sensitive, non-triggering, and personally meaningful.
+
+**Profile Fields** (all optional, stored encrypted):
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `trauma_history` | List[{description, date}] | Avoid re-traumatising; contextualise sadness/fear |
+| `personal_triggers` | List[str] | Detect and handle sensitive topics gently |
+| `relationship_status` | str | Tailor relationship-related support messages |
+| `family_background` | str | Understand family dynamics affecting mental state |
+| `living_situation` | str | Assess safety context (alone/with family/hostel) |
+| `family_responsibilities` | str | Acknowledge carer burden (single parent, breadwinner) |
+| `occupation` | str | Recognise work stress, unemployment, or academic pressure |
+
+**Implementation — Personal Context Retrieval**:
+```python
+def get_personal_context(self) -> dict:
+    """
+    Returns all 7 personal-history fields as a single dict,
+    used by ConversationHandler to personalise every response.
+    """
+    demographics = self.profile_data.get('demographics', {})
+    return {
+        'marital_status':         demographics.get('relationship_status'),
+        'family_background':      demographics.get('family_background'),
+        'living_situation':       demographics.get('living_situation'),
+        'family_responsibilities': demographics.get('family_responsibilities'),
+        'occupation':             demographics.get('occupation'),
+        'trauma_history':         self.profile_data.get('trauma_history', []),
+        'personal_triggers':      self.profile_data.get('personal_triggers', []),
+    }
+```
+
+**Personalisation Logic in `ConversationHandler`**:
+```python
+# Trigger detection — extra gentle framing when message touches sensitive topic
+triggers = user_context.get('personal_triggers', [])
+for trigger in triggers:
+    if trigger.lower() in message.lower():
+        response += ("\n\n💛 I notice this topic may be sensitive for you. "
+                     "Take your time — I'm here and there's no rush.")
+        break
+
+# Living situation — safety-aware resource framing
+if living_situation in ('alone', 'hostel') and emotion in ('fear', 'anxiety', 'sadness', 'crisis'):
+    response += ("\n\n🏠 Since you're currently living on your own, "
+                 "please remember that trusted friends, helplines, "
+                 "and community resources are always available.")
+
+# Family responsibilities — acknowledge the caretaking burden
+if family_resp and emotion in ('anxiety', 'anger', 'sadness', 'fear'):
+    response += (f"\n\n🤝 Carrying {family_resp} responsibilities takes real strength. "
+                 "It's okay to ask for support for yourself too.")
+
+# Occupation — work/study stress acknowledgment
+if occupation and emotion in ('anxiety', 'anger', 'sadness'):
+    response += (f"\n\n💼 Balancing {occupation} alongside your emotions can be exhausting. "
+                 "Your wellbeing matters just as much as your responsibilities.")
+```
+
+**Trauma-Aware Branching**:
+```python
+has_trauma = bool(user_context.get('trauma_history'))
+if has_trauma and emotion in ('sadness', 'fear', 'crisis'):
+    # Select from gentler response pool; avoid clinical bluntness
+    template_pool = self._get_trauma_aware_pool(emotion, style)
+```
+
+This architecture ensures the system understands *who the user is* beyond any single message, enabling responses that feel human rather than algorithmic.
+
+---
+
+### 3.5 Privacy Mechanisms
 
 **Encryption at Rest**:
 - Algorithm: AES-256 in CBC mode via Fernet (symmetric encryption)
@@ -217,7 +298,7 @@ All steps execute on user's device. No network requests for analysis.
 - User Control: Can disable or configure thresholds
 - Local Processing: Notification preparation done locally
 
-### 3.5 Crisis Detection Algorithm
+### 3.6 Crisis Detection Algorithm
 
 ```python
 def detect_crisis(emotional_history, current_message):
@@ -276,52 +357,71 @@ def detect_crisis(emotional_history, current_message):
 
 ### 4.2 Emotion Analysis Implementation
 
-**Sentiment Analysis**:
+**Multi-Class Emotion Detection** (current `EmotionAnalyzer`):
 ```python
-from textblob import TextBlob
+# 7 emotion classes with keyword lists (including Tamil/Tanglish extensions)
+EMOTION_KEYWORDS = {
+    'joy':     ['happy', 'excited', 'grateful', 'wonderful', 'proud', ...],
+    'sadness': ['sad', 'cry', 'depressed', 'grief', 'lonely', 'hopeless', ...],
+    'anxiety': ['anxious', 'worried', 'nervous', 'panic', 'stressed', ...],
+    'anger':   ['angry', 'furious', 'frustrated', 'irritated', 'rage', ...],
+    'fear':    ['afraid', 'scared', 'terrified', 'dread', 'phobia', ...],
+    'neutral': ['okay', 'fine', 'alright', 'average', 'ordinary', 'normal', ...],
+    'crisis':  ['suicide', 'hopeless', 'worthless', 'end it all', ...],
+}
 
-def analyze_sentiment(text):
+def classify_emotion(self, text: str) -> dict:
     """
-    Local sentiment analysis using TextBlob
-    Returns: polarity (-1 to +1), subjectivity (0 to 1)
+    Keyword + TextBlob polarity fusion → dominant emotion + confidence.
+    Returns primary_emotion, polarity, intensity, all_scores, detected_script.
     """
-    blob = TextBlob(text)
+    # Count keyword matches per class
+    scores = {e: count_matches(text, kws) for e, kws in EMOTION_KEYWORDS.items()}
+    
+    # Polarity from TextBlob
+    polarity = TextBlob(text).sentiment.polarity
+    
+    # Boost based on polarity direction
+    if polarity < -0.3: scores['sadness'] += 0.3; scores['anxiety'] += 0.2
+    if polarity > 0.3:  scores['joy']     += 0.3
+    
+    # Dominant emotion
+    primary = max(scores, key=scores.get)
+    if primary == 'neutral' and polarity < -0.1:
+        primary = 'sadness'  # Negative polarity overrides neutral
+    
     return {
-        'polarity': blob.sentiment.polarity,
-        'subjectivity': blob.sentiment.subjectivity,
-        'category': categorize_sentiment(blob.sentiment.polarity)
+        'primary_emotion': primary,
+        'polarity':        polarity,
+        'intensity':       scores[primary],
+        'all_scores':      scores,
+        'detected_script': detect_script(text),  # 'english'/'tamil'/'tanglish'
     }
-
-def categorize_sentiment(polarity):
-    """Categorize sentiment score"""
-    if polarity < -0.3:
-        return 'distress'
-    elif polarity < -0.1:
-        return 'negative'
-    elif polarity < 0.1:
-        return 'neutral'
-    elif polarity < 0.3:
-        return 'positive'
-    else:
-        return 'very_positive'
 ```
 
-**Keyword Detection**:
+**Confidence Scoring** (per-class normalised):
 ```python
-DISTRESS_KEYWORDS = [
-    'suicide', 'hopeless', 'worthless', 'depressed',
-    'anxious', 'panic', 'trapped', 'overwhelming'
-]
+def get_emotion_confidence(self, text: str) -> dict:
+    """
+    Returns normalised 0-1 confidence per emotion class.
+    Uses proportion-of-total-matches; polarity-based fallback when 0 matches.
+    """
+    raw = {e: count_matches(text, kws) for e, kws in EMOTION_KEYWORDS.items()}
+    total = sum(raw.values()) or 1
+    return {e: round(v / total, 4) for e, v in raw.items()}
+```
 
-ABUSE_KEYWORDS = [
-    'abuse', 'gaslighting', 'controlling', 'manipulative',
-    'threatened', 'intimidated', 'isolated', 'toxic'
-]
-
-def detect_keywords(text, keyword_list):
-    """Count keyword occurrences (case-insensitive)"""
-    text_lower = text.lower()
-    return sum(1 for kw in keyword_list if kw in text_lower)
+**XAI — Keyword Attribution**:
+```python
+def explain_classification(self, text: str) -> dict:
+    """
+    Returns matched keywords per emotion class for explainability.
+    Shown to user as: "Influenced by words: sad, lonely, hopeless"
+    """
+    return {
+        emotion: [kw for kw in kws if kw in text.lower()]
+        for emotion, kws in EMOTION_KEYWORDS.items()
+    }
 ```
 
 ### 4.3 Encryption Implementation

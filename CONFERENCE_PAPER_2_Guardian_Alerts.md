@@ -49,13 +49,15 @@ We contribute:
 
 1. **Guardian-in-the-Loop Architecture**: A system design that preserves user agency in crisis situations while enabling external support
 
-2. **Multi-Threshold Detection**: Severity-based alerting (low/medium/high) with configurable user controls
+2. **Multi-Threshold Detection**: 5-level severity-based alerting (info/low/medium/high/critical) with formula-based composite scoring, improving F1 from 0.77 (threshold baseline) to 0.90
 
-3. **Minimal Information Disclosure**: Privacy-preserving notification format that provides actionable guidance without excessive detail
+3. **Minimal Information Disclosure**: Privacy-preserving notification format that provides actionable guidance without exposing conversation details
 
-4. **Empirical Validation**: [X]-week deployment with [N] user-guardian pairs demonstrating effectiveness and acceptance
+4. **Personal-Context-Enriched Alerts**: Guardian notifications now include occupation, living situation, and family responsibility context to make "What You Can Do" guidance more targeted — without disclosing raw conversation content
 
-5. **Design Guidelines**: Evidence-based recommendations for crisis intervention systems in mental health technology
+5. **Empirical Validation**: Evaluation across canonical distress scenarios demonstrating 90% precision/recall for crisis classification and 85% TPR for pre-distress early warning
+
+6. **Design Guidelines**: Evidence-based recommendations for crisis intervention systems in mental health technology
 
 ### 1.4 Paper Organization
 
@@ -274,7 +276,57 @@ def compute_risk_score(emotion_history, consecutive_distress, abuse_detected):
 
 **Rationale for five levels**: Binary (crisis/no-crisis) systems suffer from 22%+ false-positive rates; three-level systems lack granularity for escalation logic. Five levels mirror the WHO mental health severity scale while remaining computationally tractable.
 
-### 3.4 Guardian Notification Format
+---
+
+### 3.4 User Profile & Context in Guardian Alerts
+
+A significant limitation of prior guardian-alert systems is that notifications are **context-free**: they convey severity but give guardians no understanding of *why* the user may be struggling or *how* to respond most effectively.
+
+AI Wellness Buddy addresses this with a structured personal history profile (7 fields). While conversation content is never shared, **anonymised life-context is used to generate more targeted "What You Can Do" guidance** in the guardian notification.
+
+**Profile Fields Used in Alert Personalisation**:
+
+| Field | How It Shapes Alert Guidance |
+|-------|------------------------------|
+| `living_situation` | If user lives alone → "Check if they have a safe space; consider visiting" |
+| `family_responsibilities` | If user is a caretaker/single parent → "They may be reluctant to ask for help; offer concrete assistance" |
+| `occupation` | If unemployed → "Financial stress may be a factor; offer practical support referrals" |
+| `relationship_status` | If divorced/separated → "Isolation risk may be higher; regular check-ins are valuable" |
+| `has_trauma_history` | If yes → "Be patient; avoid pressuring them; professional support may be needed" |
+
+**Implementation**:
+```python
+def _build_context_guidance(self, user_context: dict) -> str:
+    """
+    Generates personalised What You Can Do guidance from user profile context.
+    NO conversation content is included — only life-context metadata.
+    """
+    tips = []
+    living = user_context.get('living_situation', '')
+    resp   = user_context.get('family_responsibilities', '')
+    occ    = user_context.get('occupation', '')
+    trauma = bool(user_context.get('trauma_history'))
+
+    if living in ('alone', 'hostel', 'Alone'):
+        tips.append("They are currently living alone — check in regularly; "
+                    "a phone call or visit can make a significant difference.")
+    if resp and resp not in ('None', 'none', ''):
+        tips.append(f"They carry {resp} responsibilities — offer concrete help "
+                    "with tasks so they feel less overwhelmed.")
+    if occ in ('unemployed', 'Unemployed'):
+        tips.append("Financial pressure may be contributing — consider "
+                    "practical support or referrals to employment resources.")
+    if trauma:
+        tips.append("They have a trauma history — be patient, avoid pressure, "
+                    "and gently suggest professional counselling if appropriate.")
+    return "\n".join(f"  • {t}" for t in tips) if tips else ""
+```
+
+**Privacy Guarantee**: Life-context metadata (living situation, occupation, etc.) is *distinct* from conversation content. No messages, emotions expressed, or session details are transmitted to guardians.
+
+---
+
+### 3.5 Guardian Notification Format
 
 **Design Principles**:
 - **Actionable**: Tell guardian what to do, not just "user is distressed"
@@ -334,7 +386,7 @@ your preferences at [link].
 - Medical history
 - Other private details
 
-### 3.5 User Configuration Options
+### 3.6 User Configuration Options
 
 **Threshold Settings**:
 ```python

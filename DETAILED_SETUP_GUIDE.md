@@ -3,7 +3,7 @@
 ## Comprehensive Installation and Configuration Manual
 
 **Last Updated**: February 2026  
-**Version**: 2.0  
+**Version**: 5.0  
 **For**: Windows, macOS, and Linux
 
 ---
@@ -1259,7 +1259,7 @@ The app always works without TTS/STT — they gracefully degrade.
 Run the test suite:
 
 ```bash
-python test_wellness_buddy.py
+python -m pytest test_wellness_buddy.py -v
 ```
 
 **Expected output:**
@@ -1270,14 +1270,21 @@ Running AI Wellness Buddy Test Suite
 
 Testing Emotion Analyzer...
 ✓ Sentiment analysis: polarity calculated correctly
-✓ Emotion categorization: working
-✓ Keyword detection: distress keywords found
+✓ Multi-emotion classification (7 classes): working
+✓ Confidence scoring (normalized 0-1): accurate
+✓ XAI keyword attribution: working
+✓ Crisis keyword detection: accurate
+✓ Tamil/Tanglish emotion detection: working
 ✓ Abuse keyword detection: working
 
 Testing Pattern Tracker...
 ✓ Emotional snapshot addition: working
 ✓ Consecutive distress tracking: accurate
 ✓ Trend calculation: correct
+✓ Moving average: working
+✓ Volatility & stability index: accurate
+✓ 5-level risk scoring (INFO→CRITICAL): correct
+✓ Emotional drift score: working
 ✓ 365-day retention: verified
 
 Testing Alert System...
@@ -1285,6 +1292,12 @@ Testing Alert System...
 ✓ Alert message formatting: correct
 ✓ Severity detection: accurate
 ✓ Guardian alert formatting: correct
+
+Testing Prediction Agent...
+✓ OLS forecast: working
+✓ EWMA predictor: working
+✓ Model comparison (OLS vs EWMA): working
+✓ Pre-distress early warning: working
 
 Testing Data Store...
 ✓ User data save: successful
@@ -1295,6 +1308,9 @@ Testing Data Store...
 
 Testing User Profile...
 ✓ Profile creation: working
+✓ Personal history fields (7): all saved/loaded correctly
+✓ Trauma history & triggers: working
+✓ Gamification (streak, 8 badges): working
 ✓ Password hashing: secure (SHA-256)
 ✓ Password verification: accurate
 ✓ Session timeout: functioning
@@ -1307,8 +1323,14 @@ Testing Bilingual & Voice...
 ✓ Voice handler TTS (gTTS): available
 ✓ Voice handler STT (SpeechRecognition): available
 
+Testing Evaluation Framework...
+✓ Scenario generation (5 scenarios): working
+✓ MAE/RMSE metrics: accurate
+✓ Pearson correlation: working
+✓ Detection metrics: working
+
 ═══════════════════════════════════════════════════════════════
-Test Summary: 18/18 tests passed ✓
+Test Summary: 26/26 tests passed ✓
 ═══════════════════════════════════════════════════════════════
 
 🎉 All tests passed! Your installation is working correctly.
@@ -1842,6 +1864,7 @@ python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
 ├── user_profile.py             # Profile, personal history, gamification
 ├── language_handler.py         # Tamil/Tanglish/bilingual support
 ├── voice_handler.py            # TTS (gTTS) + STT (SpeechRecognition)
+├── evaluation_framework.py     # Scenario-based evaluation, MAE/RMSE/correlation/t-test
 └── requirements.txt            # Python dependencies
 ```
 
@@ -1892,7 +1915,7 @@ You should now have AI Wellness Buddy fully installed and configured. Key achiev
 ✅ Guardian contacts configured (optional)  
 ✅ Language & voice (TTS/STT) set up (optional)  
 ✅ Network access set up (optional)  
-✅ All 18 tests passing  
+✅ All 26 tests passing  
 ✅ First conversation completed  
 
 ### Next Steps
