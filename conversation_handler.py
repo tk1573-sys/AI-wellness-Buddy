@@ -276,11 +276,9 @@ class ConversationHandler:
             response = self._choose_unique(pool)
 
         # ---- Personalised name greeting (warm touch) ----
-        if user_name and lang_pref != 'tamil' and primary_emotion not in ('crisis',):
+        if user_name and lang_pref != 'tamil' and primary_emotion not in ('crisis',) and response:
             # Prepend a short personal address for warmer tone
-            if primary_emotion in ('sadness', 'fear', 'anxiety', 'anger'):
-                response = f"{user_name}, " + response[0].lower() + response[1:]
-            elif primary_emotion == 'joy':
+            if primary_emotion in ('sadness', 'fear', 'anxiety', 'anger', 'joy'):
                 response = f"{user_name}, " + response[0].lower() + response[1:]
 
         # ---- Intensity adjustment based on sentiment score ----

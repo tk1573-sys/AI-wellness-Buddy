@@ -322,7 +322,7 @@ def render_chat_tab():
 
     # Add a welcome message when there's no chat history yet
     if not st.session_state.messages:
-        user_name = st.session_state.user_id or "there"
+        user_name = st.session_state.user_id or "friend"
         greeting = (
             f"Hello **{user_name}** 👋  \n"
             "I'm your Wellness Buddy — a safe, confidential space for emotional support.  \n"
