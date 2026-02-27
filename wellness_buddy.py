@@ -260,6 +260,7 @@ class WellnessBuddy:
         # Generate response (personalized with user context)
         user_context = self.user_profile.get_personal_context()
         user_context['response_style'] = self.user_profile.get_response_style()
+        user_context['user_name'] = self.user_id
 
         # Attach pre-distress warning if sentiment is trending downward
         sentiment_hist = list(self.pattern_tracker.sentiment_history)
