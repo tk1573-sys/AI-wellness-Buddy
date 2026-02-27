@@ -7,3 +7,4 @@ gTTS>=2.5.4
 SpeechRecognition>=3.14.5
 langdetect>=1.0.9
 audio-recorder-streamlit>=0.0.10
+plotly>=5.18.0
