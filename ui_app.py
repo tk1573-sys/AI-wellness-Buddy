@@ -268,10 +268,12 @@ def _handle_voice_input():
     try:
         from audio_recorder_streamlit import audio_recorder
     except ImportError:
+        st.caption("🎤 voice unavailable")
         return None
 
     vh: VoiceHandler = st.session_state.voice_handler
     if vh is None or not vh.stt_available:
+        st.caption("🎤 mic unavailable")
         return None
 
     # Minimum bytes for a viable audio sample (~1 second at 16-bit 8kHz mono)
@@ -343,11 +345,11 @@ def render_chat_tab():
                         _play_tts(message["content"])
 
     # Inline voice mic near chat input
-    voice_col, mic_col = st.columns([11, 1])
+    feedback_col, mic_col = st.columns([11, 1])
     with mic_col:
         voice_transcript = _handle_voice_input()
     if voice_transcript:
-        with voice_col:
+        with feedback_col:
             st.caption(f"🎤 *{voice_transcript}*")
         st.session_state.messages.append({"role": "user", "content": voice_transcript})
         response = st.session_state.buddy.process_message(voice_transcript)
