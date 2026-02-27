@@ -2,7 +2,7 @@
 Web UI for AI Wellness Buddy using Streamlit.
 Multi-tab layout: Chat | Emotional Trends | Risk Dashboard | Weekly Report
 Supports bilingual Tamil & English with Tanglish and voice input/output.
-Premium glassmorphism theme with Plotly visualisations.
+Premium glassmorphism theme with Plotly visualizations.
 Run with: streamlit run ui_app.py
 """
 
@@ -1174,8 +1174,8 @@ def main():
                     var osc = ctx.createOscillator();
                     var gain = ctx.createGain();
                     osc.type = 'sine';
-                    osc.frequency.value = 174;
-                    gain.gain.value = 0.03;
+                    osc.frequency.value = 174;  // 174 Hz Solfeggio frequency for relaxation
+                    gain.gain.value = 0.03;  // Low volume — subtle background ambience
                     osc.connect(gain);
                     gain.connect(ctx.destination);
                     osc.start();
