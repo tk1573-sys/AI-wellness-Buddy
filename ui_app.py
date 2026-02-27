@@ -2,6 +2,7 @@
 Web UI for AI Wellness Buddy using Streamlit.
 Multi-tab layout: Chat | Emotional Trends | Risk Dashboard | Weekly Report
 Supports bilingual Tamil & English with Tanglish and voice input/output.
+Premium glassmorphism theme with Plotly visualisations.
 Run with: streamlit run ui_app.py
 """
 
@@ -11,6 +12,7 @@ from user_profile import UserProfile
 from data_store import DataStore
 from prediction_agent import PredictionAgent
 from voice_handler import VoiceHandler
+import plotly.graph_objects as go
 import config
 import os
 
@@ -36,6 +38,7 @@ for key, default in [
     ('tts_enabled', True),
     ('voice_handler', None),
     ('last_voice_bytes', None),
+    ('calm_music_enabled', False),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -330,7 +333,7 @@ def render_chat_tab():
         )
         st.session_state.messages.append({"role": "assistant", "content": greeting})
 
-    # Display chat history
+    # Display chat history with fade-in animation
     for idx, message in enumerate(st.session_state.messages):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
@@ -374,7 +377,7 @@ def render_chat_tab():
 # -----------------------------------------------------------------------
 
 def render_trends_tab():
-    """Render the Emotional Trends tab with charts"""
+    """Render the Emotional Trends tab with Plotly charts"""
     st.subheader("📈 Emotional Trends")
     st.caption("Real-time sentiment tracking and historical mood analysis")
 
@@ -382,35 +385,94 @@ def render_trends_tab():
     summary = buddy.pattern_tracker.get_pattern_summary()
     history = buddy.user_profile.get_emotional_history(days=30)
 
-    # ---- Current session sentiment line ----
+    # ---- Current session sentiment line (Plotly gradient) ----
     sentiments = list(buddy.pattern_tracker.sentiment_history)
     if sentiments:
         st.markdown("#### Current Session — Sentiment Over Messages")
         col1, col2 = st.columns([2, 1])
         with col1:
-            st.line_chart({"Sentiment": sentiments})
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                y=sentiments,
+                mode='lines+markers',
+                name='Sentiment',
+                line=dict(color='#5B8CFF', width=3, shape='spline'),
+                marker=dict(size=7, color='#9B8CFF'),
+                fill='tozeroy',
+                fillcolor='rgba(91,140,255,0.12)',
+            ))
+            fig.update_layout(
+                template='plotly_white',
+                xaxis_title='Message #',
+                yaxis_title='Sentiment',
+                height=320,
+                margin=dict(l=40, r=20, t=20, b=40),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+            )
+            st.plotly_chart(fig, use_container_width=True)
         with col2:
             if summary:
                 ma = summary.get('moving_average', [])
                 if len(ma) >= 2:
-                    st.line_chart({"3-msg Moving Avg": ma})
+                    fig_ma = go.Figure()
+                    fig_ma.add_trace(go.Scatter(
+                        y=ma,
+                        mode='lines',
+                        name='3-msg MA',
+                        line=dict(color='#FF8A65', width=2, dash='dot'),
+                    ))
+                    fig_ma.update_layout(
+                        template='plotly_white',
+                        height=220,
+                        margin=dict(l=30, r=10, t=10, b=30),
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                    )
+                    st.plotly_chart(fig_ma, use_container_width=True)
                     st.caption("3-message moving average of sentiment")
     else:
         st.info("Start chatting to see your sentiment trend.")
 
-    # ---- Emotion distribution (current session) ----
+    # ---- Emotion distribution (Plotly colored bar chart) ----
     if summary:
         dist = summary.get('emotion_distribution', {})
         if dist:
             st.markdown("#### Current Session — Emotion Distribution")
+            _EMO_COLORS = {
+                'joy': '#4DD0E1', 'positive': '#4DD0E1',
+                'neutral': '#9B8CFF',
+                'sadness': '#5B8CFF', 'negative': '#5B8CFF',
+                'anger': '#FF8A65',
+                'fear': '#FFB74D', 'anxiety': '#FFB74D',
+                'crisis': '#EF5350', 'distress': '#EF5350',
+            }
+            emotions = sorted(dist.keys(), key=lambda e: -dist[e])
+            counts = [dist[e] for e in emotions]
+            colors = [_EMO_COLORS.get(e, '#9B8CFF') for e in emotions]
+
             col_a, col_b = st.columns([1, 2])
             with col_a:
-                for emo, cnt in sorted(dist.items(), key=lambda x: -x[1]):
+                for emo, cnt in zip(emotions, counts):
                     st.metric(label=emo.capitalize(), value=cnt)
             with col_b:
-                st.bar_chart(dist)
+                fig_bar = go.Figure(go.Bar(
+                    x=[e.capitalize() for e in emotions],
+                    y=counts,
+                    marker_color=colors,
+                    marker_line=dict(width=0),
+                ))
+                fig_bar.update_layout(
+                    template='plotly_white',
+                    height=300,
+                    margin=dict(l=30, r=10, t=10, b=40),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    yaxis_title='Count',
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
 
-    # ---- Historical 30-day sentiment ----
+    # ---- Historical 30-day sentiment (Plotly) ----
     if history:
         st.markdown("#### Last 30 Days — Average Mood per Session")
         hist_data = []
@@ -421,7 +483,25 @@ def render_trends_tab():
                 hist_data.append(avg)
 
         if hist_data:
-            st.line_chart({"Avg Mood": hist_data})
+            fig_hist = go.Figure()
+            fig_hist.add_trace(go.Scatter(
+                y=hist_data,
+                mode='lines+markers',
+                line=dict(color='#9B8CFF', width=3, shape='spline'),
+                marker=dict(size=6, color='#5B8CFF'),
+                fill='tozeroy',
+                fillcolor='rgba(155,140,255,0.10)',
+            ))
+            fig_hist.update_layout(
+                template='plotly_white',
+                xaxis_title='Session',
+                yaxis_title='Avg Mood',
+                height=300,
+                margin=dict(l=40, r=20, t=20, b=40),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+            )
+            st.plotly_chart(fig_hist, use_container_width=True)
 
             # Prediction
             predictor = PredictionAgent()
@@ -462,7 +542,7 @@ _RISK_LEVEL_VALUES = {'low': 0.10, 'medium': 0.35, 'high': 0.65, 'critical': 0.9
 
 
 def render_risk_tab():
-    """Render the Risk Dashboard tab"""
+    """Render the Risk Dashboard tab with Plotly gauge"""
     st.subheader("⚠️ Risk Dashboard")
     st.caption("Composite risk scoring, crisis detection, and escalation forecast")
 
@@ -478,7 +558,41 @@ def render_risk_tab():
     icon = _RISK_COLOUR.get(risk_level, '⬜')
 
     st.markdown(f"### Current Risk Level: {icon} {risk_level.upper()}")
-    st.progress(min(1.0, risk_score), text=f"Risk score: {risk_score:.2f} / 1.00")
+
+    # Plotly gauge-style risk indicator
+    _GAUGE_COLORS = {
+        'low': '#5B8CFF',
+        'medium': '#FFB74D',
+        'high': '#EF5350',
+        'critical': '#D32F2F',
+    }
+    fig_gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=risk_score,
+        number={'suffix': ' / 1.00', 'font': {'size': 28}},
+        gauge={
+            'axis': {'range': [0, 1], 'tickwidth': 1},
+            'bar': {'color': _GAUGE_COLORS.get(risk_level, '#5B8CFF')},
+            'bgcolor': 'rgba(0,0,0,0)',
+            'steps': [
+                {'range': [0, 0.25], 'color': 'rgba(91,140,255,0.15)'},
+                {'range': [0.25, 0.50], 'color': 'rgba(255,183,77,0.15)'},
+                {'range': [0.50, 0.75], 'color': 'rgba(239,83,80,0.15)'},
+                {'range': [0.75, 1.0], 'color': 'rgba(211,47,47,0.20)'},
+            ],
+            'threshold': {
+                'line': {'color': '#D32F2F', 'width': 3},
+                'thickness': 0.8,
+                'value': risk_score,
+            },
+        },
+    ))
+    fig_gauge.update_layout(
+        height=250,
+        margin=dict(l=30, r=30, t=30, b=10),
+        paper_bgcolor='rgba(0,0,0,0)',
+    )
+    st.plotly_chart(fig_gauge, use_container_width=True)
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Risk Score", f"{risk_score:.2f}")
@@ -494,7 +608,7 @@ def render_risk_tab():
             "or go to your nearest emergency room. You are not alone. 💙"
         )
 
-    # Risk history (last 30 days)
+    # Risk history (last 30 days) — Plotly
     history = buddy.user_profile.get_emotional_history(days=30)
     risk_hist = []
     for snap in history:
@@ -505,7 +619,26 @@ def render_risk_tab():
 
     if risk_hist:
         st.markdown("#### 30-Day Risk Level History")
-        st.line_chart({"Risk (0=low, 1=critical)": risk_hist})
+        fig_rh = go.Figure()
+        fig_rh.add_trace(go.Scatter(
+            y=risk_hist,
+            mode='lines+markers',
+            line=dict(color='#EF5350', width=2, shape='spline'),
+            marker=dict(size=6, color='#FF8A65'),
+            fill='tozeroy',
+            fillcolor='rgba(239,83,80,0.10)',
+        ))
+        fig_rh.update_layout(
+            template='plotly_white',
+            xaxis_title='Session',
+            yaxis_title='Risk (0=low, 1=critical)',
+            yaxis=dict(range=[0, 1]),
+            height=280,
+            margin=dict(l=40, r=20, t=20, b=40),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+        )
+        st.plotly_chart(fig_rh, use_container_width=True)
 
         # Risk escalation forecast
         predictor = PredictionAgent()
@@ -546,7 +679,7 @@ def render_risk_tab():
 # -----------------------------------------------------------------------
 
 def render_weekly_report_tab():
-    """Render the Weekly Report tab"""
+    """Render the Weekly Report tab with Plotly charts"""
     st.subheader("📋 Weekly Wellness Report")
     st.caption("7-day aggregated wellness summary with predictions and suggestions")
 
@@ -571,7 +704,25 @@ def render_weekly_report_tab():
 
         if sentiments:
             st.markdown("#### 7-Day Mood Chart")
-            st.line_chart({"Daily Avg Mood": sentiments})
+            fig_wk = go.Figure()
+            fig_wk.add_trace(go.Scatter(
+                y=sentiments,
+                mode='lines+markers',
+                line=dict(color='#4DD0E1', width=3, shape='spline'),
+                marker=dict(size=7, color='#5B8CFF'),
+                fill='tozeroy',
+                fillcolor='rgba(77,208,225,0.12)',
+            ))
+            fig_wk.update_layout(
+                template='plotly_white',
+                xaxis_title='Day',
+                yaxis_title='Avg Mood',
+                height=280,
+                margin=dict(l=40, r=20, t=20, b=40),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+            )
+            st.plotly_chart(fig_wk, use_container_width=True)
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Sessions This Week", len(history))
@@ -707,28 +858,84 @@ def show_profile_menu():
 
 def show_chat_interface():
     """Show main multi-tab chat interface"""
-    # Sidebar
+    # Sidebar — premium info panel
     with st.sidebar:
-        st.markdown("#### 🌟 AI Wellness Buddy")
-        st.markdown("---")
-        st.markdown(f"**👤 User:** {st.session_state.user_id}")
+        # User avatar circle + name
+        user_id = st.session_state.user_id
+        initials = (user_id[0].upper() if user_id else "?")
+        st.markdown(
+            f'<div style="text-align:center;margin-bottom:0.5rem;">'
+            f'<div style="width:64px;height:64px;border-radius:50%;'
+            f'background:linear-gradient(135deg,#5B8CFF,#9B8CFF);'
+            f'display:inline-flex;align-items:center;justify-content:center;'
+            f'font-size:1.6rem;color:#fff;font-weight:700;'
+            f'box-shadow:0 4px 15px rgba(91,140,255,0.3);">{initials}</div>'
+            f'<p style="margin:0.4rem 0 0;font-weight:600;font-size:1.05rem;">'
+            f'{user_id}</p></div>',
+            unsafe_allow_html=True,
+        )
 
+        st.markdown("---")
+
+        # Risk badge — color-coded
+        summary = st.session_state.buddy.pattern_tracker.get_pattern_summary()
+        risk_level = 'low'
+        if summary:
+            risk_level = summary.get('risk_level', 'low')
+        _BADGE_STYLE = {
+            'low':      ('🟢', '#5B8CFF', 'rgba(91,140,255,0.12)'),
+            'medium':   ('🟡', '#FFB74D', 'rgba(255,183,77,0.15)'),
+            'high':     ('🔴', '#EF5350', 'rgba(239,83,80,0.15)'),
+            'critical': ('🚨', '#D32F2F', 'rgba(211,47,47,0.20)'),
+        }
+        r_icon, r_color, r_bg = _BADGE_STYLE.get(risk_level, _BADGE_STYLE['low'])
+        st.markdown(
+            f'<div style="text-align:center;padding:0.5rem;border-radius:0.5rem;'
+            f'background:{r_bg};border:1px solid {r_color};margin-bottom:0.75rem;">'
+            f'<span style="font-size:1.1rem;">{r_icon} Risk: '
+            f'<strong style="color:{r_color};">{risk_level.upper()}</strong></span></div>',
+            unsafe_allow_html=True,
+        )
+
+        # Session info + streak card
         if st.session_state.buddy.user_profile:
             sessions = st.session_state.buddy.user_profile.get_profile().get('session_count', 0)
             streak = st.session_state.buddy.user_profile.get_mood_streak()
             lang_pref = st.session_state.buddy.user_profile.get_language_preference()
-            st.markdown(f"**📅 Session:** #{sessions + 1}")
-            if streak > 0:
-                st.markdown(f"**🔥 Streak:** {streak} positive")
             _LANG_ICONS = {'english': '🇬🇧', 'tamil': '🇮🇳', 'bilingual': '🇮🇳🇬🇧'}
-            st.markdown(f"**🌐 Language:** {_LANG_ICONS.get(lang_pref, '🌐')} {lang_pref.capitalize()}")
+            st.markdown(f"📅 **Session:** #{sessions + 1}")
+            st.markdown(f"🌐 **Language:** {_LANG_ICONS.get(lang_pref, '🌐')} {lang_pref.capitalize()}")
+            # Streak card
+            streak_emoji = "🔥" if streak >= 3 else "⭐" if streak >= 1 else "💤"
+            st.markdown(
+                f'<div style="text-align:center;padding:0.5rem;border-radius:0.5rem;'
+                f'background:linear-gradient(135deg,rgba(77,208,225,0.12),rgba(155,140,255,0.12));'
+                f'margin:0.5rem 0;">'
+                f'<span style="font-size:1.4rem;">{streak_emoji}</span><br>'
+                f'<strong>{streak}</strong> positive streak</div>',
+                unsafe_allow_html=True,
+            )
 
-        summary = st.session_state.buddy.pattern_tracker.get_pattern_summary()
-        if summary:
-            risk_icon = _RISK_COLOUR.get(summary.get('risk_level', 'low'), '⬜')
-            st.markdown(f"**⚠️ Risk:** {risk_icon} {summary.get('risk_level', 'low').upper()}")
+        # Mini sentiment sparkline in sidebar
+        sentiments = list(st.session_state.buddy.pattern_tracker.sentiment_history)
+        if len(sentiments) >= 2:
+            fig_spark = go.Figure(go.Scatter(
+                y=sentiments, mode='lines',
+                line=dict(color='#5B8CFF', width=2),
+                fill='tozeroy',
+                fillcolor='rgba(91,140,255,0.10)',
+            ))
+            fig_spark.update_layout(
+                height=80, margin=dict(l=0, r=0, t=0, b=0),
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(visible=False), yaxis=dict(visible=False),
+                showlegend=False,
+            )
+            st.plotly_chart(fig_spark, use_container_width=True)
+            st.caption("Session sentiment")
 
         st.markdown("---")
+
         # TTS toggle
         vh: VoiceHandler = st.session_state.voice_handler
         if vh and vh.tts_available:
@@ -739,6 +946,13 @@ def show_chat_interface():
             )
         else:
             st.caption("🔇 TTS unavailable (install gTTS)")
+
+        # Background ambient music toggle
+        st.session_state.calm_music_enabled = st.toggle(
+            "🎵 Calm Background Mode",
+            value=st.session_state.get('calm_music_enabled', False),
+            help="Play a calming ambient loop. Audio starts after interaction (browser policy safe).",
+        )
 
         st.markdown("---")
         st.markdown("### Quick Actions")
@@ -794,45 +1008,202 @@ def show_chat_interface():
 
 def main():
     """Main application"""
-    st.markdown("""
+    # ---- Determine risk-level accent colour for atmosphere ----
+    _risk_level = 'low'
+    if st.session_state.get('buddy') and st.session_state.get('profile_loaded'):
+        _sum = st.session_state.buddy.pattern_tracker.get_pattern_summary()
+        if _sum:
+            _risk_level = _sum.get('risk_level', 'low')
+
+    _RISK_GLOW = {
+        'low':      'rgba(91,140,255,0.18)',
+        'medium':   'rgba(255,183,77,0.22)',
+        'high':     'rgba(239,83,80,0.18)',
+        'critical': 'rgba(211,47,47,0.28)',
+    }
+    _RISK_BORDER = {
+        'low':      'transparent',
+        'medium':   'rgba(255,183,77,0.4)',
+        'high':     'rgba(239,83,80,0.45)',
+        'critical': '#D32F2F',
+    }
+    glow_color = _RISK_GLOW.get(_risk_level, _RISK_GLOW['low'])
+    border_color = _RISK_BORDER.get(_risk_level, 'transparent')
+
+    # Pulsing animation for critical risk
+    critical_bar_css = ""
+    if _risk_level == 'critical':
+        critical_bar_css = """
+        .main::before {
+            content: '🚨 CRITICAL — Please reach out for support';
+            display: block;
+            text-align: center;
+            padding: 0.5rem;
+            background: linear-gradient(90deg, #D32F2F, #EF5350, #D32F2F);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            animation: pulse-bar 1.5s ease-in-out infinite;
+            border-radius: 0 0 0.5rem 0.5rem;
+        }
+        @keyframes pulse-bar {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        """
+
+    st.markdown(f"""
     <style>
-    /* ---- Professional chat bubble styling ---- */
-    .stChatMessage {
+    /* ---- Animated gradient background ---- */
+    @keyframes gradientBG {{
+        0%   {{ background-position: 0% 50%; }}
+        50%  {{ background-position: 100% 50%; }}
+        100% {{ background-position: 0% 50%; }}
+    }}
+    .stApp {{
+        background: linear-gradient(135deg, #f0f4ff 0%, #f5f0ff 25%, #fff5f0 50%, #f0fffe 75%, #f0f4ff 100%);
+        background-size: 400% 400%;
+        animation: gradientBG 20s ease infinite;
+    }}
+
+    /* ---- Glassmorphism chat cards ---- */
+    .stChatMessage {{
         padding: 1rem 1.25rem;
-        border-radius: 0.75rem;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-        margin-bottom: 0.5rem;
-    }
+        border-radius: 1rem;
+        background: rgba(255,255,255,0.65);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,255,255,0.35);
+        box-shadow: 0 4px 20px {glow_color};
+        margin-bottom: 0.75rem;
+        animation: fadeInUp 0.4s ease-out;
+    }}
+    @keyframes fadeInUp {{
+        from {{ opacity: 0; transform: translateY(12px); }}
+        to   {{ opacity: 1; transform: translateY(0); }}
+    }}
+
     /* ---- Sidebar polish ---- */
-    section[data-testid="stSidebar"] > div:first-child {
+    section[data-testid="stSidebar"] > div:first-child {{
         padding-top: 1.5rem;
-    }
-    /* ---- Tab labels ---- */
-    .stTabs [data-baseweb="tab"] {
+        background: linear-gradient(180deg, rgba(91,140,255,0.06), rgba(155,140,255,0.06));
+    }}
+
+    /* ---- Tab labels with transition ---- */
+    .stTabs [data-baseweb="tab"] {{
         font-weight: 600;
         font-size: 0.95rem;
-    }
-    /* ---- Metric cards ---- */
-    [data-testid="stMetric"] {
-        background: #FFFFFF;
-        border-radius: 0.5rem;
+        transition: color 0.3s ease, background 0.3s ease;
+    }}
+    .stTabs [data-baseweb="tab"]:hover {{
+        color: #5B8CFF;
+    }}
+
+    /* ---- Metric cards — glassmorphism ---- */
+    [data-testid="stMetric"] {{
+        background: rgba(255,255,255,0.70);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border-radius: 0.75rem;
         padding: 0.75rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
+        border: 1px solid rgba(255,255,255,0.3);
+        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }}
+    [data-testid="stMetric"]:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(91,140,255,0.12);
+    }}
+
+    /* ---- Button hover glow ---- */
+    .stButton > button {{
+        border-radius: 0.5rem;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(91,140,255,0.2);
+    }}
+    .stButton > button:hover {{
+        box-shadow: 0 0 16px rgba(91,140,255,0.25);
+        border-color: #5B8CFF;
+        transform: translateY(-1px);
+    }}
+
     /* ---- Expander styling ---- */
-    .streamlit-expanderHeader {
+    .streamlit-expanderHeader {{
         font-weight: 600;
-    }
+    }}
+
     /* ---- Header area ---- */
-    .main-header {
+    .main-header {{
         text-align: center;
         padding: 0.5rem 0 0.25rem 0;
-        color: #5B7FE8;
-    }
-    .main-header h1 { font-size: 2rem; margin-bottom: 0; }
-    .main-header p { color: #64748B; font-size: 0.95rem; margin-top: 0.25rem; }
+        color: #5B8CFF;
+    }}
+    .main-header h1 {{ font-size: 2rem; margin-bottom: 0; }}
+    .main-header p {{ color: #64748B; font-size: 0.95rem; margin-top: 0.25rem; }}
+
+    /* ---- Risk-level atmospheric border ---- */
+    .main .block-container {{
+        border-top: 3px solid {border_color};
+        transition: border-color 0.5s ease;
+    }}
+
+    /* ---- Critical pulsing warning bar ---- */
+    {critical_bar_css}
+
+    /* ---- Smooth card hover elevation ---- */
+    .stExpander, [data-testid="stVerticalBlock"] > div {{
+        transition: box-shadow 0.3s ease;
+    }}
     </style>
     """, unsafe_allow_html=True)
+
+    # ---- Background ambient music ----
+    if st.session_state.get('calm_music_enabled', False):
+        # Royalty-free ambient audio data URI (tiny silent init + JS-driven)
+        st.markdown(
+            """
+            <div id="ambient-music-container" style="display:none;">
+                <p style="font-size:0.75rem;color:#9B8CFF;">🎵 Calm mode active</p>
+            </div>
+            <script>
+            (function() {
+                if (window._ambientInitialized) return;
+                window._ambientInitialized = true;
+                try {
+                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    var osc = ctx.createOscillator();
+                    var gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = 174;
+                    gain.gain.value = 0.03;
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    window._ambientOsc = osc;
+                    window._ambientGain = gain;
+                    window._ambientCtx = ctx;
+                } catch(e) {}
+            })();
+            </script>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        # Stop ambient if it was playing
+        st.markdown(
+            """
+            <script>
+            (function() {
+                if (window._ambientOsc) {
+                    try { window._ambientOsc.stop(); } catch(e) {}
+                    window._ambientOsc = null;
+                    window._ambientInitialized = false;
+                }
+            })();
+            </script>
+            """,
+            unsafe_allow_html=True,
+        )
 
     if not st.session_state.profile_loaded:
         show_profile_setup()
