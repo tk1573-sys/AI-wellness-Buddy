@@ -259,7 +259,7 @@ def _play_tts(text: str):
 
 
 def _handle_voice_input():
-    """Show microphone recorder and return transcribed text or None.
+    """Render compact inline voice recorder and return transcribed text or None.
 
     Uses session-state deduplication (``last_voice_bytes``) to ensure each
     recording is processed exactly once, preventing the auto-trigger loop
@@ -268,22 +268,19 @@ def _handle_voice_input():
     try:
         from audio_recorder_streamlit import audio_recorder
     except ImportError:
-        st.caption("🎤 Install `audio-recorder-streamlit` for voice input.")
         return None
 
     vh: VoiceHandler = st.session_state.voice_handler
     if vh is None or not vh.stt_available:
-        st.caption("🎤 Speech recognition unavailable (SpeechRecognition not installed).")
         return None
 
     # Minimum bytes for a viable audio sample (~1 second at 16-bit 8kHz mono)
     MIN_AUDIO_BYTES = 1000
 
-    st.markdown("**🎤 Voice input** — click the mic, speak, click again to stop:")
     audio_bytes = audio_recorder(
         text="",
         recording_color="#e74c3c",
-        neutral_color="#5B7FE8",
+        neutral_color="#9B8CFF",
         icon_size="2x",
         pause_threshold=2.0,
         key="voice_recorder",
@@ -345,17 +342,18 @@ def render_chat_tab():
                                  help="Listen to this response"):
                         _play_tts(message["content"])
 
-    # Voice input section (collapsible)
-    with st.expander("🎤 Voice Input (click to expand)", expanded=False):
+    # Inline voice mic near chat input
+    voice_col, mic_col = st.columns([11, 1])
+    with mic_col:
         voice_transcript = _handle_voice_input()
-        if voice_transcript:
-            # Auto-send transcribed text as a message
-            st.session_state.messages.append({"role": "user", "content": voice_transcript})
-            response = st.session_state.buddy.process_message(voice_transcript)
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            # Auto-play TTS for voice-initiated responses
-            _play_tts(response)
-            st.rerun()
+    if voice_transcript:
+        with voice_col:
+            st.caption(f"🎤 *{voice_transcript}*")
+        st.session_state.messages.append({"role": "user", "content": voice_transcript})
+        response = st.session_state.buddy.process_message(voice_transcript)
+        st.session_state.messages.append({"role": "assistant", "content": response})
+        _play_tts(response)
+        st.rerun()
 
     # Text chat input
     placeholder = {
@@ -1083,6 +1081,24 @@ def main():
         to   {{ opacity: 1; transform: translateY(0); }}
     }}
 
+    /* ---- Premium chat input bar ---- */
+    [data-testid="stChatInput"] {{
+        background: rgba(255,255,255,0.70) !important;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 1.25rem !important;
+        border: 1px solid rgba(91,140,255,0.18) !important;
+        box-shadow: 0 4px 24px rgba(91,140,255,0.08);
+        transition: box-shadow 0.3s ease, border-color 0.3s ease;
+    }}
+    [data-testid="stChatInput"]:focus-within {{
+        border-color: #5B8CFF !important;
+        box-shadow: 0 4px 28px rgba(91,140,255,0.16);
+    }}
+    [data-testid="stChatInput"] textarea {{
+        font-size: 0.98rem;
+    }}
+
     /* ---- Sidebar polish ---- */
     section[data-testid="stSidebar"] > div:first-child {{
         padding-top: 1.5rem;
@@ -1090,13 +1106,18 @@ def main():
     }}
 
     /* ---- Tab labels with transition ---- */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 0.25rem;
+    }}
     .stTabs [data-baseweb="tab"] {{
         font-weight: 600;
         font-size: 0.95rem;
+        border-radius: 0.5rem 0.5rem 0 0;
         transition: color 0.3s ease, background 0.3s ease;
     }}
     .stTabs [data-baseweb="tab"]:hover {{
         color: #5B8CFF;
+        background: rgba(91,140,255,0.06);
     }}
 
     /* ---- Metric cards — glassmorphism ---- */
@@ -1135,10 +1156,17 @@ def main():
     /* ---- Header area ---- */
     .main-header {{
         text-align: center;
-        padding: 0.5rem 0 0.25rem 0;
+        padding: 1.5rem 0 1rem 0;
         color: #5B8CFF;
     }}
-    .main-header h1 {{ font-size: 2rem; margin-bottom: 0; }}
+    .main-header h1 {{
+        font-size: 2.2rem;
+        margin-bottom: 0;
+        background: linear-gradient(135deg, #5B8CFF, #9B8CFF);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }}
     .main-header p {{ color: #64748B; font-size: 0.95rem; margin-top: 0.25rem; }}
 
     /* ---- Risk-level atmospheric border ---- */
@@ -1153,6 +1181,17 @@ def main():
     /* ---- Smooth card hover elevation ---- */
     .stExpander, [data-testid="stVerticalBlock"] > div {{
         transition: box-shadow 0.3s ease;
+    }}
+
+    /* ---- Profile setup form glassmorphism ---- */
+    [data-testid="stForm"] {{
+        background: rgba(255,255,255,0.60);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 1rem;
+        border: 1px solid rgba(255,255,255,0.30);
+        padding: 1.5rem;
+        box-shadow: 0 4px 24px rgba(91,140,255,0.08);
     }}
     </style>
     """, unsafe_allow_html=True)
