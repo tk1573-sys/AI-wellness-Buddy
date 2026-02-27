@@ -198,6 +198,7 @@ class ConversationHandler:
         primary_emotion = emotion_data.get('primary_emotion', None)
         coarse_emotion = emotion_data['emotion']
         severity = emotion_data['severity']
+        sentiment_score = emotion_data.get('sentiment_score', emotion_data.get('polarity', 0.0))
 
         # Determine response style
         style = 'balanced'
@@ -224,6 +225,7 @@ class ConversationHandler:
         family_resp = user_context.get('family_responsibilities') if user_context else None
         occupation = user_context.get('occupation') if user_context else None
         living_situation = user_context.get('living_situation') if user_context else None
+        user_name = user_context.get('user_name') if user_context else None
 
         # ---- Try bilingual / Tamil pool first (if preference set) ----
         lang_pool = []
@@ -272,6 +274,20 @@ class ConversationHandler:
                         "Please know that you are seen, heard, and supported. 💙"
                     )
             response = self._choose_unique(pool)
+
+        # ---- Personalised name greeting (warm touch) ----
+        if user_name and lang_pref != 'tamil' and primary_emotion not in ('crisis',) and response:
+            # Prepend a short personal address for warmer tone
+            if primary_emotion in ('sadness', 'fear', 'anxiety', 'anger', 'joy'):
+                response = f"{user_name}, " + response[0].lower() + response[1:]
+
+        # ---- Intensity adjustment based on sentiment score ----
+        if lang_pref != 'tamil' and primary_emotion in ('sadness', 'fear', 'anxiety'):
+            if sentiment_score < -0.6:
+                response += (
+                    "\n\nI can feel the weight of what you're carrying right now. "
+                    "Please know that reaching out like this shows real courage. 💙"
+                )
 
         # Personalise for trauma context on heavier emotions (English / bilingual)
         if lang_pref != 'tamil':

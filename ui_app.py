@@ -35,6 +35,7 @@ for key, default in [
     ('show_profile_menu', False),
     ('tts_enabled', True),
     ('voice_handler', None),
+    ('last_voice_bytes', None),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -69,7 +70,11 @@ def load_profile(username):
 
 def show_profile_setup():
     """Show profile setup interface"""
-    st.title("🌟 AI Wellness Buddy")
+    st.markdown(
+        '<div class="main-header"><h1>🌟 AI Wellness Buddy</h1>'
+        '<p>A safe, confidential space for emotional support</p></div>',
+        unsafe_allow_html=True
+    )
     st.markdown("### Welcome! Let's set up your profile")
 
     data_store = DataStore()
@@ -251,7 +256,12 @@ def _play_tts(text: str):
 
 
 def _handle_voice_input():
-    """Show microphone recorder and return transcribed text or None."""
+    """Show microphone recorder and return transcribed text or None.
+
+    Uses session-state deduplication (``last_voice_bytes``) to ensure each
+    recording is processed exactly once, preventing the auto-trigger loop
+    caused by Streamlit reruns.
+    """
     try:
         from audio_recorder_streamlit import audio_recorder
     except ImportError:
@@ -270,12 +280,19 @@ def _handle_voice_input():
     audio_bytes = audio_recorder(
         text="",
         recording_color="#e74c3c",
-        neutral_color="#3498db",
+        neutral_color="#5B7FE8",
         icon_size="2x",
         pause_threshold=2.0,
         key="voice_recorder",
     )
-    if audio_bytes and len(audio_bytes) > MIN_AUDIO_BYTES:
+
+    # Deduplicate: only process if this is a *new* recording
+    if (
+        audio_bytes
+        and len(audio_bytes) > MIN_AUDIO_BYTES
+        and audio_bytes != st.session_state.get('last_voice_bytes')
+    ):
+        st.session_state.last_voice_bytes = audio_bytes
         lang_pref = _get_lang_pref()
         with st.spinner("Transcribing…"):
             transcript = vh.transcribe_audio(audio_bytes, lang_pref)
@@ -302,6 +319,16 @@ def render_chat_tab():
         'bilingual': '🇮🇳🇬🇧 Bilingual',
     }
     st.caption(f"Language: {_LANG_LABELS.get(lang_pref, lang_pref)}")
+
+    # Add a welcome message when there's no chat history yet
+    if not st.session_state.messages:
+        user_name = st.session_state.user_id or "friend"
+        greeting = (
+            f"Hello **{user_name}** 👋  \n"
+            "I'm your Wellness Buddy — a safe, confidential space for emotional support.  \n"
+            "Share how you're feeling, and I'll do my best to listen and help."
+        )
+        st.session_state.messages.append({"role": "assistant", "content": greeting})
 
     # Display chat history
     for idx, message in enumerate(st.session_state.messages):
@@ -349,6 +376,7 @@ def render_chat_tab():
 def render_trends_tab():
     """Render the Emotional Trends tab with charts"""
     st.subheader("📈 Emotional Trends")
+    st.caption("Real-time sentiment tracking and historical mood analysis")
 
     buddy = st.session_state.buddy
     summary = buddy.pattern_tracker.get_pattern_summary()
@@ -436,6 +464,7 @@ _RISK_LEVEL_VALUES = {'low': 0.10, 'medium': 0.35, 'high': 0.65, 'critical': 0.9
 def render_risk_tab():
     """Render the Risk Dashboard tab"""
     st.subheader("⚠️ Risk Dashboard")
+    st.caption("Composite risk scoring, crisis detection, and escalation forecast")
 
     buddy = st.session_state.buddy
     summary = buddy.pattern_tracker.get_pattern_summary()
@@ -519,6 +548,7 @@ def render_risk_tab():
 def render_weekly_report_tab():
     """Render the Weekly Report tab"""
     st.subheader("📋 Weekly Wellness Report")
+    st.caption("7-day aggregated wellness summary with predictions and suggestions")
 
     buddy = st.session_state.buddy
     report_text = buddy.generate_weekly_summary()
@@ -679,22 +709,24 @@ def show_chat_interface():
     """Show main multi-tab chat interface"""
     # Sidebar
     with st.sidebar:
-        st.markdown(f"**User:** {st.session_state.user_id}")
+        st.markdown("#### 🌟 AI Wellness Buddy")
+        st.markdown("---")
+        st.markdown(f"**👤 User:** {st.session_state.user_id}")
 
         if st.session_state.buddy.user_profile:
             sessions = st.session_state.buddy.user_profile.get_profile().get('session_count', 0)
             streak = st.session_state.buddy.user_profile.get_mood_streak()
             lang_pref = st.session_state.buddy.user_profile.get_language_preference()
-            st.markdown(f"**Session:** #{sessions + 1}")
+            st.markdown(f"**📅 Session:** #{sessions + 1}")
             if streak > 0:
                 st.markdown(f"**🔥 Streak:** {streak} positive")
             _LANG_ICONS = {'english': '🇬🇧', 'tamil': '🇮🇳', 'bilingual': '🇮🇳🇬🇧'}
-            st.markdown(f"**Lang:** {_LANG_ICONS.get(lang_pref, '🌐')} {lang_pref.capitalize()}")
+            st.markdown(f"**🌐 Language:** {_LANG_ICONS.get(lang_pref, '🌐')} {lang_pref.capitalize()}")
 
         summary = st.session_state.buddy.pattern_tracker.get_pattern_summary()
         if summary:
             risk_icon = _RISK_COLOUR.get(summary.get('risk_level', 'low'), '⬜')
-            st.markdown(f"**Risk:** {risk_icon} {summary.get('risk_level', 'low').upper()}")
+            st.markdown(f"**⚠️ Risk:** {risk_icon} {summary.get('risk_level', 'low').upper()}")
 
         st.markdown("---")
         # TTS toggle
@@ -764,7 +796,41 @@ def main():
     """Main application"""
     st.markdown("""
     <style>
-    .stChatMessage { padding: 1rem; border-radius: 0.5rem; }
+    /* ---- Professional chat bubble styling ---- */
+    .stChatMessage {
+        padding: 1rem 1.25rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        margin-bottom: 0.5rem;
+    }
+    /* ---- Sidebar polish ---- */
+    section[data-testid="stSidebar"] > div:first-child {
+        padding-top: 1.5rem;
+    }
+    /* ---- Tab labels ---- */
+    .stTabs [data-baseweb="tab"] {
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+    /* ---- Metric cards ---- */
+    [data-testid="stMetric"] {
+        background: #FFFFFF;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    /* ---- Expander styling ---- */
+    .streamlit-expanderHeader {
+        font-weight: 600;
+    }
+    /* ---- Header area ---- */
+    .main-header {
+        text-align: center;
+        padding: 0.5rem 0 0.25rem 0;
+        color: #5B7FE8;
+    }
+    .main-header h1 { font-size: 2rem; margin-bottom: 0; }
+    .main-header p { color: #64748B; font-size: 0.95rem; margin-top: 0.25rem; }
     </style>
     """, unsafe_allow_html=True)
 
