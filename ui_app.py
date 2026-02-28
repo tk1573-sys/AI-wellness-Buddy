@@ -116,10 +116,6 @@ def _render_login_form():
         submitted = st.form_submit_button("Sign In")
 
     if submitted:
-        if AuthManager.is_locked_out(st.session_state.failed_attempts):
-            st.error("🔒 Account locked due to too many failed attempts.")
-            return
-
         if not username or not password:
             st.warning("Please enter both username and password.")
             return
@@ -137,7 +133,8 @@ def _render_login_form():
 
         if temp_profile.verify_password(password):
             st.session_state.failed_attempts = 0
-            # Save profile in case bcrypt migration happened
+            # Persist profile — legacy SHA-256 hashes are auto-migrated to bcrypt
+            # inside verify_password, so we always save after successful login.
             data_store.save_user_data(username, temp_profile.get_profile())
             load_profile(username)
         else:
