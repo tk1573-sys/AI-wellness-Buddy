@@ -12,6 +12,7 @@ from user_profile import UserProfile
 from data_store import DataStore
 from prediction_agent import PredictionAgent
 from voice_handler import VoiceHandler
+from auth_manager import AuthManager
 import plotly.graph_objects as go
 import config
 import os
@@ -39,6 +40,12 @@ for key, default in [
     ('voice_handler', None),
     ('last_voice_bytes', None),
     ('calm_music_enabled', False),
+    ('authenticated', False),
+    ('current_user', None),
+    ('failed_attempts', 0),
+    ('ui_theme', 'calm'),          # calm | clinical | modern
+    ('dark_mode', False),
+    ('ambient_sound', 'deep_focus'),  # deep_focus | calm_waves | soft_rain
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -58,60 +65,136 @@ def init_buddy():
 
 
 def load_profile(username):
-    """Load existing profile"""
+    """Load existing profile after successful authentication."""
     init_buddy()
     st.session_state.user_id = username
+    st.session_state.current_user = username
     st.session_state.buddy._load_existing_profile(username)
     st.session_state.profile_loaded = True
-    st.success(f"✓ Profile loaded: {username}")
+    st.session_state.authenticated = True
     st.rerun()
 
 
 # -----------------------------------------------------------------------
-# Profile setup screens
+# Profile setup screens — secure login / registration
 # -----------------------------------------------------------------------
 
 def show_profile_setup():
-    """Show profile setup interface"""
-    st.markdown(
-        '<div class="main-header"><h1>🌟 AI Wellness Buddy</h1>'
-        '<p>A safe, confidential space for emotional support</p></div>',
-        unsafe_allow_html=True
-    )
-    st.markdown("### Welcome! Let's set up your profile")
+    """Show secure login / registration interface (no public user list)."""
+    # Premium hero section with illustration panel
+    hero_col, art_col = st.columns([3, 2])
+    with hero_col:
+        st.markdown(
+            '<div class="landing-hero">'
+            '<div class="hero-logo-glow"></div>'
+            '<div class="hero-logo">🌟</div>'
+            '<h1 class="hero-title">AI Wellness Buddy</h1>'
+            '<p class="hero-tagline">A safe, confidential space for emotional support</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    with art_col:
+        # Abstract wellness SVG illustration
+        st.markdown(
+            '<div class="illustration-panel">'
+            '<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="wellness-art">'
+            '<defs>'
+            '<linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">'
+            '<stop offset="0%" style="stop-color:#5B8CFF;stop-opacity:0.3"/>'
+            '<stop offset="100%" style="stop-color:#9B8CFF;stop-opacity:0.3"/>'
+            '</linearGradient>'
+            '<linearGradient id="g2" x1="0%" y1="100%" x2="100%" y2="0%">'
+            '<stop offset="0%" style="stop-color:#4DD0E1;stop-opacity:0.25"/>'
+            '<stop offset="100%" style="stop-color:#FF8A65;stop-opacity:0.2"/>'
+            '</linearGradient>'
+            '</defs>'
+            '<circle cx="100" cy="100" r="80" fill="url(#g1)" class="art-circle-outer"/>'
+            '<circle cx="100" cy="100" r="50" fill="url(#g2)" class="art-circle-inner"/>'
+            '<circle cx="100" cy="100" r="24" fill="rgba(155,140,255,0.18)" class="art-circle-core"/>'
+            '<path d="M100 40 Q130 70 100 100 Q70 130 100 160 Q130 130 100 100 Q70 70 100 40Z" '
+            'fill="rgba(91,140,255,0.12)" class="art-leaf"/>'
+            '<circle cx="60" cy="60" r="6" fill="rgba(77,208,225,0.3)" class="art-dot art-dot-1"/>'
+            '<circle cx="140" cy="70" r="4" fill="rgba(155,140,255,0.3)" class="art-dot art-dot-2"/>'
+            '<circle cx="50" cy="140" r="5" fill="rgba(255,138,101,0.25)" class="art-dot art-dot-3"/>'
+            '<circle cx="150" cy="135" r="3" fill="rgba(91,140,255,0.3)" class="art-dot art-dot-4"/>'
+            '</svg>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
-    data_store = DataStore()
-    existing_users = data_store.list_users()
+    # Check brute-force lockout
+    if AuthManager.is_locked_out(st.session_state.failed_attempts):
+        st.error(
+            "🔒 Too many failed login attempts. Please restart the application to try again."
+        )
+        return
 
-    if existing_users:
-        st.info(f"Found {len(existing_users)} existing profile(s)")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Sign In", use_container_width=True):
+            st.session_state.show_load = True
+            st.session_state.show_create = False
+    with col2:
+        if st.button("Create Account", use_container_width=True):
+            st.session_state.show_create = True
+            st.session_state.show_load = False
 
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Load Existing Profile", use_container_width=True):
-                st.session_state.show_load = True
-                st.session_state.show_create = False
-        with col2:
-            if st.button("Create New Profile", use_container_width=True):
-                st.session_state.show_create = True
-                st.session_state.show_load = False
+    if st.session_state.get('show_load', False):
+        _render_login_form()
 
-        if st.session_state.get('show_load', False):
-            username = st.selectbox("Select your username:", existing_users)
-            if st.button("Load Profile"):
-                load_profile(username)
-
-        if st.session_state.get('show_create', False):
-            create_new_profile()
-    else:
-        st.info("No existing profiles found. Let's create one!")
+    if st.session_state.get('show_create', False):
         create_new_profile()
 
 
+def _render_login_form():
+    """Render username + password login form."""
+    with st.form("login_form"):
+        username = st.text_input("Username:")
+        password = st.text_input("Password:", type="password")
+        submitted = st.form_submit_button("Sign In")
+
+    if submitted:
+        if not username or not password:
+            st.warning("Please enter both username and password.")
+            return
+
+        data_store = DataStore()
+        if not data_store.user_exists(username):
+            st.error("Invalid username or password.")
+            st.session_state.failed_attempts += 1
+            return
+
+        # Load profile data and verify password
+        data = data_store.load_user_data(username)
+        temp_profile = UserProfile(username)
+        temp_profile.load_from_data(data)
+
+        if temp_profile.verify_password(password):
+            st.session_state.failed_attempts = 0
+            # Persist profile — legacy SHA-256 hashes are auto-migrated to bcrypt
+            # inside verify_password, so we always save after successful login.
+            data_store.save_user_data(username, temp_profile.get_profile())
+            load_profile(username)
+        else:
+            st.session_state.failed_attempts += 1
+            remaining = AuthManager.MAX_FAILED_ATTEMPTS - st.session_state.failed_attempts
+            if remaining > 0:
+                st.error(f"Invalid username or password. {remaining} attempt(s) remaining.")
+            else:
+                st.error("🔒 Too many failed attempts. Login locked for this session.")
+
+
+
 def create_new_profile():
-    """Create new profile interface"""
+    """Create new profile interface with password registration."""
     with st.form("new_profile"):
         username = st.text_input("Choose a username (private):", key="new_username")
+        password = st.text_input(
+            "Choose a password (min 8 characters):", type="password", key="new_password"
+        )
+        confirm_password = st.text_input(
+            "Confirm password:", type="password", key="confirm_password"
+        )
         gender = st.selectbox("How do you identify?",
                               ["Skip", "Female", "Male", "Other"])
 
@@ -195,10 +278,32 @@ def create_new_profile():
         submitted = st.form_submit_button("Create Profile")
 
         if submitted and username:
+            # Validate password
+            if not password or not confirm_password:
+                st.error("Please enter and confirm a password.")
+                return
+            if password != confirm_password:
+                st.error("Passwords do not match.")
+                return
+            ok, msg = AuthManager.validate_password_strength(password)
+            if not ok:
+                st.error(msg)
+                return
+
+            # Check if username already exists
+            data_store = DataStore()
+            if data_store.user_exists(username):
+                st.error("Username already taken. Please choose a different one.")
+                return
+
             init_buddy()
             st.session_state.user_id = username
+            st.session_state.current_user = username
             st.session_state.buddy.user_id = username
             st.session_state.buddy.user_profile = UserProfile(username)
+
+            # Set bcrypt password
+            st.session_state.buddy.user_profile.set_password(password)
 
             if gender != "Skip":
                 st.session_state.buddy.user_profile.set_gender(gender.lower())
@@ -229,6 +334,7 @@ def create_new_profile():
 
             st.session_state.buddy._save_profile()
             st.session_state.profile_loaded = True
+            st.session_state.authenticated = True
             st.success("✓ Profile created successfully!")
             st.rerun()
 
@@ -322,6 +428,29 @@ def render_chat_tab():
     }
     st.caption(f"Language: {_LANG_LABELS.get(lang_pref, lang_pref)}")
 
+    # Determine current dominant emotion for reactive bubble color
+    buddy = st.session_state.buddy
+    _dom_emotion = 'neutral'
+    _summary = buddy.pattern_tracker.get_pattern_summary() if buddy else None
+    if _summary:
+        _dist = _summary.get('emotion_distribution', {})
+        if _dist:
+            _dom_emotion = max(_dist, key=_dist.get)
+    # Inject emotion-reactive CSS class
+    _EMO_BUBBLE_CLASS = {
+        'joy': 'emo-joy', 'positive': 'emo-joy',
+        'neutral': 'emo-neutral',
+        'sadness': 'emo-sadness', 'negative': 'emo-sadness',
+        'anger': 'emo-anger',
+        'fear': 'emo-anxiety', 'anxiety': 'emo-anxiety',
+        'crisis': 'emo-crisis', 'distress': 'emo-crisis',
+    }
+    emo_class = _EMO_BUBBLE_CLASS.get(_dom_emotion, 'emo-neutral')
+    st.markdown(
+        f'<div class="emo-reactive-flag {emo_class}" style="display:none;"></div>',
+        unsafe_allow_html=True,
+    )
+
     # Add a welcome message when there's no chat history yet
     if not st.session_state.messages:
         user_name = st.session_state.user_id or "friend"
@@ -352,7 +481,17 @@ def render_chat_tab():
         with feedback_col:
             st.caption(f"🎤 *{voice_transcript}*")
         st.session_state.messages.append({"role": "user", "content": voice_transcript})
+        # Typing indicator (cleared after response)
+        typing_placeholder = st.empty()
+        with typing_placeholder.chat_message("assistant"):
+            st.markdown(
+                '<div class="typing-indicator">'
+                '<span></span><span></span><span></span>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
         response = st.session_state.buddy.process_message(voice_transcript)
+        typing_placeholder.empty()
         st.session_state.messages.append({"role": "assistant", "content": response})
         _play_tts(response)
         st.rerun()
@@ -379,13 +518,13 @@ def render_chat_tab():
 def render_trends_tab():
     """Render the Emotional Trends tab with Plotly charts"""
     st.subheader("📈 Emotional Trends")
-    st.caption("Real-time sentiment tracking and historical mood analysis")
+    st.caption("REAL-TIME SENTIMENT TRACKING AND HISTORICAL MOOD ANALYSIS")
 
     buddy = st.session_state.buddy
     summary = buddy.pattern_tracker.get_pattern_summary()
     history = buddy.user_profile.get_emotional_history(days=30)
 
-    # ---- Current session sentiment line (Plotly gradient) ----
+    # ---- Current session sentiment line (Plotly interactive) ----
     sentiments = list(buddy.pattern_tracker.sentiment_history)
     if sentiments:
         st.markdown("#### Current Session — Sentiment Over Messages")
@@ -397,9 +536,10 @@ def render_trends_tab():
                 mode='lines+markers',
                 name='Sentiment',
                 line=dict(color='#5B8CFF', width=3, shape='spline'),
-                marker=dict(size=7, color='#9B8CFF'),
+                marker=dict(size=7, color='#9B8CFF', line=dict(color='#fff', width=1)),
                 fill='tozeroy',
                 fillcolor='rgba(91,140,255,0.12)',
+                hovertemplate='Message %{x}<br>Sentiment: %{y:.2f}<extra></extra>',
             ))
             fig.update_layout(
                 template='plotly_white',
@@ -409,6 +549,8 @@ def render_trends_tab():
                 margin=dict(l=40, r=20, t=20, b=40),
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter'),
+                hoverlabel=dict(bgcolor='#fff', font_size=12, font_family='Inter'),
             )
             st.plotly_chart(fig, use_container_width=True)
         with col2:
@@ -434,7 +576,7 @@ def render_trends_tab():
     else:
         st.info("Start chatting to see your sentiment trend.")
 
-    # ---- Emotion distribution (Plotly colored bar chart) ----
+    # ---- Emotion distribution (Plotly donut chart) ----
     if summary:
         dist = summary.get('emotion_distribution', {})
         if dist:
@@ -456,23 +598,34 @@ def render_trends_tab():
                 for emo, cnt in zip(emotions, counts):
                     st.metric(label=emo.capitalize(), value=cnt)
             with col_b:
-                fig_bar = go.Figure(go.Bar(
-                    x=[e.capitalize() for e in emotions],
-                    y=counts,
-                    marker_color=colors,
-                    marker_line=dict(width=0),
+                fig_donut = go.Figure(go.Pie(
+                    labels=[e.capitalize() for e in emotions],
+                    values=counts,
+                    hole=0.55,
+                    marker=dict(colors=colors, line=dict(color='#ffffff', width=2)),
+                    textinfo='label+percent',
+                    textposition='outside',
+                    textfont=dict(size=12),
+                    hoverinfo='label+value+percent',
+                    pull=[0.03] * len(emotions),
                 ))
-                fig_bar.update_layout(
+                fig_donut.update_layout(
                     template='plotly_white',
-                    height=300,
-                    margin=dict(l=30, r=10, t=10, b=40),
+                    height=320,
+                    margin=dict(l=20, r=20, t=20, b=20),
                     paper_bgcolor='rgba(0,0,0,0)',
                     plot_bgcolor='rgba(0,0,0,0)',
-                    yaxis_title='Count',
+                    showlegend=False,
+                    annotations=[dict(
+                        text='Emotions',
+                        x=0.5, y=0.5,
+                        font=dict(size=14, color='#64748B'),
+                        showarrow=False,
+                    )],
                 )
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_donut, use_container_width=True)
 
-    # ---- Historical 30-day sentiment (Plotly) ----
+    # ---- Historical 30-day sentiment (Plotly interactive timeline) ----
     if history:
         st.markdown("#### Last 30 Days — Average Mood per Session")
         hist_data = []
@@ -487,25 +640,46 @@ def render_trends_tab():
             fig_hist.add_trace(go.Scatter(
                 y=hist_data,
                 mode='lines+markers',
+                name='Mood',
                 line=dict(color='#9B8CFF', width=3, shape='spline'),
-                marker=dict(size=6, color='#5B8CFF'),
+                marker=dict(size=6, color='#5B8CFF', line=dict(color='#fff', width=1)),
                 fill='tozeroy',
                 fillcolor='rgba(155,140,255,0.10)',
+                hovertemplate='Session %{x}<br>Avg Mood: %{y:.2f}<extra></extra>',
             ))
+
+            # Prediction & forecast overlay
+            predictor = PredictionAgent()
+            forecast = predictor.predict_next_sentiment(hist_data)
+            if forecast:
+                # Add forecast point as dashed extension
+                pred_val = forecast['predicted_value']
+                fig_hist.add_trace(go.Scatter(
+                    x=[len(hist_data) - 1, len(hist_data)],
+                    y=[hist_data[-1], pred_val],
+                    mode='lines+markers',
+                    name='Forecast',
+                    line=dict(color='#FF8A65', width=2, dash='dash'),
+                    marker=dict(size=8, color='#FF8A65', symbol='diamond',
+                                line=dict(color='#fff', width=1)),
+                    hovertemplate='Forecast<br>Predicted: %{y:.2f}<extra></extra>',
+                ))
+
             fig_hist.update_layout(
                 template='plotly_white',
                 xaxis_title='Session',
                 yaxis_title='Avg Mood',
-                height=300,
+                height=320,
                 margin=dict(l=40, r=20, t=20, b=40),
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter'),
+                hoverlabel=dict(bgcolor='#fff', font_size=12, font_family='Inter'),
+                showlegend=True,
+                legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
             )
             st.plotly_chart(fig_hist, use_container_width=True)
 
-            # Prediction
-            predictor = PredictionAgent()
-            forecast = predictor.predict_next_sentiment(hist_data)
             if forecast:
                 st.info(
                     f"📡 **Next-session forecast** ({forecast['confidence']} confidence): "
@@ -540,11 +714,14 @@ _RISK_COLOUR = {
 # Numeric representation of risk levels for charting
 _RISK_LEVEL_VALUES = {'low': 0.10, 'medium': 0.35, 'high': 0.65, 'critical': 0.90}
 
+# Display labels for ambient soundscapes
+_SOUND_LABELS = {'deep_focus': 'Deep Focus', 'calm_waves': 'Calm Waves', 'soft_rain': 'Soft Rain'}
+
 
 def render_risk_tab():
     """Render the Risk Dashboard tab with Plotly gauge"""
     st.subheader("⚠️ Risk Dashboard")
-    st.caption("Composite risk scoring, crisis detection, and escalation forecast")
+    st.caption("COMPOSITE RISK SCORING, CRISIS DETECTION, AND ESCALATION FORECAST")
 
     buddy = st.session_state.buddy
     summary = buddy.pattern_tracker.get_pattern_summary()
@@ -559,38 +736,50 @@ def render_risk_tab():
 
     st.markdown(f"### Current Risk Level: {icon} {risk_level.upper()}")
 
-    # Plotly gauge-style risk indicator
+    # Plotly semi-circular animated risk dial
     _GAUGE_COLORS = {
         'low': '#5B8CFF',
         'medium': '#FFB74D',
         'high': '#EF5350',
         'critical': '#D32F2F',
     }
+    bar_color = _GAUGE_COLORS.get(risk_level, '#5B8CFF')
     fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
+        mode="gauge+number+delta",
         value=risk_score,
-        number={'suffix': ' / 1.00', 'font': {'size': 28}},
+        title={'text': '<b>Risk Score</b>', 'font': {'size': 18, 'color': '#64748B', 'family': 'Inter'}},
+        number={'suffix': ' / 1.00', 'font': {'size': 32, 'color': '#334155', 'family': 'Inter'}},
+        delta={'reference': 0.25, 'increasing': {'color': '#EF5350'}, 'decreasing': {'color': '#5B8CFF'}},
         gauge={
-            'axis': {'range': [0, 1], 'tickwidth': 1},
-            'bar': {'color': _GAUGE_COLORS.get(risk_level, '#5B8CFF')},
+            'axis': {
+                'range': [0, 1],
+                'tickwidth': 1,
+                'tickcolor': '#94a3b8',
+                'tickvals': [0, 0.25, 0.5, 0.75, 1.0],
+                'ticktext': ['Safe', 'Low', 'Med', 'High', 'Crit'],
+                'tickfont': {'size': 10, 'color': '#94a3b8'},
+            },
+            'bar': {'color': bar_color, 'thickness': 0.82},
             'bgcolor': 'rgba(0,0,0,0)',
+            'borderwidth': 0,
             'steps': [
-                {'range': [0, 0.25], 'color': 'rgba(91,140,255,0.15)'},
-                {'range': [0.25, 0.50], 'color': 'rgba(255,183,77,0.15)'},
-                {'range': [0.50, 0.75], 'color': 'rgba(239,83,80,0.15)'},
-                {'range': [0.75, 1.0], 'color': 'rgba(211,47,47,0.20)'},
+                {'range': [0, 0.25], 'color': 'rgba(91,140,255,0.10)'},
+                {'range': [0.25, 0.50], 'color': 'rgba(255,183,77,0.10)'},
+                {'range': [0.50, 0.75], 'color': 'rgba(239,83,80,0.10)'},
+                {'range': [0.75, 1.0], 'color': 'rgba(211,47,47,0.12)'},
             ],
             'threshold': {
                 'line': {'color': '#D32F2F', 'width': 3},
-                'thickness': 0.8,
+                'thickness': 0.85,
                 'value': risk_score,
             },
         },
     ))
     fig_gauge.update_layout(
-        height=250,
-        margin=dict(l=30, r=30, t=30, b=10),
+        height=280,
+        margin=dict(l=30, r=30, t=50, b=10),
         paper_bgcolor='rgba(0,0,0,0)',
+        font={'family': 'Inter'},
     )
     st.plotly_chart(fig_gauge, use_container_width=True)
 
@@ -623,20 +812,24 @@ def render_risk_tab():
         fig_rh.add_trace(go.Scatter(
             y=risk_hist,
             mode='lines+markers',
+            name='Risk',
             line=dict(color='#EF5350', width=2, shape='spline'),
-            marker=dict(size=6, color='#FF8A65'),
+            marker=dict(size=6, color='#FF8A65', line=dict(color='#fff', width=1)),
             fill='tozeroy',
             fillcolor='rgba(239,83,80,0.10)',
+            hovertemplate='Session %{x}<br>Risk: %{y:.2f}<extra></extra>',
         ))
         fig_rh.update_layout(
             template='plotly_white',
             xaxis_title='Session',
             yaxis_title='Risk (0=low, 1=critical)',
             yaxis=dict(range=[0, 1]),
-            height=280,
+            height=300,
             margin=dict(l=40, r=20, t=20, b=40),
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(family='Inter'),
+            hoverlabel=dict(bgcolor='#fff', font_size=12, font_family='Inter'),
         )
         st.plotly_chart(fig_rh, use_container_width=True)
 
@@ -681,7 +874,7 @@ def render_risk_tab():
 def render_weekly_report_tab():
     """Render the Weekly Report tab with Plotly charts"""
     st.subheader("📋 Weekly Wellness Report")
-    st.caption("7-day aggregated wellness summary with predictions and suggestions")
+    st.caption("7-DAY AGGREGATED WELLNESS SUMMARY WITH PREDICTIONS AND SUGGESTIONS")
 
     buddy = st.session_state.buddy
     report_text = buddy.generate_weekly_summary()
@@ -708,19 +901,23 @@ def render_weekly_report_tab():
             fig_wk.add_trace(go.Scatter(
                 y=sentiments,
                 mode='lines+markers',
+                name='Daily Mood',
                 line=dict(color='#4DD0E1', width=3, shape='spline'),
-                marker=dict(size=7, color='#5B8CFF'),
+                marker=dict(size=7, color='#5B8CFF', line=dict(color='#fff', width=1)),
                 fill='tozeroy',
                 fillcolor='rgba(77,208,225,0.12)',
+                hovertemplate='Day %{x}<br>Mood: %{y:.2f}<extra></extra>',
             ))
             fig_wk.update_layout(
                 template='plotly_white',
                 xaxis_title='Day',
                 yaxis_title='Avg Mood',
-                height=280,
+                height=300,
                 margin=dict(l=40, r=20, t=20, b=40),
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter'),
+                hoverlabel=dict(bgcolor='#fff', font_size=12, font_family='Inter'),
             )
             st.plotly_chart(fig_wk, use_container_width=True)
 
@@ -844,6 +1041,8 @@ def show_profile_menu():
                 st.session_state.buddy.data_store.delete_user_data(st.session_state.user_id)
                 st.success("Data deleted")
                 st.session_state.profile_loaded = False
+                st.session_state.authenticated = False
+                st.session_state.current_user = None
                 st.session_state.buddy = None
                 st.rerun()
 
@@ -864,14 +1063,15 @@ def show_chat_interface():
         user_id = st.session_state.user_id
         initials = (user_id[0].upper() if user_id else "?")
         st.markdown(
-            f'<div style="text-align:center;margin-bottom:0.5rem;">'
-            f'<div style="width:64px;height:64px;border-radius:50%;'
+            f'<div style="text-align:center;margin-bottom:0.75rem;">'
+            f'<div style="width:72px;height:72px;border-radius:50%;'
             f'background:linear-gradient(135deg,#5B8CFF,#9B8CFF);'
             f'display:inline-flex;align-items:center;justify-content:center;'
-            f'font-size:1.6rem;color:#fff;font-weight:700;'
-            f'box-shadow:0 4px 15px rgba(91,140,255,0.3);">{initials}</div>'
-            f'<p style="margin:0.4rem 0 0;font-weight:600;font-size:1.05rem;">'
-            f'{user_id}</p></div>',
+            f'font-size:1.8rem;color:#fff;font-weight:700;letter-spacing:0.5px;'
+            f'box-shadow:0 6px 20px rgba(91,140,255,0.35);'
+            f'border:3px solid rgba(255,255,255,0.6);">{initials}</div>'
+            f'<p style="margin:0.5rem 0 0;font-weight:600;font-size:1.1rem;'
+            f'color:#334155;">{user_id}</p></div>',
             unsafe_allow_html=True,
         )
 
@@ -883,16 +1083,18 @@ def show_chat_interface():
         if summary:
             risk_level = summary.get('risk_level', 'low')
         _BADGE_STYLE = {
-            'low':      ('🟢', '#5B8CFF', 'rgba(91,140,255,0.12)'),
-            'medium':   ('🟡', '#FFB74D', 'rgba(255,183,77,0.15)'),
-            'high':     ('🔴', '#EF5350', 'rgba(239,83,80,0.15)'),
-            'critical': ('🚨', '#D32F2F', 'rgba(211,47,47,0.20)'),
+            'low':      ('🟢', '#5B8CFF', 'rgba(91,140,255,0.10)', 'rgba(91,140,255,0.25)'),
+            'medium':   ('🟡', '#FFB74D', 'rgba(255,183,77,0.10)', 'rgba(255,183,77,0.25)'),
+            'high':     ('🔴', '#EF5350', 'rgba(239,83,80,0.10)', 'rgba(239,83,80,0.25)'),
+            'critical': ('🚨', '#D32F2F', 'rgba(211,47,47,0.12)', 'rgba(211,47,47,0.30)'),
         }
-        r_icon, r_color, r_bg = _BADGE_STYLE.get(risk_level, _BADGE_STYLE['low'])
+        r_icon, r_color, r_bg, r_shadow = _BADGE_STYLE.get(risk_level, _BADGE_STYLE['low'])
         st.markdown(
-            f'<div style="text-align:center;padding:0.5rem;border-radius:0.5rem;'
-            f'background:{r_bg};border:1px solid {r_color};margin-bottom:0.75rem;">'
-            f'<span style="font-size:1.1rem;">{r_icon} Risk: '
+            f'<div style="text-align:center;padding:0.6rem 0.75rem;border-radius:0.75rem;'
+            f'background:{r_bg};border:1px solid {r_color};margin-bottom:0.75rem;'
+            f'box-shadow:0 2px 12px {r_shadow};backdrop-filter:blur(6px);'
+            f'transition:all 0.3s ease;">'
+            f'<span style="font-size:1.15rem;font-weight:600;">{r_icon} Risk: '
             f'<strong style="color:{r_color};">{risk_level.upper()}</strong></span></div>',
             unsafe_allow_html=True,
         )
@@ -903,16 +1105,35 @@ def show_chat_interface():
             streak = st.session_state.buddy.user_profile.get_mood_streak()
             lang_pref = st.session_state.buddy.user_profile.get_language_preference()
             _LANG_ICONS = {'english': '🇬🇧', 'tamil': '🇮🇳', 'bilingual': '🇮🇳🇬🇧'}
-            st.markdown(f"📅 **Session:** #{sessions + 1}")
-            st.markdown(f"🌐 **Language:** {_LANG_ICONS.get(lang_pref, '🌐')} {lang_pref.capitalize()}")
+
+            # Session & language info in compact card
+            st.markdown(
+                f'<div style="padding:0.5rem 0.75rem;border-radius:0.6rem;'
+                f'background:rgba(255,255,255,0.55);backdrop-filter:blur(8px);'
+                f'border:1px solid rgba(255,255,255,0.3);margin-bottom:0.5rem;'
+                f'box-shadow:0 2px 8px rgba(0,0,0,0.03);">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                f'<span style="font-size:0.88rem;color:#475569;">📅 Session #{sessions + 1}</span>'
+                f'<span style="font-size:0.88rem;color:#475569;">'
+                f'{_LANG_ICONS.get(lang_pref, "🌐")} {lang_pref.capitalize()}</span>'
+                f'</div></div>',
+                unsafe_allow_html=True,
+            )
+
             # Streak card
             streak_emoji = "🔥" if streak >= 3 else "⭐" if streak >= 1 else "💤"
+            streak_label = "on fire!" if streak >= 7 else "growing!" if streak >= 3 else "building" if streak >= 1 else "start today"
             st.markdown(
-                f'<div style="text-align:center;padding:0.5rem;border-radius:0.5rem;'
-                f'background:linear-gradient(135deg,rgba(77,208,225,0.12),rgba(155,140,255,0.12));'
-                f'margin:0.5rem 0;">'
-                f'<span style="font-size:1.4rem;">{streak_emoji}</span><br>'
-                f'<strong>{streak}</strong> positive streak</div>',
+                f'<div style="text-align:center;padding:0.65rem 0.75rem;border-radius:0.75rem;'
+                f'background:linear-gradient(135deg,rgba(77,208,225,0.10),rgba(155,140,255,0.10));'
+                f'border:1px solid rgba(155,140,255,0.15);'
+                f'box-shadow:0 2px 10px rgba(77,208,225,0.08);margin:0.5rem 0 0.75rem;">'
+                f'<span style="font-size:1.6rem;">{streak_emoji}</span><br>'
+                f'<strong style="font-size:1.2rem;color:#334155;">{streak}</strong>'
+                f'<span style="font-size:0.85rem;color:#64748B;margin-left:0.25rem;">'
+                f'positive streak</span><br>'
+                f'<span style="font-size:0.75rem;color:#9B8CFF;font-style:italic;">'
+                f'{streak_label}</span></div>',
                 unsafe_allow_html=True,
             )
 
@@ -947,15 +1168,67 @@ def show_chat_interface():
         else:
             st.caption("🔇 TTS unavailable (install gTTS)")
 
-        # Background ambient music toggle
-        st.session_state.calm_music_enabled = st.toggle(
-            "🎵 Calm Background Mode",
-            value=st.session_state.get('calm_music_enabled', False),
-            help="Play a calming ambient loop. Audio starts after interaction (browser policy safe).",
+        # ---- Theme & Display ----
+        st.markdown(
+            '<p style="font-weight:600;font-size:0.95rem;color:#334155;margin-bottom:0.25rem;">'
+            '🎨 Theme & Display</p>',
+            unsafe_allow_html=True,
         )
+        st.session_state.dark_mode = st.toggle(
+            "🌙 Dark Mode",
+            value=st.session_state.get('dark_mode', False),
+            help="Switch to a calm dark theme.",
+        )
+        theme_choice = st.selectbox(
+            "Wellness Theme",
+            ["Calm Therapy", "Clinical", "Modern Startup"],
+            index=["Calm Therapy", "Clinical", "Modern Startup"].index(
+                {"calm": "Calm Therapy", "clinical": "Clinical", "modern": "Modern Startup"}.get(
+                    st.session_state.get('ui_theme', 'calm'), "Calm Therapy"
+                )
+            ),
+            key="theme_selector",
+            help="Visual theme: Calm (soft gradients), Clinical (professional), Modern (vibrant).",
+        )
+        _THEME_MAP = {"Calm Therapy": "calm", "Clinical": "clinical", "Modern Startup": "modern"}
+        st.session_state.ui_theme = _THEME_MAP.get(theme_choice, 'calm')
+
+        # ---- Ambient Sound ----
+        st.markdown(
+            '<p style="font-weight:600;font-size:0.95rem;color:#334155;margin-bottom:0.25rem;">'
+            '🎵 Ambient Sound</p>',
+            unsafe_allow_html=True,
+        )
+        st.session_state.calm_music_enabled = st.toggle(
+            "Enable Ambient",
+            value=st.session_state.get('calm_music_enabled', False),
+            help="Play calming ambient background. Starts after interaction (browser safe).",
+        )
+        if st.session_state.calm_music_enabled:
+            sound_choice = st.selectbox(
+                "Soundscape",
+                ["Deep Focus", "Calm Waves", "Soft Rain"],
+                index=["deep_focus", "calm_waves", "soft_rain"].index(
+                    st.session_state.get('ambient_sound', 'deep_focus')
+                ),
+                key="ambient_selector",
+            )
+            _SOUND_MAP = {"Deep Focus": "deep_focus", "Calm Waves": "calm_waves", "Soft Rain": "soft_rain"}
+            st.session_state.ambient_sound = _SOUND_MAP.get(sound_choice, 'deep_focus')
+            vol = st.slider(
+                "🔈 Volume",
+                min_value=0, max_value=100, value=30,
+                key="calm_volume",
+                help="Adjust ambient volume (0 = mute).",
+            )
+            st.session_state['_calm_volume'] = vol / 1000.0  # 0.0 – 0.1 range
 
         st.markdown("---")
-        st.markdown("### Quick Actions")
+        st.markdown(
+            '<p style="font-weight:600;font-size:0.95rem;color:#334155;margin-bottom:0.5rem;">'
+            '⚡ Quick Actions</p>',
+            unsafe_allow_html=True,
+        )
 
         if st.button("📞 Help & Resources", use_container_width=True):
             response = st.session_state.buddy._show_resources()
@@ -974,12 +1247,54 @@ def show_chat_interface():
             response = st.session_state.buddy._end_session()
             st.session_state.messages.append({"role": "assistant", "content": response})
             st.session_state.profile_loaded = False
+            st.session_state.authenticated = False
+            st.session_state.current_user = None
             st.session_state.buddy = None
             st.rerun()
 
     # Profile menu overlay
     if st.session_state.get('show_profile_menu', False):
         show_profile_menu()
+
+    # ---- Animated header bar with risk accent + emotional state ----
+    summary = st.session_state.buddy.pattern_tracker.get_pattern_summary()
+    _risk_level_hdr = summary.get('risk_level', 'low') if summary else 'low'
+    _RISK_ACCENT = {
+        'low': '#5B8CFF', 'medium': '#FFB74D', 'high': '#EF5350', 'critical': '#D32F2F',
+    }
+    _accent = _RISK_ACCENT.get(_risk_level_hdr, '#5B8CFF')
+    # Determine dominant emotion icon for header
+    _emo_icon = '😊'
+    if summary:
+        dist = summary.get('emotion_distribution', {})
+        if dist:
+            dom_emo = max(dist, key=dist.get)
+            _EMO_ICONS = {
+                'joy': '😊', 'positive': '😊', 'neutral': '😐',
+                'sadness': '😢', 'negative': '😟', 'anger': '😠',
+                'fear': '😰', 'anxiety': '😰',
+                'crisis': '🆘', 'distress': '🆘',
+            }
+            _emo_icon = _EMO_ICONS.get(dom_emo, '😊')
+    streak = st.session_state.buddy.user_profile.get_mood_streak()
+    streak_badge = ''
+    if streak >= 7:
+        streak_badge = f'<span class="streak-badge streak-fire">🔥 {streak}</span>'
+    elif streak >= 3:
+        streak_badge = f'<span class="streak-badge streak-warm">⭐ {streak}</span>'
+    elif streak >= 1:
+        streak_badge = f'<span class="streak-badge">💫 {streak}</span>'
+
+    st.markdown(
+        f'<div class="chat-header-bar" style="border-top:3px solid {_accent};">'
+        f'<span class="header-title">🌟 AI Wellness Buddy</span>'
+        f'<span class="header-right">'
+        f'<span class="emo-state-icon">{_emo_icon}</span>'
+        f'{streak_badge}'
+        f'</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     # Main content — tabs
     tab_chat, tab_trends, tab_risk, tab_report = st.tabs([
@@ -1052,8 +1367,44 @@ def main():
         }
         """
 
+    # ---- Dark mode & theme variables ----
+    _dark = st.session_state.get('dark_mode', False)
+    _theme = st.session_state.get('ui_theme', 'calm')
+
+    if _dark:
+        bg_gradient = 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #1a1a2e 50%, #0f172a 75%, #1e1b4b 100%)'
+        card_bg = 'rgba(30,27,75,0.60)'
+        card_border = 'rgba(91,140,255,0.15)'
+        text_primary = '#e2e8f0'
+        text_secondary = '#94a3b8'
+        text_heading = '#f1f5f9'
+        sidebar_bg = 'linear-gradient(180deg, rgba(15,23,42,0.95) 0%, rgba(30,27,75,0.95) 100%)'
+        form_bg = 'rgba(30,27,75,0.65)'
+        input_bg = 'rgba(30,27,75,0.80)'
+        particle_color = 'rgba(91,140,255,0.06)'
+    else:
+        # Light mode theme variants
+        _THEME_BG = {
+            'calm':     'linear-gradient(135deg, #f0f4ff 0%, #f5f0ff 25%, #fff5f0 50%, #f0fffe 75%, #f0f4ff 100%)',
+            'clinical': 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #f8fafc 100%)',
+            'modern':   'linear-gradient(135deg, #ede9fe 0%, #e0f2fe 25%, #fce7f3 50%, #e0f2fe 75%, #ede9fe 100%)',
+        }
+        bg_gradient = _THEME_BG.get(_theme, _THEME_BG['calm'])
+        card_bg = 'rgba(255,255,255,0.65)'
+        card_border = 'rgba(255,255,255,0.35)'
+        text_primary = '#475569'
+        text_secondary = '#64748B'
+        text_heading = '#1e293b'
+        sidebar_bg = 'linear-gradient(180deg, rgba(91,140,255,0.05) 0%, rgba(155,140,255,0.05) 50%, rgba(77,208,225,0.03) 100%)'
+        form_bg = 'rgba(255,255,255,0.60)'
+        input_bg = 'rgba(255,255,255,0.75)'
+        particle_color = 'rgba(91,140,255,0.04)'
+
     st.markdown(f"""
     <style>
+    /* ---- Google Font ---- */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
     /* ---- Animated gradient background ---- */
     @keyframes gradientBG {{
         0%   {{ background-position: 0% 50%; }}
@@ -1061,53 +1412,151 @@ def main():
         100% {{ background-position: 0% 50%; }}
     }}
     .stApp {{
-        background: linear-gradient(135deg, #f0f4ff 0%, #f5f0ff 25%, #fff5f0 50%, #f0fffe 75%, #f0f4ff 100%);
+        background: {bg_gradient};
         background-size: 400% 400%;
         animation: gradientBG 20s ease infinite;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }}
 
-    /* ---- Glassmorphism chat cards ---- */
-    .stChatMessage {{
-        padding: 1rem 1.25rem;
-        border-radius: 1rem;
-        background: rgba(255,255,255,0.65);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255,255,255,0.35);
-        box-shadow: 0 4px 20px {glow_color};
-        margin-bottom: 0.75rem;
-        animation: fadeInUp 0.4s ease-out;
+    /* ---- Floating particles (pure CSS) ---- */
+    .stApp::before {{
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        pointer-events: none;
+        z-index: 0;
+        background-image:
+            radial-gradient(2px 2px at 20% 30%, {particle_color}, transparent),
+            radial-gradient(2px 2px at 40% 70%, {particle_color}, transparent),
+            radial-gradient(2px 2px at 60% 40%, {particle_color}, transparent),
+            radial-gradient(2px 2px at 80% 60%, {particle_color}, transparent),
+            radial-gradient(3px 3px at 10% 80%, {particle_color}, transparent),
+            radial-gradient(3px 3px at 70% 20%, {particle_color}, transparent),
+            radial-gradient(2px 2px at 50% 50%, {particle_color}, transparent),
+            radial-gradient(2px 2px at 90% 90%, {particle_color}, transparent);
+        background-size: 200% 200%;
+        animation: particleDrift 30s linear infinite;
     }}
-    @keyframes fadeInUp {{
-        from {{ opacity: 0; transform: translateY(12px); }}
-        to   {{ opacity: 1; transform: translateY(0); }}
+    @keyframes particleDrift {{
+        0%   {{ background-position: 0% 0%; }}
+        50%  {{ background-position: 100% 100%; }}
+        100% {{ background-position: 0% 0%; }}
+    }}
+
+    /* ---- Premium typography hierarchy ---- */
+    h1, h2, h3 {{ color: {text_heading}; letter-spacing: -0.02em; font-weight: 700; }}
+    h4 {{ color: {'#cbd5e1' if _dark else '#334155'}; font-weight: 600; letter-spacing: -0.01em; }}
+    p, li, span {{ color: {text_primary}; }}
+    .stCaption, caption {{ color: {text_secondary}; letter-spacing: 0.02em; text-transform: uppercase; font-size: 0.72rem; }}
+
+    /* ---- Glassmorphism chat cards — depth layered ---- */
+    .stChatMessage {{
+        padding: 1.1rem 1.3rem;
+        border-radius: 1rem;
+        background: {card_bg};
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid {card_border};
+        box-shadow: 0 4px 24px {glow_color}, inset 0 1px 0 rgba(255,255,255,0.08);
+        margin-bottom: 0.8rem;
+        animation: fadeSlideIn 0.45s cubic-bezier(0.22,1,0.36,1);
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+        position: relative;
+        z-index: 1;
+    }}
+    .stChatMessage:hover {{
+        transform: translateY(-1px);
+        box-shadow: 0 8px 32px {glow_color};
+    }}
+    @keyframes fadeSlideIn {{
+        from {{ opacity: 0; transform: translateY(16px) scale(0.98); }}
+        to   {{ opacity: 1; transform: translateY(0) scale(1); }}
+    }}
+
+    /* ---- User vs assistant message distinction ---- */
+    .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {{
+        border-left: 3px solid #5B8CFF;
+    }}
+    .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+        border-left: 3px solid #9B8CFF;
+    }}
+
+    /* ---- Typing indicator animation ---- */
+    .typing-indicator {{
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 0;
+    }}
+    .typing-indicator span {{
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #9B8CFF;
+        animation: typingBounce 1.2s ease-in-out infinite;
+        box-shadow: 0 0 6px rgba(155,140,255,0.4);
+    }}
+    .typing-indicator span:nth-child(2) {{ animation-delay: 0.15s; }}
+    .typing-indicator span:nth-child(3) {{ animation-delay: 0.3s; }}
+    @keyframes typingBounce {{
+        0%, 60%, 100% {{ transform: translateY(0); opacity: 0.4; }}
+        30% {{ transform: translateY(-8px); opacity: 1; }}
+    }}
+
+    /* ---- AI responding glow ---- */
+    @keyframes assistantGlow {{
+        0%, 100% {{ box-shadow: 0 0 12px rgba(155,140,255,0.15); }}
+        50% {{ box-shadow: 0 0 24px rgba(155,140,255,0.30); }}
+    }}
+    .typing-indicator {{
+        animation: assistantGlow 2s ease-in-out infinite;
+        border-radius: 1rem;
+        padding: 8px 12px;
     }}
 
     /* ---- Premium chat input bar ---- */
     [data-testid="stChatInput"] {{
-        background: rgba(255,255,255,0.70) !important;
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        background: {input_bg} !important;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         border-radius: 1.25rem !important;
         border: 1px solid rgba(91,140,255,0.18) !important;
-        box-shadow: 0 4px 24px rgba(91,140,255,0.08);
+        box-shadow: 0 4px 28px rgba(91,140,255,0.10);
         transition: box-shadow 0.3s ease, border-color 0.3s ease;
     }}
     [data-testid="stChatInput"]:focus-within {{
         border-color: #5B8CFF !important;
-        box-shadow: 0 4px 28px rgba(91,140,255,0.16);
+        box-shadow: 0 4px 32px rgba(91,140,255,0.20);
     }}
     [data-testid="stChatInput"] textarea {{
         font-size: 0.98rem;
+        color: {text_primary};
+    }}
+    /* Send button ripple glow */
+    [data-testid="stChatInput"] button {{
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border-radius: 50%;
+    }}
+    [data-testid="stChatInput"] button:hover {{
+        transform: scale(1.12);
+        box-shadow: 0 0 16px rgba(91,140,255,0.4);
+    }}
+    [data-testid="stChatInput"] button:active {{
+        transform: scale(0.95);
+        box-shadow: 0 0 24px rgba(91,140,255,0.5);
     }}
 
     /* ---- Sidebar polish ---- */
     section[data-testid="stSidebar"] > div:first-child {{
         padding-top: 1.5rem;
-        background: linear-gradient(180deg, rgba(91,140,255,0.06), rgba(155,140,255,0.06));
+        background: {sidebar_bg};
+    }}
+    section[data-testid="stSidebar"] .stMarkdown p {{
+        font-size: 0.9rem;
+        color: {text_primary};
     }}
 
-    /* ---- Tab labels with transition ---- */
+    /* ---- Tab labels with slide transition ---- */
     .stTabs [data-baseweb="tab-list"] {{
         gap: 0.25rem;
     }}
@@ -1115,39 +1564,65 @@ def main():
         font-weight: 600;
         font-size: 0.95rem;
         border-radius: 0.5rem 0.5rem 0 0;
-        transition: color 0.3s ease, background 0.3s ease;
+        padding: 0.6rem 1rem;
+        transition: color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+        letter-spacing: 0.01em;
     }}
     .stTabs [data-baseweb="tab"]:hover {{
         color: #5B8CFF;
         background: rgba(91,140,255,0.06);
+        box-shadow: 0 -2px 10px rgba(91,140,255,0.10);
+        transform: translateY(-1px);
+    }}
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {{
+        box-shadow: 0 -2px 14px rgba(91,140,255,0.14);
+    }}
+    /* Tab content slide */
+    .stTabs [data-baseweb="tab-panel"] {{
+        animation: tabSlideIn 0.35s ease-out;
+    }}
+    @keyframes tabSlideIn {{
+        from {{ opacity: 0; transform: translateX(12px); }}
+        to   {{ opacity: 1; transform: translateX(0); }}
     }}
 
-    /* ---- Metric cards — glassmorphism ---- */
+    /* ---- Metric cards — glassmorphism with hover tilt ---- */
     [data-testid="stMetric"] {{
-        background: rgba(255,255,255,0.70);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
+        background: {card_bg};
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border-radius: 0.75rem;
-        padding: 0.75rem;
-        border: 1px solid rgba(255,255,255,0.3);
-        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-        transition: transform 0.25s ease, box-shadow 0.25s ease;
+        padding: 0.8rem;
+        border: 1px solid {card_border};
+        box-shadow: 0 2px 16px rgba(0,0,0,0.04);
+        transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s ease;
     }}
     [data-testid="stMetric"]:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(91,140,255,0.12);
+        transform: translateY(-3px) perspective(600px) rotateX(1deg);
+        box-shadow: 0 8px 28px rgba(91,140,255,0.14);
     }}
 
     /* ---- Button hover glow ---- */
     .stButton > button {{
         border-radius: 0.5rem;
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
         border: 1px solid rgba(91,140,255,0.2);
+        font-weight: 500;
+        letter-spacing: 0.01em;
     }}
     .stButton > button:hover {{
-        box-shadow: 0 0 16px rgba(91,140,255,0.25);
+        box-shadow: 0 0 20px rgba(91,140,255,0.28);
         border-color: #5B8CFF;
-        transform: translateY(-1px);
+        transform: translateY(-2px);
+    }}
+    .stButton > button:active {{
+        transform: translateY(0);
+        box-shadow: 0 0 8px rgba(91,140,255,0.15);
+    }}
+
+    /* ---- Toggle styling ---- */
+    [data-testid="stToggle"] label {{
+        font-weight: 500;
     }}
 
     /* ---- Expander styling ---- */
@@ -1158,18 +1633,24 @@ def main():
     /* ---- Header area ---- */
     .main-header {{
         text-align: center;
-        padding: 1.5rem 0 1rem 0;
-        color: #5B8CFF;
+        padding: 2rem 0 1.25rem 0;
     }}
     .main-header h1 {{
-        font-size: 2.2rem;
+        font-size: 2.6rem;
         margin-bottom: 0;
-        background: linear-gradient(135deg, #5B8CFF, #9B8CFF);
+        background: linear-gradient(135deg, #5B8CFF, #9B8CFF, #FF8A65);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
+        font-weight: 800;
+        letter-spacing: -0.03em;
     }}
-    .main-header p {{ color: #64748B; font-size: 0.95rem; margin-top: 0.25rem; }}
+    .main-header p {{
+        color: {text_secondary};
+        font-size: 0.95rem;
+        margin-top: 0.25rem;
+        letter-spacing: 0.02em;
+    }}
 
     /* ---- Risk-level atmospheric border ---- */
     .main .block-container {{
@@ -1181,50 +1662,483 @@ def main():
     {critical_bar_css}
 
     /* ---- Smooth card hover elevation ---- */
-    .stExpander, [data-testid="stVerticalBlock"] > div {{
-        transition: box-shadow 0.3s ease;
+    .stExpander {{
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+        border-radius: 0.75rem;
+    }}
+    .stExpander:hover {{
+        box-shadow: 0 4px 20px rgba(91,140,255,0.10);
+        transform: translateY(-2px);
     }}
 
     /* ---- Profile setup form glassmorphism ---- */
     [data-testid="stForm"] {{
-        background: rgba(255,255,255,0.60);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        background: {form_bg};
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         border-radius: 1rem;
-        border: 1px solid rgba(255,255,255,0.30);
+        border: 1px solid {card_border};
         padding: 1.5rem;
-        box-shadow: 0 4px 24px rgba(91,140,255,0.08);
+        box-shadow: 0 4px 28px rgba(91,140,255,0.10);
+    }}
+
+    /* ---- Slider styling ---- */
+    [data-testid="stSlider"] {{
+        padding-top: 0;
+    }}
+
+    /* ---- Plotly chart containers with shimmer loading ---- */
+    [data-testid="stPlotlyChart"] {{
+        border-radius: 0.75rem;
+        overflow: hidden;
+        animation: shimmerIn 0.6s ease-out;
+    }}
+    @keyframes shimmerIn {{
+        from {{ opacity: 0.3; }}
+        to   {{ opacity: 1; }}
+    }}
+
+    /* ---- Selectbox & form inputs ---- */
+    [data-testid="stSelectbox"] label, [data-testid="stTextInput"] label {{
+        font-weight: 500;
+        font-size: 0.88rem;
+        letter-spacing: 0.01em;
+    }}
+
+    /* =============================================
+       LANDING SCREEN — Hero & Illustration
+       ============================================= */
+
+    /* Hero section */
+    .landing-hero {{
+        text-align: center;
+        padding: 2.5rem 0 1.5rem;
+        animation: heroFadeIn 0.8s ease-out;
+    }}
+    @keyframes heroFadeIn {{
+        from {{ opacity: 0; transform: translateY(20px); }}
+        to   {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    /* Floating logo with radial glow */
+    .hero-logo {{
+        font-size: 4.5rem;
+        display: inline-block;
+        animation: logoFloat 4s ease-in-out infinite;
+        position: relative;
+        z-index: 2;
+        filter: drop-shadow(0 4px 20px rgba(91,140,255,0.3));
+    }}
+    @keyframes logoFloat {{
+        0%, 100% {{ transform: translateY(0); }}
+        50% {{ transform: translateY(-10px); }}
+    }}
+    .hero-logo-glow {{
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(91,140,255,0.25) 0%, rgba(155,140,255,0.12) 50%, transparent 70%);
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        top: 1.5rem;
+        z-index: 1;
+        animation: breatheGlow 3s ease-in-out infinite;
+    }}
+    @keyframes breatheGlow {{
+        0%, 100% {{ transform: translateX(-50%) scale(1); opacity: 0.6; }}
+        50% {{ transform: translateX(-50%) scale(1.15); opacity: 1; }}
+    }}
+
+    /* Hero title and tagline */
+    .hero-title {{
+        font-size: 2.8rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #5B8CFF, #9B8CFF, #FF8A65);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: -0.03em;
+        margin: 0.25rem 0 0;
+    }}
+    .hero-tagline {{
+        color: {text_secondary};
+        font-size: 1rem;
+        letter-spacing: 0.03em;
+        animation: taglineFade 1.2s ease-out 0.4s both;
+    }}
+    @keyframes taglineFade {{
+        from {{ opacity: 0; transform: translateY(8px); }}
+        to   {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    /* Illustration panel */
+    .illustration-panel {{
+        text-align: center;
+        padding: 2rem 0;
+        animation: heroFadeIn 1s ease-out 0.3s both;
+    }}
+    .wellness-art {{
+        width: 80%;
+        max-width: 220px;
+        height: auto;
+        filter: drop-shadow(0 8px 32px rgba(91,140,255,0.15));
+    }}
+    .art-circle-outer {{
+        animation: artPulse 6s ease-in-out infinite;
+        transform-origin: center;
+    }}
+    .art-circle-inner {{
+        animation: artPulse 6s ease-in-out infinite 1s;
+        transform-origin: center;
+    }}
+    .art-circle-core {{
+        animation: artPulse 4s ease-in-out infinite 0.5s;
+        transform-origin: center;
+    }}
+    @keyframes artPulse {{
+        0%, 100% {{ opacity: 0.7; }}
+        50% {{ opacity: 1; }}
+    }}
+    .art-leaf {{
+        animation: leafSway 8s ease-in-out infinite;
+        transform-origin: 100px 100px;
+    }}
+    @keyframes leafSway {{
+        0%, 100% {{ transform: rotate(0deg); }}
+        50% {{ transform: rotate(6deg); }}
+    }}
+    .art-dot {{
+        animation: dotDrift 5s ease-in-out infinite;
+    }}
+    .art-dot-1 {{ animation-delay: 0s; }}
+    .art-dot-2 {{ animation-delay: 1.2s; }}
+    .art-dot-3 {{ animation-delay: 2.4s; }}
+    .art-dot-4 {{ animation-delay: 3.6s; }}
+    @keyframes dotDrift {{
+        0%, 100% {{ transform: translate(0, 0); opacity: 0.5; }}
+        50% {{ transform: translate(4px, -4px); opacity: 1; }}
+    }}
+
+    /* =============================================
+       ANIMATED HEADER BAR (chat interface)
+       ============================================= */
+
+    .chat-header-bar {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.65rem 1.25rem;
+        border-radius: 0.75rem;
+        background: {card_bg};
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid {card_border};
+        margin-bottom: 0.75rem;
+        animation: headerShimmer 3s ease-in-out infinite, fadeSlideIn 0.5s ease-out;
+        box-shadow: 0 2px 16px rgba(91,140,255,0.08);
+        position: relative;
+        overflow: hidden;
+    }}
+    .chat-header-bar::after {{
+        content: '';
+        position: absolute;
+        top: 0; left: -100%;
+        width: 50%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+        animation: shimmerSlide 4s ease-in-out infinite;
+    }}
+    @keyframes shimmerSlide {{
+        0% {{ left: -100%; }}
+        100% {{ left: 200%; }}
+    }}
+    .header-title {{
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: {text_heading};
+        letter-spacing: -0.01em;
+    }}
+    .header-right {{
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }}
+    .emo-state-icon {{
+        font-size: 1.4rem;
+        animation: emoIconBounce 3s ease-in-out infinite;
+    }}
+    @keyframes emoIconBounce {{
+        0%, 100% {{ transform: scale(1); }}
+        50% {{ transform: scale(1.1); }}
+    }}
+
+    /* Streak badge */
+    .streak-badge {{
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 0.2rem 0.5rem;
+        border-radius: 1rem;
+        background: rgba(155,140,255,0.12);
+        color: #9B8CFF;
+        animation: badgePop 0.5s cubic-bezier(0.22,1,0.36,1);
+    }}
+    .streak-badge.streak-fire {{
+        background: rgba(239,83,80,0.12);
+        color: #EF5350;
+        animation: badgePop 0.5s cubic-bezier(0.22,1,0.36,1), badgeGlow 2s ease-in-out infinite;
+    }}
+    .streak-badge.streak-warm {{
+        background: rgba(255,183,77,0.12);
+        color: #FFB74D;
+    }}
+    @keyframes badgePop {{
+        from {{ transform: scale(0.5); opacity: 0; }}
+        to   {{ transform: scale(1); opacity: 1; }}
+    }}
+    @keyframes badgeGlow {{
+        0%, 100% {{ box-shadow: 0 0 4px rgba(239,83,80,0.2); }}
+        50% {{ box-shadow: 0 0 12px rgba(239,83,80,0.4); }}
+    }}
+
+    /* =============================================
+       EMOTION-REACTIVE ASSISTANT BUBBLES
+       ============================================= */
+
+    /* Base emotion classes — applied via JS/class matching */
+    .emo-joy ~ div .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+        border-left-color: #4DD0E1;
+        box-shadow: 0 4px 24px rgba(77,208,225,0.15), inset 0 1px 0 rgba(77,208,225,0.08);
+    }}
+    .emo-anxiety ~ div .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+        border-left-color: #FFB74D;
+        box-shadow: 0 4px 24px rgba(255,183,77,0.15), inset 0 1px 0 rgba(255,183,77,0.08);
+    }}
+    .emo-sadness ~ div .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+        border-left-color: #5B8CFF;
+        box-shadow: 0 4px 24px rgba(91,140,255,0.18), inset 0 1px 0 rgba(91,140,255,0.08);
+    }}
+    .emo-anger ~ div .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+        border-left-color: #EF5350;
+        box-shadow: 0 4px 24px rgba(239,83,80,0.12), inset 0 1px 0 rgba(239,83,80,0.06);
+    }}
+    .emo-crisis ~ div .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+        border-left-color: #D32F2F;
+        box-shadow: 0 4px 24px rgba(211,47,47,0.18), inset 0 1px 0 rgba(211,47,47,0.08);
+    }}
+
+    /* =============================================
+       PAGE TRANSITIONS
+       ============================================= */
+
+    .main .block-container {{
+        animation: pageTransition 0.5s ease-out;
+    }}
+    @keyframes pageTransition {{
+        from {{ opacity: 0; transform: translateY(10px); }}
+        to   {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    /* =============================================
+       CALM MODE VISUALIZATION
+       ============================================= */
+
+    /* Pulsing background when calm mode active */
+    .calm-active-bg {{
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        pointer-events: none;
+        z-index: 0;
+        background: radial-gradient(ellipse at center, rgba(91,140,255,0.04) 0%, transparent 70%);
+        animation: calmPulse 4s ease-in-out infinite;
+    }}
+    @keyframes calmPulse {{
+        0%, 100% {{ opacity: 0.4; transform: scale(1); }}
+        50% {{ opacity: 0.8; transform: scale(1.02); }}
+    }}
+
+    /* Waveform visualization */
+    .waveform-bar {{
+        display: inline-block;
+        width: 3px;
+        margin: 0 1px;
+        border-radius: 2px;
+        background: linear-gradient(to top, #5B8CFF, #9B8CFF);
+        animation: waveAnimate 1.2s ease-in-out infinite;
+        vertical-align: bottom;
+    }}
+    .waveform-bar:nth-child(1) {{ height: 12px; animation-delay: 0s; }}
+    .waveform-bar:nth-child(2) {{ height: 18px; animation-delay: 0.1s; }}
+    .waveform-bar:nth-child(3) {{ height: 24px; animation-delay: 0.2s; }}
+    .waveform-bar:nth-child(4) {{ height: 16px; animation-delay: 0.3s; }}
+    .waveform-bar:nth-child(5) {{ height: 20px; animation-delay: 0.4s; }}
+    .waveform-bar:nth-child(6) {{ height: 14px; animation-delay: 0.5s; }}
+    .waveform-bar:nth-child(7) {{ height: 22px; animation-delay: 0.6s; }}
+    .waveform-bar:nth-child(8) {{ height: 10px; animation-delay: 0.7s; }}
+    @keyframes waveAnimate {{
+        0%, 100% {{ transform: scaleY(0.5); opacity: 0.5; }}
+        50% {{ transform: scaleY(1); opacity: 1; }}
+    }}
+
+    /* Volume slider thumb glow */
+    [data-testid="stSlider"] [role="slider"] {{
+        box-shadow: 0 0 8px rgba(91,140,255,0.3);
+        transition: box-shadow 0.3s ease;
+    }}
+    [data-testid="stSlider"] [role="slider"]:hover {{
+        box-shadow: 0 0 16px rgba(91,140,255,0.5);
+    }}
+
+    /* =============================================
+       SESSION END — SUMMARY ANIMATION
+       ============================================= */
+
+    @keyframes summarySlideUp {{
+        from {{ opacity: 0; transform: translateY(30px) scale(0.95); }}
+        to   {{ opacity: 1; transform: translateY(0) scale(1); }}
+    }}
+    .session-summary-card {{
+        animation: summarySlideUp 0.6s cubic-bezier(0.22,1,0.36,1);
+        background: {card_bg};
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        border: 1px solid {card_border};
+        box-shadow: 0 8px 40px rgba(91,140,255,0.12);
+        text-align: center;
+        margin: 1rem 0;
+    }}
+
+    /* =============================================
+       BUTTON ENHANCEMENTS — Scale + Ripple
+       ============================================= */
+
+    .stButton > button {{
+        position: relative;
+        overflow: hidden;
+    }}
+    .stButton > button::after {{
+        content: '';
+        position: absolute;
+        top: 50%; left: 50%;
+        width: 0; height: 0;
+        border-radius: 50%;
+        background: rgba(91,140,255,0.15);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+    }}
+    .stButton > button:active::after {{
+        width: 200px;
+        height: 200px;
+    }}
+
+    /* =============================================
+       ANIMATED DONUT CHART TRANSITIONS
+       ============================================= */
+
+    [data-testid="stPlotlyChart"] .slice {{
+        transition: transform 0.3s ease;
+    }}
+
+    @keyframes headerShimmer {{
+        0%, 100% {{ box-shadow: 0 2px 16px rgba(91,140,255,0.08); }}
+        50% {{ box-shadow: 0 2px 24px rgba(91,140,255,0.14); }}
     }}
     </style>
     """, unsafe_allow_html=True)
 
-    # ---- Background ambient music ----
+    # ---- Background ambient sound with 3 soundscapes ----
     if st.session_state.get('calm_music_enabled', False):
-        # Royalty-free ambient audio data URI (tiny silent init + JS-driven)
+        _vol = st.session_state.get('_calm_volume', 0.03)
+        _sound = st.session_state.get('ambient_sound', 'deep_focus')
+        # Soundscape configs:
+        #   f1 = primary frequency (Hz), t1 = primary oscillator type
+        #   f2 = harmonic frequency (Hz), t2 = harmonic oscillator type
+        #   hr = harmonic volume ratio (fraction of primary)
+        _SOUNDSCAPES = {
+            'deep_focus':  {'f1': 174, 't1': 'sine', 'f2': 285, 't2': 'sine', 'hr': 0.3},
+            'calm_waves':  {'f1': 136, 't1': 'sine', 'f2': 204, 't2': 'triangle', 'hr': 0.25},
+            'soft_rain':   {'f1': 220, 't1': 'triangle', 'f2': 330, 't2': 'sine', 'hr': 0.2},
+        }
+        sc = _SOUNDSCAPES.get(_sound, _SOUNDSCAPES['deep_focus'])
+
+        # Calm mode pulsing background + waveform visualization
         st.markdown(
-            """
+            '<div class="calm-active-bg"></div>'
+            '<div style="text-align:center;margin:0.25rem 0 0.5rem;">'
+            '<div class="waveform-vis">'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '</div>'
+            f'<span style="font-size:0.72rem;color:#9B8CFF;letter-spacing:0.04em;">'
+            f'🎵 {_SOUND_LABELS.get(_sound, "Ambient")}</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
             <div id="ambient-music-container" style="display:none;">
-                <p style="font-size:0.75rem;color:#9B8CFF;">🎵 Calm mode active</p>
+                <p style="font-size:0.75rem;color:#9B8CFF;">🎵 Ambient active</p>
             </div>
             <script>
-            (function() {
-                if (window._ambientInitialized) return;
+            (function() {{
+                var vol = {_vol};
+                var f1 = {sc['f1']}, t1 = '{sc['t1']}';
+                var f2 = {sc['f2']}, t2 = '{sc['t2']}';
+                var hr = {sc['hr']};
+                var soundKey = '{_sound}';
+
+                // If same soundscape already running, just update volume
+                if (window._ambientInitialized && window._ambientSoundKey === soundKey) {{
+                    if (window._ambientGain) {{
+                        window._ambientGain.gain.setTargetAtTime(vol, window._ambientCtx.currentTime, 0.1);
+                    }}
+                    if (window._ambientGain2) {{
+                        window._ambientGain2.gain.setTargetAtTime(vol * hr, window._ambientCtx.currentTime, 0.1);
+                    }}
+                    return;
+                }}
+
+                // Stop existing if switching soundscape
+                if (window._ambientOsc) {{ try {{ window._ambientOsc.stop(); }} catch(e) {{}} }}
+                if (window._ambientOsc2) {{ try {{ window._ambientOsc2.stop(); }} catch(e) {{}} }}
+                window._ambientInitialized = false;
+
                 window._ambientInitialized = true;
-                try {
-                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    var osc = ctx.createOscillator();
-                    var gain = ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.value = 174;  // 174 Hz Solfeggio frequency for relaxation
-                    gain.gain.value = 0.03;  // Low volume — subtle background ambience
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start();
-                    window._ambientOsc = osc;
-                    window._ambientGain = gain;
+                window._ambientSoundKey = soundKey;
+                try {{
+                    var ctx = window._ambientCtx || new (window.AudioContext || window.webkitAudioContext)();
                     window._ambientCtx = ctx;
-                } catch(e) {}
-            })();
+                    var osc1 = ctx.createOscillator();
+                    osc1.type = t1;
+                    osc1.frequency.value = f1;
+                    var osc2 = ctx.createOscillator();
+                    osc2.type = t2;
+                    osc2.frequency.value = f2;
+                    var gain1 = ctx.createGain();
+                    var gain2 = ctx.createGain();
+                    gain1.gain.value = vol;
+                    gain2.gain.value = vol * hr;
+                    osc1.connect(gain1);
+                    osc2.connect(gain2);
+                    gain1.connect(ctx.destination);
+                    gain2.connect(ctx.destination);
+                    osc1.start();
+                    osc2.start();
+                    window._ambientOsc = osc1;
+                    window._ambientOsc2 = osc2;
+                    window._ambientGain = gain1;
+                    window._ambientGain2 = gain2;
+                }} catch(e) {{}}
+            }})();
             </script>
             """,
             unsafe_allow_html=True,
@@ -1238,15 +2152,20 @@ def main():
                 if (window._ambientOsc) {
                     try { window._ambientOsc.stop(); } catch(e) {}
                     window._ambientOsc = null;
-                    window._ambientInitialized = false;
                 }
+                if (window._ambientOsc2) {
+                    try { window._ambientOsc2.stop(); } catch(e) {}
+                    window._ambientOsc2 = null;
+                }
+                window._ambientInitialized = false;
+                window._ambientSoundKey = null;
             })();
             </script>
             """,
             unsafe_allow_html=True,
         )
 
-    if not st.session_state.profile_loaded:
+    if not st.session_state.profile_loaded or not st.session_state.authenticated:
         show_profile_setup()
     else:
         show_chat_interface()

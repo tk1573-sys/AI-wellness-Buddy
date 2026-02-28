@@ -6,6 +6,7 @@ from datetime import datetime
 import hashlib
 import secrets
 import config
+from auth_manager import AuthManager
 
 
 class UserProfile:
@@ -343,20 +344,15 @@ class UserProfile:
         return history
     
     def set_password(self, password):
-        """Set password for profile protection"""
-        if len(password) < config.MIN_PASSWORD_LENGTH:
-            raise ValueError(f"Password must be at least {config.MIN_PASSWORD_LENGTH} characters")
-        
-        # Generate a random salt
-        self.profile_data['salt'] = secrets.token_hex(32)
-        
-        # Hash the password with the salt using SHA-256
-        password_with_salt = password + self.profile_data['salt']
-        self.profile_data['password_hash'] = hashlib.sha256(password_with_salt.encode()).hexdigest()
+        """Set password for profile protection using bcrypt."""
+        # AuthManager.hash_password validates length and uses bcrypt
+        self.profile_data['password_hash'] = AuthManager.hash_password(password)
+        # salt is embedded in bcrypt hash; keep field for schema compat
+        self.profile_data['salt'] = None
         self.profile_data['security_enabled'] = True
     
     def verify_password(self, password):
-        """Verify password for profile access"""
+        """Verify password for profile access using bcrypt."""
         if not self.profile_data.get('security_enabled'):
             return True  # No password set, allow access
         
@@ -364,28 +360,37 @@ class UserProfile:
         if self.is_locked_out():
             return False
         
-        if not self.profile_data.get('password_hash') or not self.profile_data.get('salt'):
+        stored_hash = self.profile_data.get('password_hash')
+        if not stored_hash:
             return True  # Legacy profile without password
-        
-        # Hash the provided password with the stored salt
-        password_with_salt = password + self.profile_data['salt']
-        password_hash = hashlib.sha256(password_with_salt.encode()).hexdigest()
-        
-        # Verify the hash
-        if password_hash == self.profile_data['password_hash']:
+
+        # Try bcrypt verification first
+        if AuthManager.verify_password(password, stored_hash):
             # Successful login - reset failed attempts
             self.profile_data['failed_login_attempts'] = 0
             self.profile_data['lockout_until'] = None
             self.update_last_activity()
             return True
-        else:
-            # Failed login
-            self.profile_data['failed_login_attempts'] = self.profile_data.get('failed_login_attempts', 0) + 1
-            if self.profile_data['failed_login_attempts'] >= config.MAX_LOGIN_ATTEMPTS:
-                # Lock out the account
-                from datetime import timedelta
-                self.profile_data['lockout_until'] = datetime.now() + timedelta(minutes=config.LOCKOUT_DURATION_MINUTES)
-            return False
+
+        # Fallback: legacy SHA-256 check for pre-bcrypt profiles
+        salt = self.profile_data.get('salt')
+        if salt:
+            password_with_salt = password + salt
+            legacy_hash = hashlib.sha256(password_with_salt.encode()).hexdigest()
+            if legacy_hash == stored_hash:
+                # Migrate to bcrypt on successful legacy login
+                self.set_password(password)
+                self.profile_data['failed_login_attempts'] = 0
+                self.profile_data['lockout_until'] = None
+                self.update_last_activity()
+                return True
+
+        # Failed login
+        self.profile_data['failed_login_attempts'] = self.profile_data.get('failed_login_attempts', 0) + 1
+        if self.profile_data['failed_login_attempts'] >= config.MAX_LOGIN_ATTEMPTS:
+            from datetime import timedelta
+            self.profile_data['lockout_until'] = datetime.now() + timedelta(minutes=config.LOCKOUT_DURATION_MINUTES)
+        return False
     
     def is_locked_out(self):
         """Check if account is currently locked out"""
