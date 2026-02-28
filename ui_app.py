@@ -12,6 +12,7 @@ from user_profile import UserProfile
 from data_store import DataStore
 from prediction_agent import PredictionAgent
 from voice_handler import VoiceHandler
+from auth_manager import AuthManager
 import plotly.graph_objects as go
 import config
 import os
@@ -39,6 +40,9 @@ for key, default in [
     ('voice_handler', None),
     ('last_voice_bytes', None),
     ('calm_music_enabled', False),
+    ('authenticated', False),
+    ('current_user', None),
+    ('failed_attempts', 0),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -58,60 +62,104 @@ def init_buddy():
 
 
 def load_profile(username):
-    """Load existing profile"""
+    """Load existing profile after successful authentication."""
     init_buddy()
     st.session_state.user_id = username
+    st.session_state.current_user = username
     st.session_state.buddy._load_existing_profile(username)
     st.session_state.profile_loaded = True
-    st.success(f"✓ Profile loaded: {username}")
+    st.session_state.authenticated = True
     st.rerun()
 
 
 # -----------------------------------------------------------------------
-# Profile setup screens
+# Profile setup screens — secure login / registration
 # -----------------------------------------------------------------------
 
 def show_profile_setup():
-    """Show profile setup interface"""
+    """Show secure login / registration interface (no public user list)."""
     st.markdown(
         '<div class="main-header"><h1>🌟 AI Wellness Buddy</h1>'
         '<p>A safe, confidential space for emotional support</p></div>',
         unsafe_allow_html=True
     )
-    st.markdown("### Welcome! Let's set up your profile")
 
-    data_store = DataStore()
-    existing_users = data_store.list_users()
+    # Check brute-force lockout
+    if AuthManager.is_locked_out(st.session_state.failed_attempts):
+        st.error(
+            "🔒 Too many failed login attempts. Please restart the application to try again."
+        )
+        return
 
-    if existing_users:
-        st.info(f"Found {len(existing_users)} existing profile(s)")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Sign In", use_container_width=True):
+            st.session_state.show_load = True
+            st.session_state.show_create = False
+    with col2:
+        if st.button("Create Account", use_container_width=True):
+            st.session_state.show_create = True
+            st.session_state.show_load = False
 
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Load Existing Profile", use_container_width=True):
-                st.session_state.show_load = True
-                st.session_state.show_create = False
-        with col2:
-            if st.button("Create New Profile", use_container_width=True):
-                st.session_state.show_create = True
-                st.session_state.show_load = False
+    if st.session_state.get('show_load', False):
+        _render_login_form()
 
-        if st.session_state.get('show_load', False):
-            username = st.selectbox("Select your username:", existing_users)
-            if st.button("Load Profile"):
-                load_profile(username)
-
-        if st.session_state.get('show_create', False):
-            create_new_profile()
-    else:
-        st.info("No existing profiles found. Let's create one!")
+    if st.session_state.get('show_create', False):
         create_new_profile()
 
 
+def _render_login_form():
+    """Render username + password login form."""
+    with st.form("login_form"):
+        username = st.text_input("Username:")
+        password = st.text_input("Password:", type="password")
+        submitted = st.form_submit_button("Sign In")
+
+    if submitted:
+        if AuthManager.is_locked_out(st.session_state.failed_attempts):
+            st.error("🔒 Account locked due to too many failed attempts.")
+            return
+
+        if not username or not password:
+            st.warning("Please enter both username and password.")
+            return
+
+        data_store = DataStore()
+        if not data_store.user_exists(username):
+            st.error("Invalid username or password.")
+            st.session_state.failed_attempts += 1
+            return
+
+        # Load profile data and verify password
+        data = data_store.load_user_data(username)
+        temp_profile = UserProfile(username)
+        temp_profile.load_from_data(data)
+
+        if temp_profile.verify_password(password):
+            st.session_state.failed_attempts = 0
+            # Save profile in case bcrypt migration happened
+            data_store.save_user_data(username, temp_profile.get_profile())
+            load_profile(username)
+        else:
+            st.session_state.failed_attempts += 1
+            remaining = AuthManager.MAX_FAILED_ATTEMPTS - st.session_state.failed_attempts
+            if remaining > 0:
+                st.error(f"Invalid username or password. {remaining} attempt(s) remaining.")
+            else:
+                st.error("🔒 Too many failed attempts. Login locked for this session.")
+
+
+
 def create_new_profile():
-    """Create new profile interface"""
+    """Create new profile interface with password registration."""
     with st.form("new_profile"):
         username = st.text_input("Choose a username (private):", key="new_username")
+        password = st.text_input(
+            "Choose a password (min 8 characters):", type="password", key="new_password"
+        )
+        confirm_password = st.text_input(
+            "Confirm password:", type="password", key="confirm_password"
+        )
         gender = st.selectbox("How do you identify?",
                               ["Skip", "Female", "Male", "Other"])
 
@@ -195,10 +243,32 @@ def create_new_profile():
         submitted = st.form_submit_button("Create Profile")
 
         if submitted and username:
+            # Validate password
+            if not password or not confirm_password:
+                st.error("Please enter and confirm a password.")
+                return
+            if password != confirm_password:
+                st.error("Passwords do not match.")
+                return
+            ok, msg = AuthManager.validate_password_strength(password)
+            if not ok:
+                st.error(msg)
+                return
+
+            # Check if username already exists
+            data_store = DataStore()
+            if data_store.user_exists(username):
+                st.error("Username already taken. Please choose a different one.")
+                return
+
             init_buddy()
             st.session_state.user_id = username
+            st.session_state.current_user = username
             st.session_state.buddy.user_id = username
             st.session_state.buddy.user_profile = UserProfile(username)
+
+            # Set bcrypt password
+            st.session_state.buddy.user_profile.set_password(password)
 
             if gender != "Skip":
                 st.session_state.buddy.user_profile.set_gender(gender.lower())
@@ -229,6 +299,7 @@ def create_new_profile():
 
             st.session_state.buddy._save_profile()
             st.session_state.profile_loaded = True
+            st.session_state.authenticated = True
             st.success("✓ Profile created successfully!")
             st.rerun()
 
@@ -844,6 +915,8 @@ def show_profile_menu():
                 st.session_state.buddy.data_store.delete_user_data(st.session_state.user_id)
                 st.success("Data deleted")
                 st.session_state.profile_loaded = False
+                st.session_state.authenticated = False
+                st.session_state.current_user = None
                 st.session_state.buddy = None
                 st.rerun()
 
@@ -974,6 +1047,8 @@ def show_chat_interface():
             response = st.session_state.buddy._end_session()
             st.session_state.messages.append({"role": "assistant", "content": response})
             st.session_state.profile_loaded = False
+            st.session_state.authenticated = False
+            st.session_state.current_user = None
             st.session_state.buddy = None
             st.rerun()
 
@@ -1246,7 +1321,7 @@ def main():
             unsafe_allow_html=True,
         )
 
-    if not st.session_state.profile_loaded:
+    if not st.session_state.profile_loaded or not st.session_state.authenticated:
         show_profile_setup()
     else:
         show_chat_interface()
