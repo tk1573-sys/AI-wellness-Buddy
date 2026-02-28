@@ -1610,7 +1610,10 @@ def main():
     if st.session_state.get('calm_music_enabled', False):
         _vol = st.session_state.get('_calm_volume', 0.03)
         _sound = st.session_state.get('ambient_sound', 'deep_focus')
-        # Soundscape configs: { primary_freq, primary_type, harmonic_freq, harmonic_type, harmonic_ratio }
+        # Soundscape configs:
+        #   f1 = primary frequency (Hz), t1 = primary oscillator type
+        #   f2 = harmonic frequency (Hz), t2 = harmonic oscillator type
+        #   hr = harmonic volume ratio (fraction of primary)
         _SOUNDSCAPES = {
             'deep_focus':  {'f1': 174, 't1': 'sine', 'f2': 285, 't2': 'sine', 'hr': 0.3},
             'calm_waves':  {'f1': 136, 't1': 'sine', 'f2': 204, 't2': 'triangle', 'hr': 0.25},
