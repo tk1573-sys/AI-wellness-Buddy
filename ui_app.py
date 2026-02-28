@@ -81,11 +81,46 @@ def load_profile(username):
 
 def show_profile_setup():
     """Show secure login / registration interface (no public user list)."""
-    st.markdown(
-        '<div class="main-header"><h1>🌟 AI Wellness Buddy</h1>'
-        '<p>A safe, confidential space for emotional support</p></div>',
-        unsafe_allow_html=True
-    )
+    # Premium hero section with illustration panel
+    hero_col, art_col = st.columns([3, 2])
+    with hero_col:
+        st.markdown(
+            '<div class="landing-hero">'
+            '<div class="hero-logo-glow"></div>'
+            '<div class="hero-logo">🌟</div>'
+            '<h1 class="hero-title">AI Wellness Buddy</h1>'
+            '<p class="hero-tagline">A safe, confidential space for emotional support</p>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    with art_col:
+        # Abstract wellness SVG illustration
+        st.markdown(
+            '<div class="illustration-panel">'
+            '<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="wellness-art">'
+            '<defs>'
+            '<linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">'
+            '<stop offset="0%" style="stop-color:#5B8CFF;stop-opacity:0.3"/>'
+            '<stop offset="100%" style="stop-color:#9B8CFF;stop-opacity:0.3"/>'
+            '</linearGradient>'
+            '<linearGradient id="g2" x1="0%" y1="100%" x2="100%" y2="0%">'
+            '<stop offset="0%" style="stop-color:#4DD0E1;stop-opacity:0.25"/>'
+            '<stop offset="100%" style="stop-color:#FF8A65;stop-opacity:0.2"/>'
+            '</linearGradient>'
+            '</defs>'
+            '<circle cx="100" cy="100" r="80" fill="url(#g1)" class="art-circle-outer"/>'
+            '<circle cx="100" cy="100" r="50" fill="url(#g2)" class="art-circle-inner"/>'
+            '<circle cx="100" cy="100" r="24" fill="rgba(155,140,255,0.18)" class="art-circle-core"/>'
+            '<path d="M100 40 Q130 70 100 100 Q70 130 100 160 Q130 130 100 100 Q70 70 100 40Z" '
+            'fill="rgba(91,140,255,0.12)" class="art-leaf"/>'
+            '<circle cx="60" cy="60" r="6" fill="rgba(77,208,225,0.3)" class="art-dot art-dot-1"/>'
+            '<circle cx="140" cy="70" r="4" fill="rgba(155,140,255,0.3)" class="art-dot art-dot-2"/>'
+            '<circle cx="50" cy="140" r="5" fill="rgba(255,138,101,0.25)" class="art-dot art-dot-3"/>'
+            '<circle cx="150" cy="135" r="3" fill="rgba(91,140,255,0.3)" class="art-dot art-dot-4"/>'
+            '</svg>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
     # Check brute-force lockout
     if AuthManager.is_locked_out(st.session_state.failed_attempts):
@@ -392,6 +427,29 @@ def render_chat_tab():
         'bilingual': '🇮🇳🇬🇧 Bilingual',
     }
     st.caption(f"Language: {_LANG_LABELS.get(lang_pref, lang_pref)}")
+
+    # Determine current dominant emotion for reactive bubble color
+    buddy = st.session_state.buddy
+    _dom_emotion = 'neutral'
+    _summary = buddy.pattern_tracker.get_pattern_summary() if buddy else None
+    if _summary:
+        _dist = _summary.get('emotion_distribution', {})
+        if _dist:
+            _dom_emotion = max(_dist, key=_dist.get)
+    # Inject emotion-reactive CSS class
+    _EMO_BUBBLE_CLASS = {
+        'joy': 'emo-joy', 'positive': 'emo-joy',
+        'neutral': 'emo-neutral',
+        'sadness': 'emo-sadness', 'negative': 'emo-sadness',
+        'anger': 'emo-anger',
+        'fear': 'emo-anxiety', 'anxiety': 'emo-anxiety',
+        'crisis': 'emo-crisis', 'distress': 'emo-crisis',
+    }
+    emo_class = _EMO_BUBBLE_CLASS.get(_dom_emotion, 'emo-neutral')
+    st.markdown(
+        f'<div class="emo-reactive-flag {emo_class}" style="display:none;"></div>',
+        unsafe_allow_html=True,
+    )
 
     # Add a welcome message when there's no chat history yet
     if not st.session_state.messages:
@@ -1195,6 +1253,46 @@ def show_chat_interface():
     if st.session_state.get('show_profile_menu', False):
         show_profile_menu()
 
+    # ---- Animated header bar with risk accent + emotional state ----
+    summary = st.session_state.buddy.pattern_tracker.get_pattern_summary()
+    _risk_level_hdr = summary.get('risk_level', 'low') if summary else 'low'
+    _RISK_ACCENT = {
+        'low': '#5B8CFF', 'medium': '#FFB74D', 'high': '#EF5350', 'critical': '#D32F2F',
+    }
+    _accent = _RISK_ACCENT.get(_risk_level_hdr, '#5B8CFF')
+    # Determine dominant emotion icon for header
+    _emo_icon = '😊'
+    if summary:
+        dist = summary.get('emotion_distribution', {})
+        if dist:
+            dom_emo = max(dist, key=dist.get)
+            _EMO_ICONS = {
+                'joy': '😊', 'positive': '😊', 'neutral': '😐',
+                'sadness': '😢', 'negative': '😟', 'anger': '😠',
+                'fear': '😰', 'anxiety': '😰',
+                'crisis': '🆘', 'distress': '🆘',
+            }
+            _emo_icon = _EMO_ICONS.get(dom_emo, '😊')
+    streak = st.session_state.buddy.user_profile.get_mood_streak()
+    streak_badge = ''
+    if streak >= 7:
+        streak_badge = '<span class="streak-badge streak-fire">🔥 {}</span>'.format(streak)
+    elif streak >= 3:
+        streak_badge = '<span class="streak-badge streak-warm">⭐ {}</span>'.format(streak)
+    elif streak >= 1:
+        streak_badge = '<span class="streak-badge">💫 {}</span>'.format(streak)
+
+    st.markdown(
+        f'<div class="chat-header-bar" style="border-top:3px solid {_accent};">'
+        f'<span class="header-title">🌟 AI Wellness Buddy</span>'
+        f'<span class="header-right">'
+        f'<span class="emo-state-icon">{_emo_icon}</span>'
+        f'{streak_badge}'
+        f'</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
     # Main content — tabs
     tab_chat, tab_trends, tab_risk, tab_report = st.tabs([
         "💬 Chat",
@@ -1603,6 +1701,347 @@ def main():
         font-size: 0.88rem;
         letter-spacing: 0.01em;
     }}
+
+    /* =============================================
+       LANDING SCREEN — Hero & Illustration
+       ============================================= */
+
+    /* Hero section */
+    .landing-hero {{
+        text-align: center;
+        padding: 2.5rem 0 1.5rem;
+        animation: heroFadeIn 0.8s ease-out;
+    }}
+    @keyframes heroFadeIn {{
+        from {{ opacity: 0; transform: translateY(20px); }}
+        to   {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    /* Floating logo with radial glow */
+    .hero-logo {{
+        font-size: 4.5rem;
+        display: inline-block;
+        animation: logoFloat 4s ease-in-out infinite;
+        position: relative;
+        z-index: 2;
+        filter: drop-shadow(0 4px 20px rgba(91,140,255,0.3));
+    }}
+    @keyframes logoFloat {{
+        0%, 100% {{ transform: translateY(0); }}
+        50% {{ transform: translateY(-10px); }}
+    }}
+    .hero-logo-glow {{
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(91,140,255,0.25) 0%, rgba(155,140,255,0.12) 50%, transparent 70%);
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        top: 1.5rem;
+        z-index: 1;
+        animation: breatheGlow 3s ease-in-out infinite;
+    }}
+    @keyframes breatheGlow {{
+        0%, 100% {{ transform: translateX(-50%) scale(1); opacity: 0.6; }}
+        50% {{ transform: translateX(-50%) scale(1.15); opacity: 1; }}
+    }}
+
+    /* Hero title and tagline */
+    .hero-title {{
+        font-size: 2.8rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #5B8CFF, #9B8CFF, #FF8A65);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: -0.03em;
+        margin: 0.25rem 0 0;
+    }}
+    .hero-tagline {{
+        color: {text_secondary};
+        font-size: 1rem;
+        letter-spacing: 0.03em;
+        animation: taglineFade 1.2s ease-out 0.4s both;
+    }}
+    @keyframes taglineFade {{
+        from {{ opacity: 0; transform: translateY(8px); }}
+        to   {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    /* Illustration panel */
+    .illustration-panel {{
+        text-align: center;
+        padding: 2rem 0;
+        animation: heroFadeIn 1s ease-out 0.3s both;
+    }}
+    .wellness-art {{
+        width: 80%;
+        max-width: 220px;
+        height: auto;
+        filter: drop-shadow(0 8px 32px rgba(91,140,255,0.15));
+    }}
+    .art-circle-outer {{
+        animation: artPulse 6s ease-in-out infinite;
+        transform-origin: center;
+    }}
+    .art-circle-inner {{
+        animation: artPulse 6s ease-in-out infinite 1s;
+        transform-origin: center;
+    }}
+    .art-circle-core {{
+        animation: artPulse 4s ease-in-out infinite 0.5s;
+        transform-origin: center;
+    }}
+    @keyframes artPulse {{
+        0%, 100% {{ opacity: 0.7; }}
+        50% {{ opacity: 1; }}
+    }}
+    .art-leaf {{
+        animation: leafSway 8s ease-in-out infinite;
+        transform-origin: 100px 100px;
+    }}
+    @keyframes leafSway {{
+        0%, 100% {{ transform: rotate(0deg); }}
+        50% {{ transform: rotate(6deg); }}
+    }}
+    .art-dot {{
+        animation: dotDrift 5s ease-in-out infinite;
+    }}
+    .art-dot-1 {{ animation-delay: 0s; }}
+    .art-dot-2 {{ animation-delay: 1.2s; }}
+    .art-dot-3 {{ animation-delay: 2.4s; }}
+    .art-dot-4 {{ animation-delay: 3.6s; }}
+    @keyframes dotDrift {{
+        0%, 100% {{ transform: translate(0, 0); opacity: 0.5; }}
+        50% {{ transform: translate(4px, -4px); opacity: 1; }}
+    }}
+
+    /* =============================================
+       ANIMATED HEADER BAR (chat interface)
+       ============================================= */
+
+    .chat-header-bar {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.65rem 1.25rem;
+        border-radius: 0.75rem;
+        background: {card_bg};
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid {card_border};
+        margin-bottom: 0.75rem;
+        animation: headerShimmer 3s ease-in-out infinite, fadeSlideIn 0.5s ease-out;
+        box-shadow: 0 2px 16px rgba(91,140,255,0.08);
+        position: relative;
+        overflow: hidden;
+    }}
+    .chat-header-bar::after {{
+        content: '';
+        position: absolute;
+        top: 0; left: -100%;
+        width: 50%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+        animation: shimmerSlide 4s ease-in-out infinite;
+    }}
+    @keyframes shimmerSlide {{
+        0% {{ left: -100%; }}
+        100% {{ left: 200%; }}
+    }}
+    .header-title {{
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: {text_heading};
+        letter-spacing: -0.01em;
+    }}
+    .header-right {{
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }}
+    .emo-state-icon {{
+        font-size: 1.4rem;
+        animation: emoIconBounce 3s ease-in-out infinite;
+    }}
+    @keyframes emoIconBounce {{
+        0%, 100% {{ transform: scale(1); }}
+        50% {{ transform: scale(1.1); }}
+    }}
+
+    /* Streak badge */
+    .streak-badge {{
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 0.2rem 0.5rem;
+        border-radius: 1rem;
+        background: rgba(155,140,255,0.12);
+        color: #9B8CFF;
+        animation: badgePop 0.5s cubic-bezier(0.22,1,0.36,1);
+    }}
+    .streak-badge.streak-fire {{
+        background: rgba(239,83,80,0.12);
+        color: #EF5350;
+        animation: badgePop 0.5s cubic-bezier(0.22,1,0.36,1), badgeGlow 2s ease-in-out infinite;
+    }}
+    .streak-badge.streak-warm {{
+        background: rgba(255,183,77,0.12);
+        color: #FFB74D;
+    }}
+    @keyframes badgePop {{
+        from {{ transform: scale(0.5); opacity: 0; }}
+        to   {{ transform: scale(1); opacity: 1; }}
+    }}
+    @keyframes badgeGlow {{
+        0%, 100% {{ box-shadow: 0 0 4px rgba(239,83,80,0.2); }}
+        50% {{ box-shadow: 0 0 12px rgba(239,83,80,0.4); }}
+    }}
+
+    /* =============================================
+       EMOTION-REACTIVE ASSISTANT BUBBLES
+       ============================================= */
+
+    /* Base emotion classes — applied via JS/class matching */
+    .emo-joy ~ div .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+        border-left-color: #4DD0E1;
+        box-shadow: 0 4px 24px rgba(77,208,225,0.15), inset 0 1px 0 rgba(77,208,225,0.08);
+    }}
+    .emo-anxiety ~ div .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+        border-left-color: #FFB74D;
+        box-shadow: 0 4px 24px rgba(255,183,77,0.15), inset 0 1px 0 rgba(255,183,77,0.08);
+    }}
+    .emo-sadness ~ div .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+        border-left-color: #5B8CFF;
+        box-shadow: 0 4px 24px rgba(91,140,255,0.18), inset 0 1px 0 rgba(91,140,255,0.08);
+    }}
+    .emo-anger ~ div .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+        border-left-color: #EF5350;
+        box-shadow: 0 4px 24px rgba(239,83,80,0.12), inset 0 1px 0 rgba(239,83,80,0.06);
+    }}
+    .emo-crisis ~ div .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+        border-left-color: #D32F2F;
+        box-shadow: 0 4px 24px rgba(211,47,47,0.18), inset 0 1px 0 rgba(211,47,47,0.08);
+    }}
+
+    /* =============================================
+       PAGE TRANSITIONS
+       ============================================= */
+
+    .main .block-container {{
+        animation: pageTransition 0.5s ease-out;
+    }}
+    @keyframes pageTransition {{
+        from {{ opacity: 0; transform: translateY(10px); }}
+        to   {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    /* =============================================
+       CALM MODE VISUALIZATION
+       ============================================= */
+
+    /* Pulsing background when calm mode active */
+    .calm-active-bg {{
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        pointer-events: none;
+        z-index: 0;
+        background: radial-gradient(ellipse at center, rgba(91,140,255,0.04) 0%, transparent 70%);
+        animation: calmPulse 4s ease-in-out infinite;
+    }}
+    @keyframes calmPulse {{
+        0%, 100% {{ opacity: 0.4; transform: scale(1); }}
+        50% {{ opacity: 0.8; transform: scale(1.02); }}
+    }}
+
+    /* Waveform visualization */
+    .waveform-bar {{
+        display: inline-block;
+        width: 3px;
+        margin: 0 1px;
+        border-radius: 2px;
+        background: linear-gradient(to top, #5B8CFF, #9B8CFF);
+        animation: waveAnimate 1.2s ease-in-out infinite;
+        vertical-align: bottom;
+    }}
+    .waveform-bar:nth-child(1) {{ height: 12px; animation-delay: 0s; }}
+    .waveform-bar:nth-child(2) {{ height: 18px; animation-delay: 0.1s; }}
+    .waveform-bar:nth-child(3) {{ height: 24px; animation-delay: 0.2s; }}
+    .waveform-bar:nth-child(4) {{ height: 16px; animation-delay: 0.3s; }}
+    .waveform-bar:nth-child(5) {{ height: 20px; animation-delay: 0.4s; }}
+    .waveform-bar:nth-child(6) {{ height: 14px; animation-delay: 0.5s; }}
+    .waveform-bar:nth-child(7) {{ height: 22px; animation-delay: 0.6s; }}
+    .waveform-bar:nth-child(8) {{ height: 10px; animation-delay: 0.7s; }}
+    @keyframes waveAnimate {{
+        0%, 100% {{ transform: scaleY(0.5); opacity: 0.5; }}
+        50% {{ transform: scaleY(1); opacity: 1; }}
+    }}
+
+    /* Volume slider thumb glow */
+    [data-testid="stSlider"] [role="slider"] {{
+        box-shadow: 0 0 8px rgba(91,140,255,0.3);
+        transition: box-shadow 0.3s ease;
+    }}
+    [data-testid="stSlider"] [role="slider"]:hover {{
+        box-shadow: 0 0 16px rgba(91,140,255,0.5);
+    }}
+
+    /* =============================================
+       SESSION END — SUMMARY ANIMATION
+       ============================================= */
+
+    @keyframes summarySlideUp {{
+        from {{ opacity: 0; transform: translateY(30px) scale(0.95); }}
+        to   {{ opacity: 1; transform: translateY(0) scale(1); }}
+    }}
+    .session-summary-card {{
+        animation: summarySlideUp 0.6s cubic-bezier(0.22,1,0.36,1);
+        background: {card_bg};
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        border: 1px solid {card_border};
+        box-shadow: 0 8px 40px rgba(91,140,255,0.12);
+        text-align: center;
+        margin: 1rem 0;
+    }}
+
+    /* =============================================
+       BUTTON ENHANCEMENTS — Scale + Ripple
+       ============================================= */
+
+    .stButton > button {{
+        position: relative;
+        overflow: hidden;
+    }}
+    .stButton > button::after {{
+        content: '';
+        position: absolute;
+        top: 50%; left: 50%;
+        width: 0; height: 0;
+        border-radius: 50%;
+        background: rgba(91,140,255,0.15);
+        transform: translate(-50%, -50%);
+        transition: width 0.4s ease, height 0.4s ease;
+    }}
+    .stButton > button:active::after {{
+        width: 200px;
+        height: 200px;
+    }}
+
+    /* =============================================
+       ANIMATED DONUT CHART TRANSITIONS
+       ============================================= */
+
+    [data-testid="stPlotlyChart"] .slice {{
+        transition: transform 0.3s ease;
+    }}
+
+    @keyframes headerShimmer {{
+        0%, 100% {{ box-shadow: 0 2px 16px rgba(91,140,255,0.08); }}
+        50% {{ box-shadow: 0 2px 24px rgba(91,140,255,0.14); }}
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -1620,6 +2059,28 @@ def main():
             'soft_rain':   {'f1': 220, 't1': 'triangle', 'f2': 330, 't2': 'sine', 'hr': 0.2},
         }
         sc = _SOUNDSCAPES.get(_sound, _SOUNDSCAPES['deep_focus'])
+
+        # Calm mode pulsing background + waveform visualization
+        _SOUND_LABELS = {'deep_focus': 'Deep Focus', 'calm_waves': 'Calm Waves', 'soft_rain': 'Soft Rain'}
+        st.markdown(
+            '<div class="calm-active-bg"></div>'
+            '<div style="text-align:center;margin:0.25rem 0 0.5rem;">'
+            '<div class="waveform-vis">'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '<span class="waveform-bar"></span>'
+            '</div>'
+            f'<span style="font-size:0.72rem;color:#9B8CFF;letter-spacing:0.04em;">'
+            f'🎵 {_SOUND_LABELS.get(_sound, "Ambient")}</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
         st.markdown(
             f"""
             <div id="ambient-music-container" style="display:none;">
