@@ -420,6 +420,14 @@ def render_chat_tab():
         with feedback_col:
             st.caption(f"🎤 *{voice_transcript}*")
         st.session_state.messages.append({"role": "user", "content": voice_transcript})
+        # Typing indicator
+        with st.chat_message("assistant"):
+            st.markdown(
+                '<div class="typing-indicator">'
+                '<span></span><span></span><span></span>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
         response = st.session_state.buddy.process_message(voice_transcript)
         st.session_state.messages.append({"role": "assistant", "content": response})
         _play_tts(response)
@@ -502,7 +510,7 @@ def render_trends_tab():
     else:
         st.info("Start chatting to see your sentiment trend.")
 
-    # ---- Emotion distribution (Plotly colored bar chart) ----
+    # ---- Emotion distribution (Plotly donut chart) ----
     if summary:
         dist = summary.get('emotion_distribution', {})
         if dist:
@@ -524,21 +532,32 @@ def render_trends_tab():
                 for emo, cnt in zip(emotions, counts):
                     st.metric(label=emo.capitalize(), value=cnt)
             with col_b:
-                fig_bar = go.Figure(go.Bar(
-                    x=[e.capitalize() for e in emotions],
-                    y=counts,
-                    marker_color=colors,
-                    marker_line=dict(width=0),
+                fig_donut = go.Figure(go.Pie(
+                    labels=[e.capitalize() for e in emotions],
+                    values=counts,
+                    hole=0.55,
+                    marker=dict(colors=colors, line=dict(color='#ffffff', width=2)),
+                    textinfo='label+percent',
+                    textposition='outside',
+                    textfont=dict(size=12),
+                    hoverinfo='label+value+percent',
+                    pull=[0.03] * len(emotions),
                 ))
-                fig_bar.update_layout(
+                fig_donut.update_layout(
                     template='plotly_white',
-                    height=300,
-                    margin=dict(l=30, r=10, t=10, b=40),
+                    height=320,
+                    margin=dict(l=20, r=20, t=20, b=20),
                     paper_bgcolor='rgba(0,0,0,0)',
                     plot_bgcolor='rgba(0,0,0,0)',
-                    yaxis_title='Count',
+                    showlegend=False,
+                    annotations=[dict(
+                        text='Emotions',
+                        x=0.5, y=0.5,
+                        font=dict(size=14, color='#64748B'),
+                        showarrow=False,
+                    )],
                 )
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_donut, use_container_width=True)
 
     # ---- Historical 30-day sentiment (Plotly) ----
     if history:
@@ -637,16 +656,18 @@ def render_risk_tab():
     fig_gauge = go.Figure(go.Indicator(
         mode="gauge+number",
         value=risk_score,
-        number={'suffix': ' / 1.00', 'font': {'size': 28}},
+        title={'text': 'Risk Score', 'font': {'size': 16, 'color': '#64748B'}},
+        number={'suffix': ' / 1.00', 'font': {'size': 28, 'color': '#334155'}},
         gauge={
-            'axis': {'range': [0, 1], 'tickwidth': 1},
-            'bar': {'color': _GAUGE_COLORS.get(risk_level, '#5B8CFF')},
+            'axis': {'range': [0, 1], 'tickwidth': 1, 'tickcolor': '#94a3b8'},
+            'bar': {'color': _GAUGE_COLORS.get(risk_level, '#5B8CFF'), 'thickness': 0.8},
             'bgcolor': 'rgba(0,0,0,0)',
+            'borderwidth': 0,
             'steps': [
-                {'range': [0, 0.25], 'color': 'rgba(91,140,255,0.15)'},
-                {'range': [0.25, 0.50], 'color': 'rgba(255,183,77,0.15)'},
-                {'range': [0.50, 0.75], 'color': 'rgba(239,83,80,0.15)'},
-                {'range': [0.75, 1.0], 'color': 'rgba(211,47,47,0.20)'},
+                {'range': [0, 0.25], 'color': 'rgba(91,140,255,0.12)'},
+                {'range': [0.25, 0.50], 'color': 'rgba(255,183,77,0.12)'},
+                {'range': [0.50, 0.75], 'color': 'rgba(239,83,80,0.12)'},
+                {'range': [0.75, 1.0], 'color': 'rgba(211,47,47,0.15)'},
             ],
             'threshold': {
                 'line': {'color': '#D32F2F', 'width': 3},
@@ -656,8 +677,8 @@ def render_risk_tab():
         },
     ))
     fig_gauge.update_layout(
-        height=250,
-        margin=dict(l=30, r=30, t=30, b=10),
+        height=260,
+        margin=dict(l=30, r=30, t=40, b=10),
         paper_bgcolor='rgba(0,0,0,0)',
     )
     st.plotly_chart(fig_gauge, use_container_width=True)
@@ -934,14 +955,15 @@ def show_chat_interface():
         user_id = st.session_state.user_id
         initials = (user_id[0].upper() if user_id else "?")
         st.markdown(
-            f'<div style="text-align:center;margin-bottom:0.5rem;">'
-            f'<div style="width:64px;height:64px;border-radius:50%;'
+            f'<div style="text-align:center;margin-bottom:0.75rem;">'
+            f'<div style="width:72px;height:72px;border-radius:50%;'
             f'background:linear-gradient(135deg,#5B8CFF,#9B8CFF);'
             f'display:inline-flex;align-items:center;justify-content:center;'
-            f'font-size:1.6rem;color:#fff;font-weight:700;'
-            f'box-shadow:0 4px 15px rgba(91,140,255,0.3);">{initials}</div>'
-            f'<p style="margin:0.4rem 0 0;font-weight:600;font-size:1.05rem;">'
-            f'{user_id}</p></div>',
+            f'font-size:1.8rem;color:#fff;font-weight:700;letter-spacing:0.5px;'
+            f'box-shadow:0 6px 20px rgba(91,140,255,0.35);'
+            f'border:3px solid rgba(255,255,255,0.6);">{initials}</div>'
+            f'<p style="margin:0.5rem 0 0;font-weight:600;font-size:1.1rem;'
+            f'color:#334155;">{user_id}</p></div>',
             unsafe_allow_html=True,
         )
 
@@ -953,16 +975,18 @@ def show_chat_interface():
         if summary:
             risk_level = summary.get('risk_level', 'low')
         _BADGE_STYLE = {
-            'low':      ('🟢', '#5B8CFF', 'rgba(91,140,255,0.12)'),
-            'medium':   ('🟡', '#FFB74D', 'rgba(255,183,77,0.15)'),
-            'high':     ('🔴', '#EF5350', 'rgba(239,83,80,0.15)'),
-            'critical': ('🚨', '#D32F2F', 'rgba(211,47,47,0.20)'),
+            'low':      ('🟢', '#5B8CFF', 'rgba(91,140,255,0.10)', 'rgba(91,140,255,0.25)'),
+            'medium':   ('🟡', '#FFB74D', 'rgba(255,183,77,0.10)', 'rgba(255,183,77,0.25)'),
+            'high':     ('🔴', '#EF5350', 'rgba(239,83,80,0.10)', 'rgba(239,83,80,0.25)'),
+            'critical': ('🚨', '#D32F2F', 'rgba(211,47,47,0.12)', 'rgba(211,47,47,0.30)'),
         }
-        r_icon, r_color, r_bg = _BADGE_STYLE.get(risk_level, _BADGE_STYLE['low'])
+        r_icon, r_color, r_bg, r_shadow = _BADGE_STYLE.get(risk_level, _BADGE_STYLE['low'])
         st.markdown(
-            f'<div style="text-align:center;padding:0.5rem;border-radius:0.5rem;'
-            f'background:{r_bg};border:1px solid {r_color};margin-bottom:0.75rem;">'
-            f'<span style="font-size:1.1rem;">{r_icon} Risk: '
+            f'<div style="text-align:center;padding:0.6rem 0.75rem;border-radius:0.75rem;'
+            f'background:{r_bg};border:1px solid {r_color};margin-bottom:0.75rem;'
+            f'box-shadow:0 2px 12px {r_shadow};backdrop-filter:blur(6px);'
+            f'transition:all 0.3s ease;">'
+            f'<span style="font-size:1.15rem;font-weight:600;">{r_icon} Risk: '
             f'<strong style="color:{r_color};">{risk_level.upper()}</strong></span></div>',
             unsafe_allow_html=True,
         )
@@ -973,16 +997,35 @@ def show_chat_interface():
             streak = st.session_state.buddy.user_profile.get_mood_streak()
             lang_pref = st.session_state.buddy.user_profile.get_language_preference()
             _LANG_ICONS = {'english': '🇬🇧', 'tamil': '🇮🇳', 'bilingual': '🇮🇳🇬🇧'}
-            st.markdown(f"📅 **Session:** #{sessions + 1}")
-            st.markdown(f"🌐 **Language:** {_LANG_ICONS.get(lang_pref, '🌐')} {lang_pref.capitalize()}")
+
+            # Session & language info in compact card
+            st.markdown(
+                f'<div style="padding:0.5rem 0.75rem;border-radius:0.6rem;'
+                f'background:rgba(255,255,255,0.55);backdrop-filter:blur(8px);'
+                f'border:1px solid rgba(255,255,255,0.3);margin-bottom:0.5rem;'
+                f'box-shadow:0 2px 8px rgba(0,0,0,0.03);">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+                f'<span style="font-size:0.88rem;color:#475569;">📅 Session #{sessions + 1}</span>'
+                f'<span style="font-size:0.88rem;color:#475569;">'
+                f'{_LANG_ICONS.get(lang_pref, "🌐")} {lang_pref.capitalize()}</span>'
+                f'</div></div>',
+                unsafe_allow_html=True,
+            )
+
             # Streak card
             streak_emoji = "🔥" if streak >= 3 else "⭐" if streak >= 1 else "💤"
+            streak_label = "on fire!" if streak >= 7 else "growing!" if streak >= 3 else "building" if streak >= 1 else "start today"
             st.markdown(
-                f'<div style="text-align:center;padding:0.5rem;border-radius:0.5rem;'
-                f'background:linear-gradient(135deg,rgba(77,208,225,0.12),rgba(155,140,255,0.12));'
-                f'margin:0.5rem 0;">'
-                f'<span style="font-size:1.4rem;">{streak_emoji}</span><br>'
-                f'<strong>{streak}</strong> positive streak</div>',
+                f'<div style="text-align:center;padding:0.65rem 0.75rem;border-radius:0.75rem;'
+                f'background:linear-gradient(135deg,rgba(77,208,225,0.10),rgba(155,140,255,0.10));'
+                f'border:1px solid rgba(155,140,255,0.15);'
+                f'box-shadow:0 2px 10px rgba(77,208,225,0.08);margin:0.5rem 0 0.75rem;">'
+                f'<span style="font-size:1.6rem;">{streak_emoji}</span><br>'
+                f'<strong style="font-size:1.2rem;color:#334155;">{streak}</strong>'
+                f'<span style="font-size:0.85rem;color:#64748B;margin-left:0.25rem;">'
+                f'positive streak</span><br>'
+                f'<span style="font-size:0.75rem;color:#9B8CFF;font-style:italic;">'
+                f'{streak_label}</span></div>',
                 unsafe_allow_html=True,
             )
 
@@ -1017,15 +1060,27 @@ def show_chat_interface():
         else:
             st.caption("🔇 TTS unavailable (install gTTS)")
 
-        # Background ambient music toggle
+        # Background ambient music toggle + volume
         st.session_state.calm_music_enabled = st.toggle(
             "🎵 Calm Background Mode",
             value=st.session_state.get('calm_music_enabled', False),
-            help="Play a calming ambient loop. Audio starts after interaction (browser policy safe).",
+            help="Play a calming ambient tone. Audio starts after interaction (browser policy safe).",
         )
+        if st.session_state.calm_music_enabled:
+            vol = st.slider(
+                "🔈 Volume",
+                min_value=0, max_value=100, value=30,
+                key="calm_volume",
+                help="Adjust ambient volume (0 = mute).",
+            )
+            st.session_state['_calm_volume'] = vol / 1000.0  # 0.0 – 0.10 range
 
         st.markdown("---")
-        st.markdown("### Quick Actions")
+        st.markdown(
+            '<p style="font-weight:600;font-size:0.95rem;color:#334155;margin-bottom:0.5rem;">'
+            '⚡ Quick Actions</p>',
+            unsafe_allow_html=True,
+        )
 
         if st.button("📞 Help & Resources", use_container_width=True):
             response = st.session_state.buddy._show_resources()
@@ -1136,7 +1191,13 @@ def main():
         background: linear-gradient(135deg, #f0f4ff 0%, #f5f0ff 25%, #fff5f0 50%, #f0fffe 75%, #f0f4ff 100%);
         background-size: 400% 400%;
         animation: gradientBG 20s ease infinite;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }}
+
+    /* ---- Typography hierarchy ---- */
+    h1, h2, h3 {{ color: #1e293b; letter-spacing: -0.01em; }}
+    h4 {{ color: #334155; font-weight: 600; }}
+    p, li, span {{ color: #475569; }}
 
     /* ---- Glassmorphism chat cards ---- */
     .stChatMessage {{
@@ -1149,17 +1210,46 @@ def main():
         box-shadow: 0 4px 20px {glow_color};
         margin-bottom: 0.75rem;
         animation: fadeInUp 0.4s ease-out;
+        transition: box-shadow 0.3s ease;
     }}
     @keyframes fadeInUp {{
         from {{ opacity: 0; transform: translateY(12px); }}
         to   {{ opacity: 1; transform: translateY(0); }}
     }}
+    /* ---- User vs assistant message distinction ---- */
+    .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {{
+        border-left: 3px solid #5B8CFF;
+    }}
+    .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+        border-left: 3px solid #9B8CFF;
+    }}
+
+    /* ---- Typing indicator animation ---- */
+    .typing-indicator {{
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 0;
+    }}
+    .typing-indicator span {{
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #9B8CFF;
+        animation: typingBounce 1.2s ease-in-out infinite;
+    }}
+    .typing-indicator span:nth-child(2) {{ animation-delay: 0.15s; }}
+    .typing-indicator span:nth-child(3) {{ animation-delay: 0.3s; }}
+    @keyframes typingBounce {{
+        0%, 60%, 100% {{ transform: translateY(0); opacity: 0.4; }}
+        30% {{ transform: translateY(-6px); opacity: 1; }}
+    }}
 
     /* ---- Premium chat input bar ---- */
     [data-testid="stChatInput"] {{
-        background: rgba(255,255,255,0.70) !important;
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        background: rgba(255,255,255,0.75) !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border-radius: 1.25rem !important;
         border: 1px solid rgba(91,140,255,0.18) !important;
         box-shadow: 0 4px 24px rgba(91,140,255,0.08);
@@ -1167,16 +1257,27 @@ def main():
     }}
     [data-testid="stChatInput"]:focus-within {{
         border-color: #5B8CFF !important;
-        box-shadow: 0 4px 28px rgba(91,140,255,0.16);
+        box-shadow: 0 4px 28px rgba(91,140,255,0.18);
     }}
     [data-testid="stChatInput"] textarea {{
         font-size: 0.98rem;
+    }}
+    /* Send button glow */
+    [data-testid="stChatInput"] button {{
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }}
+    [data-testid="stChatInput"] button:hover {{
+        transform: scale(1.08);
+        box-shadow: 0 0 12px rgba(91,140,255,0.3);
     }}
 
     /* ---- Sidebar polish ---- */
     section[data-testid="stSidebar"] > div:first-child {{
         padding-top: 1.5rem;
-        background: linear-gradient(180deg, rgba(91,140,255,0.06), rgba(155,140,255,0.06));
+        background: linear-gradient(180deg, rgba(91,140,255,0.05) 0%, rgba(155,140,255,0.05) 50%, rgba(77,208,225,0.03) 100%);
+    }}
+    section[data-testid="stSidebar"] .stMarkdown p {{
+        font-size: 0.9rem;
     }}
 
     /* ---- Tab labels with transition ---- */
@@ -1187,11 +1288,16 @@ def main():
         font-weight: 600;
         font-size: 0.95rem;
         border-radius: 0.5rem 0.5rem 0 0;
-        transition: color 0.3s ease, background 0.3s ease;
+        padding: 0.6rem 1rem;
+        transition: color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
     }}
     .stTabs [data-baseweb="tab"]:hover {{
         color: #5B8CFF;
         background: rgba(91,140,255,0.06);
+        box-shadow: 0 -2px 8px rgba(91,140,255,0.08);
+    }}
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {{
+        box-shadow: 0 -2px 12px rgba(91,140,255,0.12);
     }}
 
     /* ---- Metric cards — glassmorphism ---- */
@@ -1215,11 +1321,21 @@ def main():
         border-radius: 0.5rem;
         transition: all 0.3s ease;
         border: 1px solid rgba(91,140,255,0.2);
+        font-weight: 500;
     }}
     .stButton > button:hover {{
         box-shadow: 0 0 16px rgba(91,140,255,0.25);
         border-color: #5B8CFF;
         transform: translateY(-1px);
+    }}
+    .stButton > button:active {{
+        transform: translateY(0);
+        box-shadow: 0 0 8px rgba(91,140,255,0.15);
+    }}
+
+    /* ---- Toggle styling ---- */
+    [data-testid="stToggle"] label {{
+        font-weight: 500;
     }}
 
     /* ---- Expander styling ---- */
@@ -1230,18 +1346,23 @@ def main():
     /* ---- Header area ---- */
     .main-header {{
         text-align: center;
-        padding: 1.5rem 0 1rem 0;
-        color: #5B8CFF;
+        padding: 2rem 0 1.25rem 0;
     }}
     .main-header h1 {{
-        font-size: 2.2rem;
+        font-size: 2.4rem;
         margin-bottom: 0;
-        background: linear-gradient(135deg, #5B8CFF, #9B8CFF);
+        background: linear-gradient(135deg, #5B8CFF, #9B8CFF, #FF8A65);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
+        font-weight: 800;
+        letter-spacing: -0.02em;
     }}
-    .main-header p {{ color: #64748B; font-size: 0.95rem; margin-top: 0.25rem; }}
+    .main-header p {{
+        color: #64748B;
+        font-size: 0.95rem;
+        margin-top: 0.25rem;
+    }}
 
     /* ---- Risk-level atmospheric border ---- */
     .main .block-container {{
@@ -1253,50 +1374,85 @@ def main():
     {critical_bar_css}
 
     /* ---- Smooth card hover elevation ---- */
-    .stExpander, [data-testid="stVerticalBlock"] > div {{
-        transition: box-shadow 0.3s ease;
+    .stExpander {{
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+        border-radius: 0.75rem;
+    }}
+    .stExpander:hover {{
+        box-shadow: 0 4px 16px rgba(91,140,255,0.08);
+        transform: translateY(-1px);
     }}
 
     /* ---- Profile setup form glassmorphism ---- */
     [data-testid="stForm"] {{
         background: rgba(255,255,255,0.60);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border-radius: 1rem;
-        border: 1px solid rgba(255,255,255,0.30);
+        border: 1px solid rgba(255,255,255,0.35);
         padding: 1.5rem;
         box-shadow: 0 4px 24px rgba(91,140,255,0.08);
+    }}
+
+    /* ---- Slider styling ---- */
+    [data-testid="stSlider"] {{
+        padding-top: 0;
+    }}
+
+    /* ---- Plotly chart containers ---- */
+    [data-testid="stPlotlyChart"] {{
+        border-radius: 0.75rem;
+        overflow: hidden;
     }}
     </style>
     """, unsafe_allow_html=True)
 
-    # ---- Background ambient music ----
+    # ---- Background ambient music with volume control ----
     if st.session_state.get('calm_music_enabled', False):
-        # Royalty-free ambient audio data URI (tiny silent init + JS-driven)
+        _vol = st.session_state.get('_calm_volume', 0.03)
         st.markdown(
-            """
+            f"""
             <div id="ambient-music-container" style="display:none;">
                 <p style="font-size:0.75rem;color:#9B8CFF;">🎵 Calm mode active</p>
             </div>
             <script>
-            (function() {
-                if (window._ambientInitialized) return;
+            (function() {{
+                var vol = {_vol};
+                if (window._ambientInitialized) {{
+                    // Update volume on existing oscillator
+                    if (window._ambientGain) {{
+                        window._ambientGain.gain.setTargetAtTime(vol, window._ambientCtx.currentTime, 0.1);
+                    }}
+                    return;
+                }}
                 window._ambientInitialized = true;
-                try {
+                try {{
                     var ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    var osc = ctx.createOscillator();
-                    var gain = ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.value = 174;  // 174 Hz Solfeggio frequency for relaxation
-                    gain.gain.value = 0.03;  // Low volume — subtle background ambience
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start();
-                    window._ambientOsc = osc;
-                    window._ambientGain = gain;
+                    // Primary tone: 174 Hz Solfeggio (relaxation)
+                    var osc1 = ctx.createOscillator();
+                    osc1.type = 'sine';
+                    osc1.frequency.value = 174;
+                    // Harmonic layer: subtle 285 Hz
+                    var osc2 = ctx.createOscillator();
+                    osc2.type = 'sine';
+                    osc2.frequency.value = 285;
+                    var gain1 = ctx.createGain();
+                    var gain2 = ctx.createGain();
+                    gain1.gain.value = vol;
+                    gain2.gain.value = vol * 0.3;  // Harmonic at 30% of main volume
+                    osc1.connect(gain1);
+                    osc2.connect(gain2);
+                    gain1.connect(ctx.destination);
+                    gain2.connect(ctx.destination);
+                    osc1.start();
+                    osc2.start();
+                    window._ambientOsc = osc1;
+                    window._ambientOsc2 = osc2;
+                    window._ambientGain = gain1;
+                    window._ambientGain2 = gain2;
                     window._ambientCtx = ctx;
-                } catch(e) {}
-            })();
+                }} catch(e) {{}}
+            }})();
             </script>
             """,
             unsafe_allow_html=True,
@@ -1310,8 +1466,12 @@ def main():
                 if (window._ambientOsc) {
                     try { window._ambientOsc.stop(); } catch(e) {}
                     window._ambientOsc = null;
-                    window._ambientInitialized = false;
                 }
+                if (window._ambientOsc2) {
+                    try { window._ambientOsc2.stop(); } catch(e) {}
+                    window._ambientOsc2 = null;
+                }
+                window._ambientInitialized = false;
             })();
             </script>
             """,
