@@ -420,8 +420,9 @@ def render_chat_tab():
         with feedback_col:
             st.caption(f"🎤 *{voice_transcript}*")
         st.session_state.messages.append({"role": "user", "content": voice_transcript})
-        # Typing indicator
-        with st.chat_message("assistant"):
+        # Typing indicator (cleared after response)
+        typing_placeholder = st.empty()
+        with typing_placeholder.chat_message("assistant"):
             st.markdown(
                 '<div class="typing-indicator">'
                 '<span></span><span></span><span></span>'
@@ -429,6 +430,7 @@ def render_chat_tab():
                 unsafe_allow_html=True,
             )
         response = st.session_state.buddy.process_message(voice_transcript)
+        typing_placeholder.empty()
         st.session_state.messages.append({"role": "assistant", "content": response})
         _play_tts(response)
         st.rerun()
@@ -1073,7 +1075,7 @@ def show_chat_interface():
                 key="calm_volume",
                 help="Adjust ambient volume (0 = mute).",
             )
-            st.session_state['_calm_volume'] = vol / 1000.0  # 0.0 – 0.10 range
+            st.session_state['_calm_volume'] = vol / 1000.0  # 0.0 – 0.1 range
 
         st.markdown("---")
         st.markdown(
@@ -1428,6 +1430,7 @@ def main():
                 window._ambientInitialized = true;
                 try {{
                     var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    var HARMONIC_RATIO = 0.3;  // Harmonic volume as fraction of primary
                     // Primary tone: 174 Hz Solfeggio (relaxation)
                     var osc1 = ctx.createOscillator();
                     osc1.type = 'sine';
@@ -1439,7 +1442,7 @@ def main():
                     var gain1 = ctx.createGain();
                     var gain2 = ctx.createGain();
                     gain1.gain.value = vol;
-                    gain2.gain.value = vol * 0.3;  // Harmonic at 30% of main volume
+                    gain2.gain.value = vol * HARMONIC_RATIO;
                     osc1.connect(gain1);
                     osc2.connect(gain2);
                     gain1.connect(ctx.destination);
