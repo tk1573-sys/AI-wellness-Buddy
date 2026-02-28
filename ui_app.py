@@ -714,6 +714,9 @@ _RISK_COLOUR = {
 # Numeric representation of risk levels for charting
 _RISK_LEVEL_VALUES = {'low': 0.10, 'medium': 0.35, 'high': 0.65, 'critical': 0.90}
 
+# Display labels for ambient soundscapes
+_SOUND_LABELS = {'deep_focus': 'Deep Focus', 'calm_waves': 'Calm Waves', 'soft_rain': 'Soft Rain'}
+
 
 def render_risk_tab():
     """Render the Risk Dashboard tab with Plotly gauge"""
@@ -1276,11 +1279,11 @@ def show_chat_interface():
     streak = st.session_state.buddy.user_profile.get_mood_streak()
     streak_badge = ''
     if streak >= 7:
-        streak_badge = '<span class="streak-badge streak-fire">🔥 {}</span>'.format(streak)
+        streak_badge = f'<span class="streak-badge streak-fire">🔥 {streak}</span>'
     elif streak >= 3:
-        streak_badge = '<span class="streak-badge streak-warm">⭐ {}</span>'.format(streak)
+        streak_badge = f'<span class="streak-badge streak-warm">⭐ {streak}</span>'
     elif streak >= 1:
-        streak_badge = '<span class="streak-badge">💫 {}</span>'.format(streak)
+        streak_badge = f'<span class="streak-badge">💫 {streak}</span>'
 
     st.markdown(
         f'<div class="chat-header-bar" style="border-top:3px solid {_accent};">'
@@ -2061,7 +2064,6 @@ def main():
         sc = _SOUNDSCAPES.get(_sound, _SOUNDSCAPES['deep_focus'])
 
         # Calm mode pulsing background + waveform visualization
-        _SOUND_LABELS = {'deep_focus': 'Deep Focus', 'calm_waves': 'Calm Waves', 'soft_rain': 'Soft Rain'}
         st.markdown(
             '<div class="calm-active-bg"></div>'
             '<div style="text-align:center;margin:0.25rem 0 0.5rem;">'
