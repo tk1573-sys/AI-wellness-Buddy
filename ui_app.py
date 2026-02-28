@@ -43,6 +43,9 @@ for key, default in [
     ('authenticated', False),
     ('current_user', None),
     ('failed_attempts', 0),
+    ('ui_theme', 'calm'),          # calm | clinical | modern
+    ('dark_mode', False),
+    ('ambient_sound', 'deep_focus'),  # deep_focus | calm_waves | soft_rain
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -457,13 +460,13 @@ def render_chat_tab():
 def render_trends_tab():
     """Render the Emotional Trends tab with Plotly charts"""
     st.subheader("📈 Emotional Trends")
-    st.caption("Real-time sentiment tracking and historical mood analysis")
+    st.caption("REAL-TIME SENTIMENT TRACKING AND HISTORICAL MOOD ANALYSIS")
 
     buddy = st.session_state.buddy
     summary = buddy.pattern_tracker.get_pattern_summary()
     history = buddy.user_profile.get_emotional_history(days=30)
 
-    # ---- Current session sentiment line (Plotly gradient) ----
+    # ---- Current session sentiment line (Plotly interactive) ----
     sentiments = list(buddy.pattern_tracker.sentiment_history)
     if sentiments:
         st.markdown("#### Current Session — Sentiment Over Messages")
@@ -475,9 +478,10 @@ def render_trends_tab():
                 mode='lines+markers',
                 name='Sentiment',
                 line=dict(color='#5B8CFF', width=3, shape='spline'),
-                marker=dict(size=7, color='#9B8CFF'),
+                marker=dict(size=7, color='#9B8CFF', line=dict(color='#fff', width=1)),
                 fill='tozeroy',
                 fillcolor='rgba(91,140,255,0.12)',
+                hovertemplate='Message %{x}<br>Sentiment: %{y:.2f}<extra></extra>',
             ))
             fig.update_layout(
                 template='plotly_white',
@@ -487,6 +491,8 @@ def render_trends_tab():
                 margin=dict(l=40, r=20, t=20, b=40),
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter'),
+                hoverlabel=dict(bgcolor='#fff', font_size=12, font_family='Inter'),
             )
             st.plotly_chart(fig, use_container_width=True)
         with col2:
@@ -561,7 +567,7 @@ def render_trends_tab():
                 )
                 st.plotly_chart(fig_donut, use_container_width=True)
 
-    # ---- Historical 30-day sentiment (Plotly) ----
+    # ---- Historical 30-day sentiment (Plotly interactive timeline) ----
     if history:
         st.markdown("#### Last 30 Days — Average Mood per Session")
         hist_data = []
@@ -576,25 +582,46 @@ def render_trends_tab():
             fig_hist.add_trace(go.Scatter(
                 y=hist_data,
                 mode='lines+markers',
+                name='Mood',
                 line=dict(color='#9B8CFF', width=3, shape='spline'),
-                marker=dict(size=6, color='#5B8CFF'),
+                marker=dict(size=6, color='#5B8CFF', line=dict(color='#fff', width=1)),
                 fill='tozeroy',
                 fillcolor='rgba(155,140,255,0.10)',
+                hovertemplate='Session %{x}<br>Avg Mood: %{y:.2f}<extra></extra>',
             ))
+
+            # Prediction & forecast overlay
+            predictor = PredictionAgent()
+            forecast = predictor.predict_next_sentiment(hist_data)
+            if forecast:
+                # Add forecast point as dashed extension
+                pred_val = forecast['predicted_value']
+                fig_hist.add_trace(go.Scatter(
+                    x=[len(hist_data) - 1, len(hist_data)],
+                    y=[hist_data[-1], pred_val],
+                    mode='lines+markers',
+                    name='Forecast',
+                    line=dict(color='#FF8A65', width=2, dash='dash'),
+                    marker=dict(size=8, color='#FF8A65', symbol='diamond',
+                                line=dict(color='#fff', width=1)),
+                    hovertemplate='Forecast<br>Predicted: %{y:.2f}<extra></extra>',
+                ))
+
             fig_hist.update_layout(
                 template='plotly_white',
                 xaxis_title='Session',
                 yaxis_title='Avg Mood',
-                height=300,
+                height=320,
                 margin=dict(l=40, r=20, t=20, b=40),
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter'),
+                hoverlabel=dict(bgcolor='#fff', font_size=12, font_family='Inter'),
+                showlegend=True,
+                legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
             )
             st.plotly_chart(fig_hist, use_container_width=True)
 
-            # Prediction
-            predictor = PredictionAgent()
-            forecast = predictor.predict_next_sentiment(hist_data)
             if forecast:
                 st.info(
                     f"📡 **Next-session forecast** ({forecast['confidence']} confidence): "
@@ -633,7 +660,7 @@ _RISK_LEVEL_VALUES = {'low': 0.10, 'medium': 0.35, 'high': 0.65, 'critical': 0.9
 def render_risk_tab():
     """Render the Risk Dashboard tab with Plotly gauge"""
     st.subheader("⚠️ Risk Dashboard")
-    st.caption("Composite risk scoring, crisis detection, and escalation forecast")
+    st.caption("COMPOSITE RISK SCORING, CRISIS DETECTION, AND ESCALATION FORECAST")
 
     buddy = st.session_state.buddy
     summary = buddy.pattern_tracker.get_pattern_summary()
@@ -648,40 +675,50 @@ def render_risk_tab():
 
     st.markdown(f"### Current Risk Level: {icon} {risk_level.upper()}")
 
-    # Plotly gauge-style risk indicator
+    # Plotly semi-circular animated risk dial
     _GAUGE_COLORS = {
         'low': '#5B8CFF',
         'medium': '#FFB74D',
         'high': '#EF5350',
         'critical': '#D32F2F',
     }
+    bar_color = _GAUGE_COLORS.get(risk_level, '#5B8CFF')
     fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
+        mode="gauge+number+delta",
         value=risk_score,
-        title={'text': 'Risk Score', 'font': {'size': 16, 'color': '#64748B'}},
-        number={'suffix': ' / 1.00', 'font': {'size': 28, 'color': '#334155'}},
+        title={'text': '<b>Risk Score</b>', 'font': {'size': 18, 'color': '#64748B', 'family': 'Inter'}},
+        number={'suffix': ' / 1.00', 'font': {'size': 32, 'color': '#334155', 'family': 'Inter'}},
+        delta={'reference': 0.25, 'increasing': {'color': '#EF5350'}, 'decreasing': {'color': '#5B8CFF'}},
         gauge={
-            'axis': {'range': [0, 1], 'tickwidth': 1, 'tickcolor': '#94a3b8'},
-            'bar': {'color': _GAUGE_COLORS.get(risk_level, '#5B8CFF'), 'thickness': 0.8},
+            'axis': {
+                'range': [0, 1],
+                'tickwidth': 1,
+                'tickcolor': '#94a3b8',
+                'tickvals': [0, 0.25, 0.5, 0.75, 1.0],
+                'ticktext': ['Safe', 'Low', 'Med', 'High', 'Crit'],
+                'tickfont': {'size': 10, 'color': '#94a3b8'},
+            },
+            'bar': {'color': bar_color, 'thickness': 0.82},
             'bgcolor': 'rgba(0,0,0,0)',
             'borderwidth': 0,
             'steps': [
-                {'range': [0, 0.25], 'color': 'rgba(91,140,255,0.12)'},
-                {'range': [0.25, 0.50], 'color': 'rgba(255,183,77,0.12)'},
-                {'range': [0.50, 0.75], 'color': 'rgba(239,83,80,0.12)'},
-                {'range': [0.75, 1.0], 'color': 'rgba(211,47,47,0.15)'},
+                {'range': [0, 0.25], 'color': 'rgba(91,140,255,0.10)'},
+                {'range': [0.25, 0.50], 'color': 'rgba(255,183,77,0.10)'},
+                {'range': [0.50, 0.75], 'color': 'rgba(239,83,80,0.10)'},
+                {'range': [0.75, 1.0], 'color': 'rgba(211,47,47,0.12)'},
             ],
             'threshold': {
                 'line': {'color': '#D32F2F', 'width': 3},
-                'thickness': 0.8,
+                'thickness': 0.85,
                 'value': risk_score,
             },
         },
     ))
     fig_gauge.update_layout(
-        height=260,
-        margin=dict(l=30, r=30, t=40, b=10),
+        height=280,
+        margin=dict(l=30, r=30, t=50, b=10),
         paper_bgcolor='rgba(0,0,0,0)',
+        font={'family': 'Inter'},
     )
     st.plotly_chart(fig_gauge, use_container_width=True)
 
@@ -714,20 +751,24 @@ def render_risk_tab():
         fig_rh.add_trace(go.Scatter(
             y=risk_hist,
             mode='lines+markers',
+            name='Risk',
             line=dict(color='#EF5350', width=2, shape='spline'),
-            marker=dict(size=6, color='#FF8A65'),
+            marker=dict(size=6, color='#FF8A65', line=dict(color='#fff', width=1)),
             fill='tozeroy',
             fillcolor='rgba(239,83,80,0.10)',
+            hovertemplate='Session %{x}<br>Risk: %{y:.2f}<extra></extra>',
         ))
         fig_rh.update_layout(
             template='plotly_white',
             xaxis_title='Session',
             yaxis_title='Risk (0=low, 1=critical)',
             yaxis=dict(range=[0, 1]),
-            height=280,
+            height=300,
             margin=dict(l=40, r=20, t=20, b=40),
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(family='Inter'),
+            hoverlabel=dict(bgcolor='#fff', font_size=12, font_family='Inter'),
         )
         st.plotly_chart(fig_rh, use_container_width=True)
 
@@ -772,7 +813,7 @@ def render_risk_tab():
 def render_weekly_report_tab():
     """Render the Weekly Report tab with Plotly charts"""
     st.subheader("📋 Weekly Wellness Report")
-    st.caption("7-day aggregated wellness summary with predictions and suggestions")
+    st.caption("7-DAY AGGREGATED WELLNESS SUMMARY WITH PREDICTIONS AND SUGGESTIONS")
 
     buddy = st.session_state.buddy
     report_text = buddy.generate_weekly_summary()
@@ -799,19 +840,23 @@ def render_weekly_report_tab():
             fig_wk.add_trace(go.Scatter(
                 y=sentiments,
                 mode='lines+markers',
+                name='Daily Mood',
                 line=dict(color='#4DD0E1', width=3, shape='spline'),
-                marker=dict(size=7, color='#5B8CFF'),
+                marker=dict(size=7, color='#5B8CFF', line=dict(color='#fff', width=1)),
                 fill='tozeroy',
                 fillcolor='rgba(77,208,225,0.12)',
+                hovertemplate='Day %{x}<br>Mood: %{y:.2f}<extra></extra>',
             ))
             fig_wk.update_layout(
                 template='plotly_white',
                 xaxis_title='Day',
                 yaxis_title='Avg Mood',
-                height=280,
+                height=300,
                 margin=dict(l=40, r=20, t=20, b=40),
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family='Inter'),
+                hoverlabel=dict(bgcolor='#fff', font_size=12, font_family='Inter'),
             )
             st.plotly_chart(fig_wk, use_container_width=True)
 
@@ -1062,13 +1107,53 @@ def show_chat_interface():
         else:
             st.caption("🔇 TTS unavailable (install gTTS)")
 
-        # Background ambient music toggle + volume
+        # ---- Theme & Display ----
+        st.markdown(
+            '<p style="font-weight:600;font-size:0.95rem;color:#334155;margin-bottom:0.25rem;">'
+            '🎨 Theme & Display</p>',
+            unsafe_allow_html=True,
+        )
+        st.session_state.dark_mode = st.toggle(
+            "🌙 Dark Mode",
+            value=st.session_state.get('dark_mode', False),
+            help="Switch to a calm dark theme.",
+        )
+        theme_choice = st.selectbox(
+            "Wellness Theme",
+            ["Calm Therapy", "Clinical", "Modern Startup"],
+            index=["Calm Therapy", "Clinical", "Modern Startup"].index(
+                {"calm": "Calm Therapy", "clinical": "Clinical", "modern": "Modern Startup"}.get(
+                    st.session_state.get('ui_theme', 'calm'), "Calm Therapy"
+                )
+            ),
+            key="theme_selector",
+            help="Visual theme: Calm (soft gradients), Clinical (professional), Modern (vibrant).",
+        )
+        _THEME_MAP = {"Calm Therapy": "calm", "Clinical": "clinical", "Modern Startup": "modern"}
+        st.session_state.ui_theme = _THEME_MAP.get(theme_choice, 'calm')
+
+        # ---- Ambient Sound ----
+        st.markdown(
+            '<p style="font-weight:600;font-size:0.95rem;color:#334155;margin-bottom:0.25rem;">'
+            '🎵 Ambient Sound</p>',
+            unsafe_allow_html=True,
+        )
         st.session_state.calm_music_enabled = st.toggle(
-            "🎵 Calm Background Mode",
+            "Enable Ambient",
             value=st.session_state.get('calm_music_enabled', False),
-            help="Play a calming ambient tone. Audio starts after interaction (browser policy safe).",
+            help="Play calming ambient background. Starts after interaction (browser safe).",
         )
         if st.session_state.calm_music_enabled:
+            sound_choice = st.selectbox(
+                "Soundscape",
+                ["Deep Focus", "Calm Waves", "Soft Rain"],
+                index=["deep_focus", "calm_waves", "soft_rain"].index(
+                    st.session_state.get('ambient_sound', 'deep_focus')
+                ),
+                key="ambient_selector",
+            )
+            _SOUND_MAP = {"Deep Focus": "deep_focus", "Calm Waves": "calm_waves", "Soft Rain": "soft_rain"}
+            st.session_state.ambient_sound = _SOUND_MAP.get(sound_choice, 'deep_focus')
             vol = st.slider(
                 "🔈 Volume",
                 min_value=0, max_value=100, value=30,
@@ -1181,8 +1266,44 @@ def main():
         }
         """
 
+    # ---- Dark mode & theme variables ----
+    _dark = st.session_state.get('dark_mode', False)
+    _theme = st.session_state.get('ui_theme', 'calm')
+
+    if _dark:
+        bg_gradient = 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #1a1a2e 50%, #0f172a 75%, #1e1b4b 100%)'
+        card_bg = 'rgba(30,27,75,0.60)'
+        card_border = 'rgba(91,140,255,0.15)'
+        text_primary = '#e2e8f0'
+        text_secondary = '#94a3b8'
+        text_heading = '#f1f5f9'
+        sidebar_bg = 'linear-gradient(180deg, rgba(15,23,42,0.95) 0%, rgba(30,27,75,0.95) 100%)'
+        form_bg = 'rgba(30,27,75,0.65)'
+        input_bg = 'rgba(30,27,75,0.80)'
+        particle_color = 'rgba(91,140,255,0.06)'
+    else:
+        # Light mode theme variants
+        _THEME_BG = {
+            'calm':     'linear-gradient(135deg, #f0f4ff 0%, #f5f0ff 25%, #fff5f0 50%, #f0fffe 75%, #f0f4ff 100%)',
+            'clinical': 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #f8fafc 100%)',
+            'modern':   'linear-gradient(135deg, #ede9fe 0%, #e0f2fe 25%, #fce7f3 50%, #e0f2fe 75%, #ede9fe 100%)',
+        }
+        bg_gradient = _THEME_BG.get(_theme, _THEME_BG['calm'])
+        card_bg = 'rgba(255,255,255,0.65)'
+        card_border = 'rgba(255,255,255,0.35)'
+        text_primary = '#475569'
+        text_secondary = '#64748B'
+        text_heading = '#1e293b'
+        sidebar_bg = 'linear-gradient(180deg, rgba(91,140,255,0.05) 0%, rgba(155,140,255,0.05) 50%, rgba(77,208,225,0.03) 100%)'
+        form_bg = 'rgba(255,255,255,0.60)'
+        input_bg = 'rgba(255,255,255,0.75)'
+        particle_color = 'rgba(91,140,255,0.04)'
+
     st.markdown(f"""
     <style>
+    /* ---- Google Font ---- */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
     /* ---- Animated gradient background ---- */
     @keyframes gradientBG {{
         0%   {{ background-position: 0% 50%; }}
@@ -1190,34 +1311,67 @@ def main():
         100% {{ background-position: 0% 50%; }}
     }}
     .stApp {{
-        background: linear-gradient(135deg, #f0f4ff 0%, #f5f0ff 25%, #fff5f0 50%, #f0fffe 75%, #f0f4ff 100%);
+        background: {bg_gradient};
         background-size: 400% 400%;
         animation: gradientBG 20s ease infinite;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }}
 
-    /* ---- Typography hierarchy ---- */
-    h1, h2, h3 {{ color: #1e293b; letter-spacing: -0.01em; }}
-    h4 {{ color: #334155; font-weight: 600; }}
-    p, li, span {{ color: #475569; }}
+    /* ---- Floating particles (pure CSS) ---- */
+    .stApp::before {{
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        pointer-events: none;
+        z-index: 0;
+        background-image:
+            radial-gradient(2px 2px at 20% 30%, {particle_color}, transparent),
+            radial-gradient(2px 2px at 40% 70%, {particle_color}, transparent),
+            radial-gradient(2px 2px at 60% 40%, {particle_color}, transparent),
+            radial-gradient(2px 2px at 80% 60%, {particle_color}, transparent),
+            radial-gradient(3px 3px at 10% 80%, {particle_color}, transparent),
+            radial-gradient(3px 3px at 70% 20%, {particle_color}, transparent),
+            radial-gradient(2px 2px at 50% 50%, {particle_color}, transparent),
+            radial-gradient(2px 2px at 90% 90%, {particle_color}, transparent);
+        background-size: 200% 200%;
+        animation: particleDrift 30s linear infinite;
+    }}
+    @keyframes particleDrift {{
+        0%   {{ background-position: 0% 0%; }}
+        50%  {{ background-position: 100% 100%; }}
+        100% {{ background-position: 0% 0%; }}
+    }}
 
-    /* ---- Glassmorphism chat cards ---- */
+    /* ---- Premium typography hierarchy ---- */
+    h1, h2, h3 {{ color: {text_heading}; letter-spacing: -0.02em; font-weight: 700; }}
+    h4 {{ color: {'#cbd5e1' if _dark else '#334155'}; font-weight: 600; letter-spacing: -0.01em; }}
+    p, li, span {{ color: {text_primary}; }}
+    .stCaption, caption {{ color: {text_secondary}; letter-spacing: 0.02em; text-transform: uppercase; font-size: 0.72rem; }}
+
+    /* ---- Glassmorphism chat cards — depth layered ---- */
     .stChatMessage {{
-        padding: 1rem 1.25rem;
+        padding: 1.1rem 1.3rem;
         border-radius: 1rem;
-        background: rgba(255,255,255,0.65);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255,255,255,0.35);
-        box-shadow: 0 4px 20px {glow_color};
-        margin-bottom: 0.75rem;
-        animation: fadeInUp 0.4s ease-out;
-        transition: box-shadow 0.3s ease;
+        background: {card_bg};
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid {card_border};
+        box-shadow: 0 4px 24px {glow_color}, inset 0 1px 0 rgba(255,255,255,0.08);
+        margin-bottom: 0.8rem;
+        animation: fadeSlideIn 0.45s cubic-bezier(0.22,1,0.36,1);
+        transition: box-shadow 0.3s ease, transform 0.3s ease;
+        position: relative;
+        z-index: 1;
     }}
-    @keyframes fadeInUp {{
-        from {{ opacity: 0; transform: translateY(12px); }}
-        to   {{ opacity: 1; transform: translateY(0); }}
+    .stChatMessage:hover {{
+        transform: translateY(-1px);
+        box-shadow: 0 8px 32px {glow_color};
     }}
+    @keyframes fadeSlideIn {{
+        from {{ opacity: 0; transform: translateY(16px) scale(0.98); }}
+        to   {{ opacity: 1; transform: translateY(0) scale(1); }}
+    }}
+
     /* ---- User vs assistant message distinction ---- */
     .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {{
         border-left: 3px solid #5B8CFF;
@@ -1230,8 +1384,8 @@ def main():
     .typing-indicator {{
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        padding: 4px 0;
+        gap: 5px;
+        padding: 6px 0;
     }}
     .typing-indicator span {{
         width: 8px;
@@ -1239,50 +1393,69 @@ def main():
         border-radius: 50%;
         background: #9B8CFF;
         animation: typingBounce 1.2s ease-in-out infinite;
+        box-shadow: 0 0 6px rgba(155,140,255,0.4);
     }}
     .typing-indicator span:nth-child(2) {{ animation-delay: 0.15s; }}
     .typing-indicator span:nth-child(3) {{ animation-delay: 0.3s; }}
     @keyframes typingBounce {{
         0%, 60%, 100% {{ transform: translateY(0); opacity: 0.4; }}
-        30% {{ transform: translateY(-6px); opacity: 1; }}
+        30% {{ transform: translateY(-8px); opacity: 1; }}
+    }}
+
+    /* ---- AI responding glow ---- */
+    @keyframes assistantGlow {{
+        0%, 100% {{ box-shadow: 0 0 12px rgba(155,140,255,0.15); }}
+        50% {{ box-shadow: 0 0 24px rgba(155,140,255,0.30); }}
+    }}
+    .typing-indicator {{
+        animation: assistantGlow 2s ease-in-out infinite;
+        border-radius: 1rem;
+        padding: 8px 12px;
     }}
 
     /* ---- Premium chat input bar ---- */
     [data-testid="stChatInput"] {{
-        background: rgba(255,255,255,0.75) !important;
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        background: {input_bg} !important;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         border-radius: 1.25rem !important;
         border: 1px solid rgba(91,140,255,0.18) !important;
-        box-shadow: 0 4px 24px rgba(91,140,255,0.08);
+        box-shadow: 0 4px 28px rgba(91,140,255,0.10);
         transition: box-shadow 0.3s ease, border-color 0.3s ease;
     }}
     [data-testid="stChatInput"]:focus-within {{
         border-color: #5B8CFF !important;
-        box-shadow: 0 4px 28px rgba(91,140,255,0.18);
+        box-shadow: 0 4px 32px rgba(91,140,255,0.20);
     }}
     [data-testid="stChatInput"] textarea {{
         font-size: 0.98rem;
+        color: {text_primary};
     }}
-    /* Send button glow */
+    /* Send button ripple glow */
     [data-testid="stChatInput"] button {{
         transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border-radius: 50%;
     }}
     [data-testid="stChatInput"] button:hover {{
-        transform: scale(1.08);
-        box-shadow: 0 0 12px rgba(91,140,255,0.3);
+        transform: scale(1.12);
+        box-shadow: 0 0 16px rgba(91,140,255,0.4);
+    }}
+    [data-testid="stChatInput"] button:active {{
+        transform: scale(0.95);
+        box-shadow: 0 0 24px rgba(91,140,255,0.5);
     }}
 
     /* ---- Sidebar polish ---- */
     section[data-testid="stSidebar"] > div:first-child {{
         padding-top: 1.5rem;
-        background: linear-gradient(180deg, rgba(91,140,255,0.05) 0%, rgba(155,140,255,0.05) 50%, rgba(77,208,225,0.03) 100%);
+        background: {sidebar_bg};
     }}
     section[data-testid="stSidebar"] .stMarkdown p {{
         font-size: 0.9rem;
+        color: {text_primary};
     }}
 
-    /* ---- Tab labels with transition ---- */
+    /* ---- Tab labels with slide transition ---- */
     .stTabs [data-baseweb="tab-list"] {{
         gap: 0.25rem;
     }}
@@ -1291,44 +1464,55 @@ def main():
         font-size: 0.95rem;
         border-radius: 0.5rem 0.5rem 0 0;
         padding: 0.6rem 1rem;
-        transition: color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+        transition: color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+        letter-spacing: 0.01em;
     }}
     .stTabs [data-baseweb="tab"]:hover {{
         color: #5B8CFF;
         background: rgba(91,140,255,0.06);
-        box-shadow: 0 -2px 8px rgba(91,140,255,0.08);
+        box-shadow: 0 -2px 10px rgba(91,140,255,0.10);
+        transform: translateY(-1px);
     }}
     .stTabs [data-baseweb="tab"][aria-selected="true"] {{
-        box-shadow: 0 -2px 12px rgba(91,140,255,0.12);
+        box-shadow: 0 -2px 14px rgba(91,140,255,0.14);
+    }}
+    /* Tab content slide */
+    .stTabs [data-baseweb="tab-panel"] {{
+        animation: tabSlideIn 0.35s ease-out;
+    }}
+    @keyframes tabSlideIn {{
+        from {{ opacity: 0; transform: translateX(12px); }}
+        to   {{ opacity: 1; transform: translateX(0); }}
     }}
 
-    /* ---- Metric cards — glassmorphism ---- */
+    /* ---- Metric cards — glassmorphism with hover tilt ---- */
     [data-testid="stMetric"] {{
-        background: rgba(255,255,255,0.70);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
+        background: {card_bg};
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border-radius: 0.75rem;
-        padding: 0.75rem;
-        border: 1px solid rgba(255,255,255,0.3);
-        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-        transition: transform 0.25s ease, box-shadow 0.25s ease;
+        padding: 0.8rem;
+        border: 1px solid {card_border};
+        box-shadow: 0 2px 16px rgba(0,0,0,0.04);
+        transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s ease;
     }}
     [data-testid="stMetric"]:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(91,140,255,0.12);
+        transform: translateY(-3px) perspective(600px) rotateX(1deg);
+        box-shadow: 0 8px 28px rgba(91,140,255,0.14);
     }}
 
     /* ---- Button hover glow ---- */
     .stButton > button {{
         border-radius: 0.5rem;
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
         border: 1px solid rgba(91,140,255,0.2);
         font-weight: 500;
+        letter-spacing: 0.01em;
     }}
     .stButton > button:hover {{
-        box-shadow: 0 0 16px rgba(91,140,255,0.25);
+        box-shadow: 0 0 20px rgba(91,140,255,0.28);
         border-color: #5B8CFF;
-        transform: translateY(-1px);
+        transform: translateY(-2px);
     }}
     .stButton > button:active {{
         transform: translateY(0);
@@ -1351,19 +1535,20 @@ def main():
         padding: 2rem 0 1.25rem 0;
     }}
     .main-header h1 {{
-        font-size: 2.4rem;
+        font-size: 2.6rem;
         margin-bottom: 0;
         background: linear-gradient(135deg, #5B8CFF, #9B8CFF, #FF8A65);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
         font-weight: 800;
-        letter-spacing: -0.02em;
+        letter-spacing: -0.03em;
     }}
     .main-header p {{
-        color: #64748B;
+        color: {text_secondary};
         font-size: 0.95rem;
         margin-top: 0.25rem;
+        letter-spacing: 0.02em;
     }}
 
     /* ---- Risk-level atmospheric border ---- */
@@ -1381,19 +1566,19 @@ def main():
         border-radius: 0.75rem;
     }}
     .stExpander:hover {{
-        box-shadow: 0 4px 16px rgba(91,140,255,0.08);
-        transform: translateY(-1px);
+        box-shadow: 0 4px 20px rgba(91,140,255,0.10);
+        transform: translateY(-2px);
     }}
 
     /* ---- Profile setup form glassmorphism ---- */
     [data-testid="stForm"] {{
-        background: rgba(255,255,255,0.60);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        background: {form_bg};
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         border-radius: 1rem;
-        border: 1px solid rgba(255,255,255,0.35);
+        border: 1px solid {card_border};
         padding: 1.5rem;
-        box-shadow: 0 4px 24px rgba(91,140,255,0.08);
+        box-shadow: 0 4px 28px rgba(91,140,255,0.10);
     }}
 
     /* ---- Slider styling ---- */
@@ -1401,48 +1586,81 @@ def main():
         padding-top: 0;
     }}
 
-    /* ---- Plotly chart containers ---- */
+    /* ---- Plotly chart containers with shimmer loading ---- */
     [data-testid="stPlotlyChart"] {{
         border-radius: 0.75rem;
         overflow: hidden;
+        animation: shimmerIn 0.6s ease-out;
+    }}
+    @keyframes shimmerIn {{
+        from {{ opacity: 0.3; }}
+        to   {{ opacity: 1; }}
+    }}
+
+    /* ---- Selectbox & form inputs ---- */
+    [data-testid="stSelectbox"] label, [data-testid="stTextInput"] label {{
+        font-weight: 500;
+        font-size: 0.88rem;
+        letter-spacing: 0.01em;
     }}
     </style>
     """, unsafe_allow_html=True)
 
-    # ---- Background ambient music with volume control ----
+    # ---- Background ambient sound with 3 soundscapes ----
     if st.session_state.get('calm_music_enabled', False):
         _vol = st.session_state.get('_calm_volume', 0.03)
+        _sound = st.session_state.get('ambient_sound', 'deep_focus')
+        # Soundscape configs: { primary_freq, primary_type, harmonic_freq, harmonic_type, harmonic_ratio }
+        _SOUNDSCAPES = {
+            'deep_focus':  {'f1': 174, 't1': 'sine', 'f2': 285, 't2': 'sine', 'hr': 0.3},
+            'calm_waves':  {'f1': 136, 't1': 'sine', 'f2': 204, 't2': 'triangle', 'hr': 0.25},
+            'soft_rain':   {'f1': 220, 't1': 'triangle', 'f2': 330, 't2': 'sine', 'hr': 0.2},
+        }
+        sc = _SOUNDSCAPES.get(_sound, _SOUNDSCAPES['deep_focus'])
         st.markdown(
             f"""
             <div id="ambient-music-container" style="display:none;">
-                <p style="font-size:0.75rem;color:#9B8CFF;">🎵 Calm mode active</p>
+                <p style="font-size:0.75rem;color:#9B8CFF;">🎵 Ambient active</p>
             </div>
             <script>
             (function() {{
                 var vol = {_vol};
-                if (window._ambientInitialized) {{
-                    // Update volume on existing oscillator
+                var f1 = {sc['f1']}, t1 = '{sc['t1']}';
+                var f2 = {sc['f2']}, t2 = '{sc['t2']}';
+                var hr = {sc['hr']};
+                var soundKey = '{_sound}';
+
+                // If same soundscape already running, just update volume
+                if (window._ambientInitialized && window._ambientSoundKey === soundKey) {{
                     if (window._ambientGain) {{
                         window._ambientGain.gain.setTargetAtTime(vol, window._ambientCtx.currentTime, 0.1);
                     }}
+                    if (window._ambientGain2) {{
+                        window._ambientGain2.gain.setTargetAtTime(vol * hr, window._ambientCtx.currentTime, 0.1);
+                    }}
                     return;
                 }}
+
+                // Stop existing if switching soundscape
+                if (window._ambientOsc) {{ try {{ window._ambientOsc.stop(); }} catch(e) {{}} }}
+                if (window._ambientOsc2) {{ try {{ window._ambientOsc2.stop(); }} catch(e) {{}} }}
+                window._ambientInitialized = false;
+
                 window._ambientInitialized = true;
+                window._ambientSoundKey = soundKey;
                 try {{
-                    var ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    var HARMONIC_RATIO = 0.3;  // Harmonic volume as fraction of primary
-                    // Primary tone: 174 Hz Solfeggio (relaxation)
+                    var ctx = window._ambientCtx || new (window.AudioContext || window.webkitAudioContext)();
+                    window._ambientCtx = ctx;
                     var osc1 = ctx.createOscillator();
-                    osc1.type = 'sine';
-                    osc1.frequency.value = 174;
-                    // Harmonic layer: subtle 285 Hz
+                    osc1.type = t1;
+                    osc1.frequency.value = f1;
                     var osc2 = ctx.createOscillator();
-                    osc2.type = 'sine';
-                    osc2.frequency.value = 285;
+                    osc2.type = t2;
+                    osc2.frequency.value = f2;
                     var gain1 = ctx.createGain();
                     var gain2 = ctx.createGain();
                     gain1.gain.value = vol;
-                    gain2.gain.value = vol * HARMONIC_RATIO;
+                    gain2.gain.value = vol * hr;
                     osc1.connect(gain1);
                     osc2.connect(gain2);
                     gain1.connect(ctx.destination);
@@ -1453,7 +1671,6 @@ def main():
                     window._ambientOsc2 = osc2;
                     window._ambientGain = gain1;
                     window._ambientGain2 = gain2;
-                    window._ambientCtx = ctx;
                 }} catch(e) {{}}
             }})();
             </script>
@@ -1475,6 +1692,7 @@ def main():
                     window._ambientOsc2 = null;
                 }
                 window._ambientInitialized = false;
+                window._ambientSoundKey = null;
             })();
             </script>
             """,
