@@ -66,10 +66,14 @@ def render_hero_section() -> str:
     """Return HTML for the landing-page hero (logo + title + tagline)."""
     return (
         '<div class="landing-hero">'
+        '<div class="hero-parallax-layer hero-parallax-back"></div>'
+        '<div class="hero-parallax-layer hero-parallax-front"></div>'
+        '<div class="hero-soft-particles"></div>'
         '<div class="hero-logo-glow"></div>'
         '<div class="hero-logo">🌟</div>'
         '<h1 class="hero-title">AI Wellness Buddy</h1>'
         '<p class="hero-tagline">A Safe Space for Emotional Support</p>'
+        '<p class="hero-subtitle">Pause, breathe, and track your emotional journey with supportive AI guidance.</p>'
         '</div>'
     )
 
@@ -207,6 +211,16 @@ def render_streak_card(streak: int) -> str:
     )
 
 
+def render_wellness_sidebar_card(title: str, content: str, icon: str = '✨') -> str:
+    """Render a reusable glassmorphism sidebar card."""
+    return (
+        '<div class="wellness-sidebar-card">'
+        f'<div class="wellness-card-title">{icon} {title}</div>'
+        f'<div class="wellness-card-content">{content}</div>'
+        '</div>'
+    )
+
+
 # -----------------------------------------------------------------------
 # Calm mode / ambient
 # -----------------------------------------------------------------------
@@ -299,16 +313,34 @@ _AVATAR_MAP = {
 _DEFAULT_EMOTION_LABEL = 'Neutral'
 
 
-def render_emotional_avatar(emotion: str = 'neutral') -> str:
+def render_emotional_avatar(emotion: str = 'neutral', avatar_state: str | None = None, trend: str | None = None) -> str:
     """Return HTML for a dynamic emotional avatar with glow and animation.
 
     The avatar changes icon and colour based on the detected emotion,
     and includes a subtle CSS animation.
     """
     icon, color, anim = _AVATAR_MAP.get(emotion, _AVATAR_MAP['neutral'])
+    if avatar_state:
+        state_to_anim = {
+            'glow': 'avatarGlow',
+            'soft_glow': 'avatarGlow',
+            'pulse': 'avatarPulse',
+            'slow_pulse': 'avatarPulse',
+            'bounce': 'avatarBounce',
+        }
+        anim = state_to_anim.get(avatar_state, anim)
     label = emotion.capitalize() if emotion in _AVATAR_MAP else _DEFAULT_EMOTION_LABEL
+    if trend in ('worsening', 'improving', 'stable'):
+        label = f"{label} · {trend.title()}"
+    ring_class_map = {
+        'pulse': 'avatar-ring-pulse',
+        'slow_pulse': 'avatar-ring-pulse',
+        'bounce': 'avatar-ring-bounce',
+    }
+    ring_class = ring_class_map.get(avatar_state, 'avatar-ring-soft')
     return (
         f'<div class="emotional-avatar" style="--avatar-color:{color};">'
+        f'<span class="avatar-ring {ring_class}"></span>'
         f'<div class="avatar-glow" style="background:radial-gradient(circle,{color}33 0%,transparent 70%);"></div>'
         f'<span class="avatar-icon {anim}">{icon}</span>'
         f'<span class="avatar-label">{label}</span>'

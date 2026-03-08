@@ -7,6 +7,7 @@ Run with: streamlit run ui_app.py
 """
 
 import streamlit as st
+from datetime import datetime
 from wellness_buddy import WellnessBuddy
 from user_profile import UserProfile
 from data_store import DataStore
@@ -22,6 +23,7 @@ from ui.charts import (
     create_sentiment_chart, create_emotion_donut, create_risk_gauge,
     create_history_chart, create_weekly_chart, create_sparkline,
     create_moving_average_chart, create_risk_history_chart, create_emotion_heatmap,
+    create_emotion_journey_line, create_stress_intensity_gauge,
     EMO_COLORS, _HEATMAP_EMOTIONS,
 )
 from ui.layout import (
@@ -29,12 +31,12 @@ from ui.layout import (
     render_chat_header, render_user_avatar, render_risk_badge,
     render_session_info_card, render_streak_card, render_waveform_section,
     render_session_summary_card, render_emotion_flag,
-    render_emotional_avatar,
+    render_emotional_avatar, render_wellness_sidebar_card,
     EMO_ICONS, EMO_BUBBLE_CLASS, RISK_COLOUR, RISK_LEVEL_VALUES, SOUND_LABELS,
 )
 from ui.animations import (
     ambient_sound_html, ambient_stop_html, TYPING_INDICATOR_HTML,
-    canvas_particles_html, breathing_circle_html,
+    canvas_particles_html, breathing_circle_html, guided_breathing_message_html,
 )
 
 # Page configuration
@@ -53,6 +55,7 @@ for key, default in [
     ('messages', []),
     ('chat_history', []),        # structured {"role","content"} history
     ('last_response', None),     # anti-repeat tracking
+    ('last_response_meta', {}),
     ('user_id', None),
     ('profile_loaded', False),
     ('show_load', False),
@@ -68,9 +71,29 @@ for key, default in [
     ('ui_theme', 'calm'),          # calm | clinical | modern
     ('dark_mode', False),
     ('ambient_sound', 'deep_focus'),  # deep_focus | calm_waves | soft_rain
+    ('research_logging_enabled', False),
+    ('background_theme', 'calm_gradient'),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
+
+if (
+    not st.session_state.get('_theme_aliases_migrated', False)
+    and st.session_state.get('background_theme') in ('soft_aurora', 'ocean_waves')
+):
+    if st.session_state.get('background_theme') == 'soft_aurora':
+        st.session_state.background_theme = 'aurora'
+    elif st.session_state.get('background_theme') == 'ocean_waves':
+        st.session_state.background_theme = 'ocean'
+    st.session_state['_theme_aliases_migrated'] = True
+
+
+_JOURNEY_TAB_HEATMAP_BASELINE_INTENSITY = 0.05
+_JOURNEY_TAB_HEATMAP_MIN_INTENSITY = 0.2
+_JOURNEY_TAB_HEATMAP_MAX_INTENSITY = 1.0
+_JOURNEY_TAB_HEATMAP_RISK_BOOST = 0.2
+_BACKGROUND_SCENES = ["calm_gradient", "night_sky", "aurora", "ocean"]
+_UI_THEMES = ["calm", "modern", "clinical"]
 
 
 # -----------------------------------------------------------------------
@@ -475,10 +498,17 @@ def render_chat_tab():
         response = st.session_state.buddy.respond(
             voice_transcript,
             context=st.session_state.chat_history,
+            options={
+                'calm_mode_active': st.session_state.get('calm_music_enabled', False),
+                'research_logging': st.session_state.get('research_logging_enabled', False),
+            },
         )
         typing_placeholder.empty()
         _add_chat_message("assistant", response)
         st.session_state.last_response = response
+        st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
+        if st.session_state.last_response_meta.get('calm_mode_suggested'):
+            st.session_state.calm_music_enabled = True
         _play_tts(response)
         st.rerun()
 
@@ -493,9 +523,16 @@ def render_chat_tab():
         response = st.session_state.buddy.respond(
             prompt,
             context=st.session_state.chat_history,
+            options={
+                'calm_mode_active': st.session_state.get('calm_music_enabled', False),
+                'research_logging': st.session_state.get('research_logging_enabled', False),
+            },
         )
         _add_chat_message("assistant", response)
         st.session_state.last_response = response
+        st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
+        if st.session_state.last_response_meta.get('calm_mode_suggested'):
+            st.session_state.calm_music_enabled = True
         if st.session_state.get('tts_enabled', False):
             _play_tts(response)
         st.rerun()
@@ -619,6 +656,55 @@ def render_trends_tab():
         col_s2.metric("Stability Index", f"{summary['stability_index']:.2f}",
                       help="1 = perfectly stable, 0 = highly volatile")
         col_s3.metric("Trend", summary['trend'].upper())
+
+
+def render_emotional_journey_tab():
+    """Render the Emotional Journey insights panel.
+
+    If no timeline exists yet, a contextual prompt is shown. Otherwise this
+    tab displays a journey trend line, stress intensity gauge, heatmap
+    timeline, and compact session metrics.
+    """
+    st.subheader("🌊 Emotional Journey")
+    st.caption("EMOTION TRAJECTORY, HEATMAP TIMELINE, STRESS INTENSITY, AND SESSION SNAPSHOT")
+
+    timeline = st.session_state.buddy.get_emotion_timeline()
+    if not timeline:
+        st.info("Start chatting to unlock your emotional journey insights.")
+        return
+
+    line_col, gauge_col = st.columns([2, 1])
+    with line_col:
+        st.plotly_chart(create_emotion_journey_line(timeline), use_container_width=True)
+    with gauge_col:
+        latest_risk = float(timeline[-1].get('risk_score', 0.0))
+        st.plotly_chart(create_stress_intensity_gauge(latest_risk), use_container_width=True)
+
+    heatmap_payload = []
+    for point in timeline:
+        emo = point.get('emotion', 'neutral')
+        row = {key: _JOURNEY_TAB_HEATMAP_BASELINE_INTENSITY for key in _HEATMAP_EMOTIONS}
+        if emo in row:
+            row[emo] = min(
+                _JOURNEY_TAB_HEATMAP_MAX_INTENSITY,
+                max(
+                    _JOURNEY_TAB_HEATMAP_MIN_INTENSITY,
+                    float(point.get('risk_score', 0.0)) + _JOURNEY_TAB_HEATMAP_RISK_BOOST,
+                ),
+            )
+        heatmap_payload.append(row)
+    st.plotly_chart(create_emotion_heatmap(heatmap_payload), use_container_width=True)
+
+    emotion_counts = {}
+    for point in timeline:
+        emo = point.get('emotion', 'neutral')
+        emotion_counts[emo] = emotion_counts.get(emo, 0) + 1
+    dominant = max(emotion_counts, key=emotion_counts.get) if emotion_counts else 'neutral'
+    avg_risk = sum(float(p.get('risk_score', 0.0)) for p in timeline) / len(timeline)
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("Conversation Turns", len(timeline))
+    col_b.metric("Dominant Emotion", dominant.capitalize())
+    col_c.metric("Avg Session Risk", f"{avg_risk:.2f}")
 
 
 # -----------------------------------------------------------------------
@@ -880,16 +966,20 @@ def show_chat_interface():
     with st.sidebar:
         # User avatar circle + name
         user_id = st.session_state.user_id
-        st.markdown(render_user_avatar(user_id), unsafe_allow_html=True)
-
-        st.markdown("---")
+        st.markdown(
+            render_wellness_sidebar_card("Profile", render_user_avatar(user_id), icon="🧘"),
+            unsafe_allow_html=True,
+        )
 
         # Risk badge — color-coded
         summary = st.session_state.buddy.pattern_tracker.get_pattern_summary()
         risk_level = 'low'
         if summary:
             risk_level = summary.get('risk_level', 'low')
-        st.markdown(render_risk_badge(risk_level), unsafe_allow_html=True)
+        st.markdown(
+            render_wellness_sidebar_card("Daily Emotional Status", render_risk_badge(risk_level), icon="💠"),
+            unsafe_allow_html=True,
+        )
 
         # Session info + streak card
         if st.session_state.buddy.user_profile:
@@ -898,10 +988,7 @@ def show_chat_interface():
             lang_pref = st.session_state.buddy.user_profile.get_language_preference()
             msg_count = len(st.session_state.get('chat_history', []))
 
-            st.markdown(
-                render_session_info_card(sessions + 1, lang_pref, msg_count),
-                unsafe_allow_html=True,
-            )
+            st.markdown(render_session_info_card(sessions + 1, lang_pref, msg_count), unsafe_allow_html=True)
             st.markdown(render_streak_card(streak), unsafe_allow_html=True)
 
         # Mini sentiment sparkline in sidebar
@@ -926,38 +1013,59 @@ def show_chat_interface():
         # ---- Theme & Display ----
         st.markdown(
             '<p style="font-weight:600;font-size:0.95rem;color:#334155;margin-bottom:0.25rem;">'
-            '🎨 Theme & Display</p>',
+            '🎨 UI Customization</p>',
             unsafe_allow_html=True,
         )
-        st.session_state.dark_mode = st.toggle(
-            "🌙 Dark Mode",
+        current_bg = st.session_state.get('background_theme', 'calm_gradient')
+        current_theme = st.session_state.get('ui_theme', 'calm')
+        selected_bg = st.selectbox(
+            "Background Scene",
+            _BACKGROUND_SCENES,
+            index=_BACKGROUND_SCENES.index(
+                current_bg
+                if current_bg in _BACKGROUND_SCENES
+                else "calm_gradient"
+            ),
+            help="Choose a dynamic background scene.",
+        )
+        selected_theme = st.selectbox(
+            "UI Style",
+            _UI_THEMES,
+            index=_UI_THEMES.index(
+                current_theme
+                if current_theme in _UI_THEMES
+                else "calm"
+            ),
+            help="Choose the global UI style tone.",
+        )
+        selected_dark = st.toggle(
+            "Dark Mode",
             value=st.session_state.get('dark_mode', False),
             help="Switch to a calm dark theme.",
         )
-        theme_choice = st.selectbox(
-            "Wellness Theme",
-            ["Calm Therapy", "Clinical", "Modern Startup"],
-            index=["Calm Therapy", "Clinical", "Modern Startup"].index(
-                {"calm": "Calm Therapy", "clinical": "Clinical", "modern": "Modern Startup"}.get(
-                    st.session_state.get('ui_theme', 'calm'), "Calm Therapy"
-                )
-            ),
-            key="theme_selector",
-            help="Visual theme: Calm (soft gradients), Clinical (professional), Modern (vibrant).",
+        selected_calm = st.toggle(
+            "Calm Mode",
+            value=st.session_state.get('calm_music_enabled', False),
+            help="Enable calm mode atmosphere and breathing visuals.",
         )
-        _THEME_MAP = {"Calm Therapy": "calm", "Clinical": "clinical", "Modern Startup": "modern"}
-        st.session_state.ui_theme = _THEME_MAP.get(theme_choice, 'calm')
+        theme_changed = (
+            selected_bg != st.session_state.get('background_theme')
+            or selected_theme != st.session_state.get('ui_theme')
+            or selected_dark != st.session_state.get('dark_mode')
+            or selected_calm != st.session_state.get('calm_music_enabled')
+        )
+        st.session_state.background_theme = selected_bg
+        st.session_state.ui_theme = selected_theme
+        st.session_state.dark_mode = selected_dark
+        st.session_state.calm_music_enabled = selected_calm
+        if theme_changed:
+            st.rerun()
 
         # ---- Ambient Sound ----
         st.markdown(
             '<p style="font-weight:600;font-size:0.95rem;color:#334155;margin-bottom:0.25rem;">'
             '🎵 Ambient Sound</p>',
             unsafe_allow_html=True,
-        )
-        st.session_state.calm_music_enabled = st.toggle(
-            "Enable Ambient",
-            value=st.session_state.get('calm_music_enabled', False),
-            help="Play calming ambient background. Starts after interaction (browser safe).",
         )
         if st.session_state.calm_music_enabled:
             _SOUND_OPTIONS = ["Deep Focus", "Calm Waves", "Soft Rain", "White Noise"]
@@ -979,6 +1087,12 @@ def show_chat_interface():
                 help="Adjust ambient volume (0 = mute).",
             )
             st.session_state['_calm_volume'] = vol / 1000.0  # 0.0 – 0.1 range
+
+        st.session_state.research_logging_enabled = st.toggle(
+            "🧪 Research Logging",
+            value=st.session_state.get('research_logging_enabled', False),
+            help="When enabled, structured emotion/topic/trend metadata is logged for export.",
+        )
 
         st.markdown("---")
         st.markdown(
@@ -1037,11 +1151,33 @@ def show_chat_interface():
     # Determine dominant emotion for header and avatar
     _dom_emo_str = 'neutral'
     _emo_icon = '😊'
+    _avatar_state = None
+    _trend = None
     if summary:
         dist = summary.get('emotion_distribution', {})
         if dist:
             _dom_emo_str = max(dist, key=dist.get)
             _emo_icon = EMO_ICONS.get(_dom_emo_str, '😊')
+    _meta = st.session_state.get('last_response_meta') or {}
+    _last_chat = st.session_state.get('chat_history', [])
+    _last_chat_entry = _last_chat[-1] if _last_chat else {}
+    _meta_ts = _meta.get('timestamp')
+    _is_recent_meta = False
+    if _meta_ts:
+        try:
+            _meta_age = (datetime.now() - datetime.fromisoformat(_meta_ts)).total_seconds()
+            _is_recent_meta = 0 <= _meta_age <= 900
+        except ValueError:
+            _is_recent_meta = False
+    meta_is_fresh = (
+        _last_chat
+        and _last_chat_entry.get('role') == 'assistant'
+        and _is_recent_meta
+    )
+    if _meta.get('emotion') and meta_is_fresh:
+        _dom_emo_str = _meta.get('emotion', _dom_emo_str)
+    _avatar_state = _meta.get('avatar_state')
+    _trend = _meta.get('trend')
     streak = st.session_state.buddy.user_profile.get_mood_streak()
 
     # Header + dynamic emotional avatar side-by-side
@@ -1056,12 +1192,16 @@ def show_chat_interface():
             unsafe_allow_html=True,
         )
     with avatar_col:
-        st.markdown(render_emotional_avatar(_dom_emo_str), unsafe_allow_html=True)
+        st.markdown(
+            render_emotional_avatar(_dom_emo_str, avatar_state=_avatar_state, trend=_trend),
+            unsafe_allow_html=True,
+        )
 
     # Main content — tabs
-    tab_chat, tab_trends, tab_risk, tab_report = st.tabs([
+    tab_chat, tab_trends, tab_journey, tab_risk, tab_report = st.tabs([
         "💬 Chat",
         "📈 Emotional Trends",
+        "🌊 Emotional Journey",
         "⚠️ Risk Dashboard",
         "📋 Weekly Report",
     ])
@@ -1071,6 +1211,9 @@ def show_chat_interface():
 
     with tab_trends:
         render_trends_tab()
+
+    with tab_journey:
+        render_emotional_journey_tab()
 
     with tab_risk:
         render_risk_tab()
@@ -1093,27 +1236,39 @@ def main():
             _risk_level = _sum.get('risk_level', 'low')
 
     # ---- Inject theme CSS from modular theme engine ----
-    _dark = st.session_state.get('dark_mode', False)
-    _theme = st.session_state.get('ui_theme', 'calm')
     st.markdown(
-        get_theme_css(dark_mode=_dark, ui_theme=_theme, risk_level=_risk_level),
+        get_theme_css(
+            dark_mode=st.session_state.dark_mode,
+            ui_theme=st.session_state.ui_theme,
+            risk_level=_risk_level,
+            background_theme=st.session_state.background_theme,
+            calm_mode=st.session_state.calm_music_enabled,
+        ),
         unsafe_allow_html=True,
     )
 
     # ---- Floating canvas particles ----
-    st.markdown(canvas_particles_html(), unsafe_allow_html=True)
+    st.markdown(
+        canvas_particles_html(
+            theme=st.session_state.background_theme,
+            calm_mode=st.session_state.calm_music_enabled,
+        ),
+        unsafe_allow_html=True,
+    )
 
     # ---- Background ambient sound with 4 soundscapes ----
-    if st.session_state.get('calm_music_enabled', False):
+    if st.session_state.calm_music_enabled:
         _vol = st.session_state.get('_calm_volume', 0.03)
         _sound = st.session_state.get('ambient_sound', 'deep_focus')
 
         # Calm mode pulsing background + waveform visualization
+        st.markdown('<div class="calm-mode-overlay"></div>', unsafe_allow_html=True)
         st.markdown(render_waveform_section(_sound), unsafe_allow_html=True)
         st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
 
         # Breathing meditation circle
         st.markdown(breathing_circle_html(), unsafe_allow_html=True)
+        st.markdown(guided_breathing_message_html(), unsafe_allow_html=True)
     else:
         # Stop ambient if it was playing
         st.markdown(ambient_stop_html(), unsafe_allow_html=True)

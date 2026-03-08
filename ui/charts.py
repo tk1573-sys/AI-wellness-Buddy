@@ -17,6 +17,8 @@ import plotly.graph_objects as go
 _FONT = dict(family='Inter')
 _HOVER = dict(bgcolor='#fff', font_size=12, font_family='Inter')
 _TRANSPARENT = 'rgba(0,0,0,0)'
+_TRANSITION_DURATION = 500
+_TRANSITION_EASING = 'cubic-in-out'
 
 EMO_COLORS = {
     'joy': '#4DD0E1', 'positive': '#4DD0E1',
@@ -257,6 +259,59 @@ def create_sparkline(sentiments: list) -> go.Figure:
         yaxis=dict(visible=False),
         showlegend=False,
     )
+    return fig
+
+
+# -----------------------------------------------------------------------
+# Emotional journey charts
+# -----------------------------------------------------------------------
+
+def create_emotion_journey_line(emotion_timeline: list[dict]) -> go.Figure:
+    """Create a session emotion-risk journey line from timeline entries."""
+    if not emotion_timeline:
+        emotion_timeline = [{'risk_score': 0.0, 'emotion': 'neutral'}]
+    y_vals = [float(point.get('risk_score', 0.0)) for point in emotion_timeline]
+    custom_emo = [point.get('emotion', 'neutral') for point in emotion_timeline]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        y=y_vals,
+        mode='lines+markers',
+        name='Emotion Journey',
+        line=dict(color='#9B8CFF', width=3, shape='spline'),
+        marker=dict(
+            size=9,
+            color=[EMO_COLORS.get(e, '#9B8CFF') for e in custom_emo],
+            line=dict(color='#fff', width=1),
+        ),
+        fill='tozeroy',
+        fillcolor='rgba(155,140,255,0.14)',
+        customdata=custom_emo,
+        hovertemplate='Turn %{x}<br>Risk: %{y:.2f}<br>Emotion: %{customdata}<extra></extra>',
+    ))
+    fig.update_layout(**_base_layout(
+        height=300,
+        xaxis_title='Conversation Turn',
+        yaxis_title='Risk Intensity',
+        yaxis=dict(range=[0, 1]),
+        transition=dict(duration=_TRANSITION_DURATION, easing=_TRANSITION_EASING),
+    ))
+    return fig
+
+
+def create_stress_intensity_gauge(risk_score: float) -> go.Figure:
+    """Create wellness-oriented stress intensity gauge."""
+    score = max(0.0, min(1.0, float(risk_score)))
+    if score >= 0.75:
+        tone = 'critical'
+    elif score >= 0.50:
+        tone = 'high'
+    elif score >= 0.25:
+        tone = 'medium'
+    else:
+        tone = 'low'
+    fig = create_risk_gauge(score, tone)
+    fig.update_layout(transition=dict(duration=_TRANSITION_DURATION, easing=_TRANSITION_EASING))
+    fig.data[0].title['text'] = '<b>Stress Intensity</b>'
     return fig
 
 

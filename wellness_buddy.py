@@ -29,6 +29,7 @@ class WellnessBuddy:
         self.data_store = DataStore(data_dir)
         self.session_active = False
         self.user_id = None
+        self._last_response_metadata = {}
         
     def start_session(self):
         """Start a new wellness buddy session"""
@@ -226,7 +227,7 @@ class WellnessBuddy:
             self.user_profile.update_last_session()
             self.data_store.save_user_data(self.user_id, self.user_profile.get_profile())
     
-    def process_message(self, user_message):
+    def process_message(self, user_message, message_options=None):
         """Process user message and generate response"""
         # Ensure profile is loaded
         if not self.user_profile:
@@ -261,6 +262,9 @@ class WellnessBuddy:
         user_context = self.user_profile.get_personal_context()
         user_context['response_style'] = self.user_profile.get_response_style()
         user_context['user_name'] = self.user_id
+        message_options = message_options or {}
+        user_context['calm_mode_active'] = bool(message_options.get('calm_mode_active', False))
+        user_context['research_logging'] = bool(message_options.get('research_logging', False))
 
         # Attach structured conversation context for memory-aware responses
         user_context['context'] = self.conversation_handler.get_chat_history()
@@ -272,6 +276,7 @@ class WellnessBuddy:
             user_context['pre_distress_warning'] = pre_distress
 
         response = self.conversation_handler.generate_response(emotion_data, user_context)
+        response_meta = self.conversation_handler.get_last_response_metadata()
         
         # Check for distress alerts
         pattern_summary = self.pattern_tracker.get_pattern_summary()
@@ -288,10 +293,13 @@ class WellnessBuddy:
             
             # Reset counter after alert
             self.pattern_tracker.reset_consecutive_distress()
-        
-        return response
+        response_meta['risk_level'] = (pattern_summary or {}).get('risk_level', 'low')
+        response_meta['risk_score'] = (pattern_summary or {}).get('risk_score', 0.0)
+        self._last_response_metadata = response_meta
 
-    def respond(self, user_input, context=None):
+        return response
+    
+    def respond(self, user_input, context=None, options=None):
         """Process user input with optional conversation context.
 
         This is the context-aware entry point.  *context* is a list of
@@ -313,7 +321,19 @@ class WellnessBuddy:
                     self.conversation_handler.add_message(content, emotion_data)
                     existing_msgs.add(content)
 
-        return self.process_message(user_input)
+        return self.process_message(user_input, message_options=options)
+
+    def get_last_response_metadata(self):
+        """Get metadata for the last generated response."""
+        return dict(self._last_response_metadata)
+
+    def get_emotion_timeline(self):
+        """Get emotion timeline for analytics visualizations."""
+        return self.conversation_handler.get_emotion_timeline()
+
+    def export_session_log(self):
+        """Export optional research-mode session log."""
+        return self.conversation_handler.export_session_log()
     
     def _show_resources(self):
         """Display support resources"""
