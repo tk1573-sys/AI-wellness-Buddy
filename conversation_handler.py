@@ -4,12 +4,12 @@ Supports fine-grained emotion routing (joy/sadness/anger/fear/anxiety/crisis)
 and response-style preferences (short/detailed/balanced).
 """
 
+import logging
 import random
+from collections import deque
 from datetime import datetime
 import config
-from language_handler import LanguageHandler as _LangHandler
-
-_lang_handler = _LangHandler()
+_logger = logging.getLogger(__name__)
 
 
 # -----------------------------------------------------------------------
@@ -169,6 +169,127 @@ _SUPPORT_VARIATIONS = [
     "Let's take this one step at a time.",
 ]
 
+ANXIETY_RESPONSES = [
+    "I can hear the tension in what you're sharing, and that feeling is valid.",
+    "What you're feeling right now sounds really overwhelming, and you're not alone.",
+    "Anxiety can make everything feel urgent; thank you for talking about it.",
+    "It makes sense that your mind feels crowded right now.",
+    "That worried feeling can be exhausting, and I appreciate your honesty.",
+    "I hear how heavy this anxiety feels for you at this moment.",
+    "It sounds like you're carrying a lot internally right now.",
+    "Your concern is understandable, and I'm here with you through it.",
+    "When anxiety spikes like this, even small things can feel intense.",
+    "Thank you for sharing this anxiety with me — we can take it slowly.",
+]
+
+STRESS_RESPONSES = [
+    "It sounds like you're under a lot of pressure right now.",
+    "You're carrying many things at once, and that can feel draining.",
+    "This level of stress sounds tough, and your reaction is understandable.",
+    "I can hear how mentally and emotionally stretched you feel.",
+    "What you're describing sounds like sustained pressure, not a small burden.",
+    "That stress response makes sense given everything you're juggling.",
+    "It's okay to acknowledge this load — it really does sound heavy.",
+    "Your stress is real, and you deserve support while handling it.",
+    "You're dealing with a lot, and it's understandable this feels intense.",
+    "That constant pressure can wear anyone down; thank you for sharing it.",
+]
+
+SADNESS_RESPONSES = [
+    "I'm really sorry this feels so heavy right now.",
+    "I can hear the sadness in your words, and it matters.",
+    "That sounds deeply painful, and I'm here with you.",
+    "Your sadness is valid, and you don't have to carry it alone.",
+    "It makes sense that this is weighing on your heart.",
+    "Thank you for trusting me with this difficult feeling.",
+    "I hear how low this moment feels for you.",
+    "What you're feeling is real, and you deserve compassion.",
+    "I'm with you in this, even if things feel very hard right now.",
+    "This sounds emotionally exhausting, and your feelings are important.",
+]
+
+FEAR_RESPONSES = [
+    "That sounds scary, and it's understandable to feel this way.",
+    "I hear the fear in what you're sharing, and you're not alone.",
+    "Feeling afraid in this situation makes a lot of sense.",
+    "This fear sounds intense, and I'm here to stay with you through it.",
+    "You're facing something that feels threatening, and that reaction is valid.",
+    "It sounds like your nervous system is on high alert right now.",
+    "Thank you for naming this fear — that takes courage.",
+    "I can hear how unsettling this feels for you right now.",
+    "What you're describing would make many people feel afraid.",
+    "You don't have to process this fear by yourself.",
+]
+
+NEUTRAL_SUPPORT_RESPONSES = [
+    "Thank you for checking in — I'm here to listen.",
+    "I hear you, and we can take this conversation at your pace.",
+    "I'm here with you; share as much or as little as feels right.",
+    "Thanks for opening this conversation — your wellbeing matters.",
+    "I'm listening, and we can explore whatever feels most important right now.",
+    "I appreciate you reaching out today; that's a meaningful step.",
+    "I'm present with you, and we can go one step at a time.",
+    "Thank you for sharing — we can work through this together.",
+    "I'm right here, and we can keep this gentle and steady.",
+    "I hear you clearly, and your feelings are welcome here.",
+]
+
+TAMIL_EMPATHY_VARIATIONS = [
+    "நான் உங்களுடன் இருக்கிறேன்.",
+    "பரவாயில்லை, மெதுவாக பேசலாம்.",
+    "உங்கள் உணர்வுகள் முக்கியம்.",
+    "நாம் இதை ஒன்றாக சமாளிக்கலாம்.",
+    "நீங்கள் தனியாக இல்லை, நான் கேட்கிறேன்.",
+    "மெல்ல மெல்ல பேசலாம், நான் கவனமாக கேட்கிறேன்.",
+    "இது கஷ்டமாக இருக்கலாம், ஆனாலும் நீங்கள் பாதுகாப்பாக இருக்கிறீர்கள்.",
+    "உங்கள் மனநிலை பற்றி பகிர்ந்ததற்கு நன்றி.",
+]
+
+_TOPIC_KEYWORDS = {
+    'work_stress': [
+        'work', 'office', 'deadline', 'manager', 'boss', 'meeting', 'project',
+        'job', 'shift', 'workload', 'target', 'performance',
+    ],
+    'career_anxiety': [
+        'career', 'promotion', 'interview', 'future', 'exam', 'placement',
+        'resume', 'salary', 'profession', 'role change',
+    ],
+    'relationship_issues': [
+        'relationship', 'partner', 'marriage', 'husband', 'wife', 'boyfriend',
+        'girlfriend', 'breakup', 'family fight', 'argument',
+    ],
+    'health_concerns': [
+        'health', 'illness', 'pain', 'hospital', 'doctor', 'diagnosis', 'sleep',
+        'insomnia', 'medicine', 'panic attack',
+    ],
+    'general_stress': [
+        'stress', 'overwhelmed', 'pressure', 'burnout', 'drained', 'tired',
+    ],
+}
+
+_TOPIC_SUGGESTIONS = {
+    'work_stress': [
+        "If work pressure is piling up, would a short reset break and a prioritized top-3 task list help?",
+        "A quick workload sort might help: urgent, important, and can-wait.",
+    ],
+    'career_anxiety': [
+        "Career uncertainty can feel intense — one concrete next step today can reduce mental load.",
+        "Would it help to focus on one actionable step, like preparing for a single interview/topic?",
+    ],
+    'relationship_issues': [
+        "If this is relationship-related, a calm boundary statement can sometimes reduce emotional strain.",
+        "Would you like to frame what you need from that relationship in one clear sentence?",
+    ],
+    'health_concerns': [
+        "Health worries are hard to carry; grounding with slow breathing and gentle self-checks may help.",
+        "If symptoms feel persistent or intense, seeking medical guidance can bring clarity and reassurance.",
+    ],
+    'general_stress': [
+        "A tiny reset can help: unclench shoulders, exhale slowly, and choose one small next step.",
+        "When stress stacks up, doing one manageable task first can restore a sense of control.",
+    ],
+}
+
 # Emotion-specific contextual follow-ups for escalation when the same
 # emotion is detected multiple consecutive times.
 _ESCALATION_FOLLOWUPS = {
@@ -212,6 +333,8 @@ class ConversationHandler:
         self._last_pool_choice = None  # last base template chosen (for dedup)
         self._last_response = None     # full last assistant response (for anti-repeat)
         self._support_idx = 0          # rotating index into _SUPPORT_VARIATIONS
+        self._recent_responses = deque(maxlen=5)
+        self._recent_pool_choices = deque(maxlen=5)
 
     def add_message(self, user_message, emotion_data):
         """Add a message to conversation history"""
@@ -248,24 +371,126 @@ class ConversationHandler:
         return count
 
     def _choose_unique(self, pool):
-        """Pick a random item from pool, avoiding consecutive repetition of the same base template."""
+        """Pick a random item from pool, avoiding recently used templates."""
         if len(pool) <= 1:
             return pool[0] if pool else ''
-        candidates = [t for t in pool if t != self._last_pool_choice]
+        recent_used = set(self._recent_pool_choices)
+        candidates = [t for t in pool if t not in recent_used]
+        if not candidates:
+            candidates = [t for t in pool if t != self._last_pool_choice]
         if not candidates:
             candidates = pool
         chosen = random.choice(candidates)
         self._last_pool_choice = chosen
+        self._recent_pool_choices.append(chosen)
         return chosen
 
-    def _ensure_no_repeat(self, response, emotion):
-        """If *response* is identical to the last assistant response,
-        append a rotating supportive follow-up to ensure variation."""
-        if response and response == self._last_response:
+    def _detect_topic(self, text):
+        """Lightweight topic detection using keyword matching."""
+        if not text:
+            return None
+        text_lower = text.lower()
+        for topic, keywords in _TOPIC_KEYWORDS.items():
+            if any(keyword in text_lower for keyword in keywords):
+                return topic
+        return None
+
+    @staticmethod
+    def _escalation_stage(consecutive_count):
+        """Map consecutive emotion count to escalation depth."""
+        if consecutive_count >= 4:
+            return 3
+        if consecutive_count >= 3:
+            return 2
+        if consecutive_count >= 2:
+            return 1
+        return 0
+
+    def _build_response_segments(self, emotion, topic, lang_pref, stage):
+        """Compose response from modular empathy/reflection/suggestion/closing segments."""
+        emotion_key = emotion if emotion in {'anxiety', 'stress', 'sadness', 'fear'} else 'neutral'
+        empathy_map = {
+            'anxiety': ANXIETY_RESPONSES,
+            'stress': STRESS_RESPONSES,
+            'sadness': SADNESS_RESPONSES,
+            'fear': FEAR_RESPONSES,
+            'neutral': NEUTRAL_SUPPORT_RESPONSES,
+        }
+        empathy = self._choose_unique(empathy_map[emotion_key])
+
+        if lang_pref in ('tamil', 'bilingual'):
+            tamil_empathy = self._choose_unique(TAMIL_EMPATHY_VARIATIONS)
+            empathy = tamil_empathy if lang_pref == 'tamil' else f"{tamil_empathy} {empathy}"
+
+        reflection_pool = {
+            0: [
+                "I'm listening and staying with you in this moment.",
+                "We can take this one gentle step at a time.",
+            ],
+            1: [
+                "I can see this has been continuing and weighing on you.",
+                "It sounds like this isn't just a passing moment — it's been persisting.",
+            ],
+            2: [
+                "Since this feeling keeps returning, let's focus on one grounding step right now.",
+                "Because this has stayed with you, a small coping action could help ease the intensity.",
+            ],
+            3: [
+                "You've been carrying this for a while, so steady support and a practical plan may help.",
+                "Given how persistent this is, we can combine emotional support with a simple action plan.",
+            ],
+        }
+        reflection = self._choose_unique(reflection_pool[stage])
+
+        suggestion = ""
+        if topic in _TOPIC_SUGGESTIONS:
+            suggestion = self._choose_unique(_TOPIC_SUGGESTIONS[topic])
+        elif stage >= 2:
+            generic_suggestions = [
+                "Would a brief breathing exercise or short walk feel manageable right now?",
+                "If it helps, we can break this into one tiny, doable next step.",
+            ]
+            suggestion = self._choose_unique(generic_suggestions)
+
+        if stage >= 3:
+            guidance_pool = [
+                "If this keeps feeling intense, reaching out to a trusted person or professional support can be a strong next step.",
+                "You deserve sustained support here — we can keep planning practical steps together.",
+            ]
+            suggestion = f"{suggestion} {self._choose_unique(guidance_pool)}".strip()
+
+        closing_pool = [
+            "I'm here with you.",
+            "You're not alone in this.",
+            "We'll move through this together.",
+            "Your feelings matter, and I'm with you.",
+        ]
+        if lang_pref in ('tamil', 'bilingual'):
+            closing_pool.extend([
+                "நீங்கள் தனியாக இல்லை.",
+                "நான் தொடர்ந்து உங்களுடன் இருக்கிறேன்.",
+            ])
+        closing = self._choose_unique(closing_pool)
+
+        segments = [empathy, reflection]
+        if suggestion:
+            segments.append(suggestion)
+        segments.append(closing)
+        return " ".join(segment.strip() for segment in segments if segment and segment.strip())
+
+    def _ensure_no_repeat(self, response, emotion, regenerate_fn=None):
+        """Avoid duplicates across the most recent assistant replies."""
+        attempts = 0
+        while response and response in self._recent_responses and regenerate_fn and attempts < 6:
+            response = regenerate_fn()
+            attempts += 1
+        if response and response in self._recent_responses:
             variation = _SUPPORT_VARIATIONS[self._support_idx % len(_SUPPORT_VARIATIONS)]
             self._support_idx += 1
             response = response + " " + variation
         self._last_response = response
+        if response:
+            self._recent_responses.append(response)
         return response
 
     def generate_response(self, emotion_data, user_context=None):
@@ -308,53 +533,53 @@ class ConversationHandler:
         living_situation = user_context.get('living_situation') if user_context else None
         user_name = user_context.get('user_name') if user_context else None
 
-        # ---- Try bilingual / Tamil pool first (if preference set) ----
-        lang_pool = []
-        if lang_pref in ('tamil', 'bilingual') and primary_emotion:
-            lang_pool = _lang_handler.get_response_pool(primary_emotion, lang_pref)
+        debug_enabled = bool(user_context and user_context.get('debug_response_generation'))
+        detected_topic = None
+        template_label = "legacy"
 
-        if lang_pool:
-            response = self._choose_unique(lang_pool)
-        elif primary_emotion and primary_emotion in _RESPONSES:
-            # ---- Route by fine-grained primary emotion (English) ----
-            pool = _RESPONSES[primary_emotion].get(style, _RESPONSES[primary_emotion]['balanced'])
-            response = self._choose_unique(pool)
-        else:
-            # ---- Fallback to coarse-emotion logic (backward-compatible) ----
-            if coarse_emotion == 'positive':
-                pool = _RESPONSES['joy'].get(style, _RESPONSES['joy']['balanced'])
+        # Build conversational context text (current + recent) for topic detection
+        context_msgs = []
+        if user_context and isinstance(user_context.get('context'), list):
+            context_msgs = [
+                m.get('content', '')
+                for m in user_context['context'][-6:]
+                if m.get('role') == 'user'
+            ]
+        history_msgs = [e.get('user_message', '') for e in self.conversation_history[-6:]]
+        context_blob = " ".join([m for m in (context_msgs + history_msgs) if m])
+        detected_topic = self._detect_topic(context_blob)
+
+        normalized_emotion = primary_emotion
+        if normalized_emotion == 'anger' and detected_topic in ('work_stress', 'general_stress'):
+            normalized_emotion = 'stress'
+        if normalized_emotion not in ('anxiety', 'stress', 'sadness', 'fear'):
+            if coarse_emotion == 'negative':
+                normalized_emotion = 'sadness'
             elif coarse_emotion == 'neutral':
-                pool = _RESPONSES['neutral'].get(style, _RESPONSES['neutral']['balanced'])
-            elif coarse_emotion == 'negative' and severity == 'medium':
-                pool = _RESPONSES['sadness'].get(style, _RESPONSES['sadness']['balanced'])
-                if has_trauma:
-                    pool = pool + [
-                        "I hear you, and given what you've already been through, it makes complete sense "
-                        "that this feels heavy. You've shown real strength before, and I'm right here. 💙"
-                    ]
-                if marital_status in ('divorced', 'widowed', 'separated'):
-                    pool = pool + [
-                        "Life transitions like the one you've been through can make hard days feel even "
-                        "harder. Your feelings are understandable, and I'm here to listen. 💙"
-                    ]
-            else:  # distress or high severity
-                pool = _RESPONSES['sadness'].get(style, _RESPONSES['sadness']['balanced']) + [
-                    "I hear you, and I want you to know you are not alone in this moment. "
-                    "Your pain is real and it matters deeply. 💙",
-                    "I'm genuinely concerned about how you're feeling. "
-                    "You don't have to face this alone; help is always here for you. 💙",
-                ]
-                if has_trauma:
-                    pool.append(
-                        "I can hear how much pain you're in, and I want you to know that your past "
-                        "experiences don't define your worth. You have survived hard things before. 💙"
-                    )
-                if family_bg:
-                    pool.append(
-                        "Given everything that has shaped your life, what you're feeling makes sense. "
-                        "Please know that you are seen, heard, and supported. 💙"
-                    )
-            response = self._choose_unique(pool)
+                normalized_emotion = 'neutral'
+
+        # Crisis response remains explicit and immediate
+        if primary_emotion == 'crisis':
+            crisis_pool = _RESPONSES['crisis'].get(style, _RESPONSES['crisis']['balanced'])
+            response = self._choose_unique(crisis_pool)
+            template_label = f"crisis/{style}"
+        # Positive emotion uses existing joy templates
+        elif coarse_emotion == 'positive' and primary_emotion not in ('anxiety', 'stress', 'sadness', 'fear'):
+            joy_pool = _RESPONSES['joy'].get(style, _RESPONSES['joy']['balanced'])
+            response = self._choose_unique(joy_pool)
+            template_label = f"joy/{style}"
+        else:
+            consec = self._consecutive_emotion_count(primary_emotion) if primary_emotion else 1
+            stage = self._escalation_stage(consec)
+            response = self._build_response_segments(
+                normalized_emotion or 'neutral',
+                detected_topic,
+                lang_pref,
+                stage,
+            )
+            template_label = f"modular/{normalized_emotion or 'neutral'}/stage-{stage}"
+            if detected_topic:
+                template_label += f"/{detected_topic}"
 
         # ---- Personalised name greeting (warm touch) ----
         if user_name and lang_pref != 'tamil' and primary_emotion not in ('crisis',) and response:
@@ -452,16 +677,36 @@ class ConversationHandler:
             if pre_distress and primary_emotion not in ('crisis', 'joy'):
                 response += f"\n\n{pre_distress}"
 
-        # ---- Emotional escalation for repeated emotions ----
-        # (Escalation follow-ups are English-only; Tamil templates not yet available.)
+        # Keep escalation follow-ups for additional continuity on repeated negative emotions
         if primary_emotion and lang_pref != 'tamil':
             consec = self._consecutive_emotion_count(primary_emotion)
             if consec >= 2 and primary_emotion in _ESCALATION_FOLLOWUPS:
                 pool = _ESCALATION_FOLLOWUPS[primary_emotion]
                 response += pool[(consec - 2) % len(pool)]
 
-        # ---- Anti-repeat safeguard ----
-        response = self._ensure_no_repeat(response, primary_emotion)
+        if debug_enabled:
+            _logger.info(
+                "Response debug | emotion=%s topic=%s template=%s",
+                primary_emotion,
+                detected_topic or 'none',
+                template_label,
+            )
+
+        # ---- Anti-repeat safeguard (recent window of 5) ----
+        def _regen():
+            refreshed = self._build_response_segments(
+                normalized_emotion or 'neutral',
+                detected_topic,
+                lang_pref,
+                self._escalation_stage(self._consecutive_emotion_count(primary_emotion) if primary_emotion else 1),
+            )
+            return refreshed
+
+        response = self._ensure_no_repeat(
+            response,
+            primary_emotion,
+            regenerate_fn=_regen if primary_emotion != 'crisis' else None,
+        )
 
         return response
 

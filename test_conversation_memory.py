@@ -142,6 +142,20 @@ def test_ensure_no_repeat_appends_variation():
     print("✓ _ensure_no_repeat adds variation on duplicate")
 
 
+def test_ensure_no_repeat_checks_recent_window():
+    """Responses used in the recent history window should not be reused."""
+    from conversation_handler import ConversationHandler
+
+    handler = ConversationHandler()
+    seed_responses = [f"seed-response-{i}" for i in range(5)]
+    for item in seed_responses:
+        handler._ensure_no_repeat(item, 'sadness')
+
+    regenerated = handler._ensure_no_repeat("seed-response-0", 'sadness')
+    assert regenerated != "seed-response-0"
+    print("✓ _ensure_no_repeat enforces last-5 response window")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. WellnessBuddy.respond() method
 # ─────────────────────────────────────────────────────────────────────────────
@@ -248,12 +262,31 @@ def test_consecutive_emotion_count():
 
 def test_support_variations_exist():
     """_SUPPORT_VARIATIONS should be a non-empty list of strings."""
-    from conversation_handler import _SUPPORT_VARIATIONS
+    from conversation_handler import (
+        _SUPPORT_VARIATIONS,
+        ANXIETY_RESPONSES,
+        STRESS_RESPONSES,
+        SADNESS_RESPONSES,
+        FEAR_RESPONSES,
+        NEUTRAL_SUPPORT_RESPONSES,
+        TAMIL_EMPATHY_VARIATIONS,
+    )
 
     assert isinstance(_SUPPORT_VARIATIONS, list)
     assert len(_SUPPORT_VARIATIONS) >= 5
     for v in _SUPPORT_VARIATIONS:
         assert isinstance(v, str) and len(v) > 5
+
+    for pool in (
+        ANXIETY_RESPONSES,
+        STRESS_RESPONSES,
+        SADNESS_RESPONSES,
+        FEAR_RESPONSES,
+        NEUTRAL_SUPPORT_RESPONSES,
+    ):
+        assert len(pool) >= 8
+
+    assert len(TAMIL_EMPATHY_VARIATIONS) >= 4
 
     print(f"✓ {len(_SUPPORT_VARIATIONS)} support variations available")
 
@@ -275,6 +308,52 @@ def test_escalation_followups_exist():
     print("✓ Escalation follow-ups cover key emotions")
 
 
+def test_topic_detection_influences_response():
+    """Work-stress topic should influence suggestions in response composition."""
+    from conversation_handler import ConversationHandler
+    from emotion_analyzer import EmotionAnalyzer
+
+    analyzer = EmotionAnalyzer()
+    handler = ConversationHandler()
+    msg = "My work deadline and manager pressure are making me stressed"
+    emotion_data = analyzer.classify_emotion(msg)
+    emotion_data['primary_emotion'] = 'anxiety'
+    handler.add_message(msg, emotion_data)
+
+    response = handler.generate_response(emotion_data)
+    assert any(
+        token in response.lower()
+        for token in ('workload', 'task list', 'urgent', 'can-wait', 'work pressure')
+    )
+    print("✓ Topic-aware response includes work-stress support guidance")
+
+
+def test_debug_logging_for_response_generation(caplog):
+    """Optional debug mode should emit emotion/topic/template metadata."""
+    import logging
+    from conversation_handler import ConversationHandler
+    from emotion_analyzer import EmotionAnalyzer
+
+    analyzer = EmotionAnalyzer()
+    handler = ConversationHandler()
+    msg = "I'm anxious about my career interview and future"
+    emotion_data = analyzer.classify_emotion(msg)
+    emotion_data['primary_emotion'] = 'anxiety'
+    handler.add_message(msg, emotion_data)
+
+    caplog.set_level(logging.INFO)
+    handler.generate_response(
+        emotion_data,
+        user_context={
+            'debug_response_generation': True,
+            'context': [{'role': 'user', 'content': msg}],
+        },
+    )
+    assert "Response debug | emotion=anxiety" in caplog.text
+    assert "template=" in caplog.text
+    print("✓ Debug logging emits response generation metadata")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Runner
 # ─────────────────────────────────────────────────────────────────────────────
@@ -286,11 +365,14 @@ if __name__ == '__main__':
         test_get_chat_history_structured,
         test_emotional_escalation_on_repeated_emotion,
         test_ensure_no_repeat_appends_variation,
+        test_ensure_no_repeat_checks_recent_window,
         test_respond_method_exists_and_works,
         test_respond_with_context_seeds_history,
         test_consecutive_emotion_count,
         test_support_variations_exist,
         test_escalation_followups_exist,
+        test_topic_detection_influences_response,
+        test_debug_logging_for_response_generation,
     ]
 
     print("\n" + "=" * 70)
