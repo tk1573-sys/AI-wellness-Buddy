@@ -453,6 +453,7 @@ class ConversationHandler:
                 response += f"\n\n{pre_distress}"
 
         # ---- Emotional escalation for repeated emotions ----
+        # (Escalation follow-ups are English-only; Tamil templates not yet available.)
         if primary_emotion and lang_pref != 'tamil':
             consec = self._consecutive_emotion_count(primary_emotion)
             if consec >= 2 and primary_emotion in _ESCALATION_FOLLOWUPS:

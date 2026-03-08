@@ -307,10 +307,11 @@ class WellnessBuddy:
                 e['user_message'] for e in self.conversation_handler.conversation_history
             }
             for msg in context:
-                if msg.get('role') == 'user' and msg['content'] not in existing_msgs:
-                    emotion_data = self.emotion_analyzer.classify_emotion(msg['content'])
-                    self.conversation_handler.add_message(msg['content'], emotion_data)
-                    existing_msgs.add(msg['content'])
+                content = msg.get('content')
+                if msg.get('role') == 'user' and content and content not in existing_msgs:
+                    emotion_data = self.emotion_analyzer.classify_emotion(content)
+                    self.conversation_handler.add_message(content, emotion_data)
+                    existing_msgs.add(content)
 
         return self.process_message(user_input)
     
