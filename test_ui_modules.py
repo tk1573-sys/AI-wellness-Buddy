@@ -121,6 +121,21 @@ class TestChartsModule:
         fig = create_risk_history_chart([0.1, 0.35, 0.65])
         assert fig is not None
 
+    def test_emotion_journey_line_chart(self):
+        from ui.charts import create_emotion_journey_line
+        fig = create_emotion_journey_line([
+            {'emotion': 'anxiety', 'risk_score': 0.6},
+            {'emotion': 'stress', 'risk_score': 0.7},
+        ])
+        assert fig is not None
+        assert len(fig.data) == 1
+
+    def test_stress_intensity_gauge(self):
+        from ui.charts import create_stress_intensity_gauge
+        fig = create_stress_intensity_gauge(0.72)
+        assert fig is not None
+        assert fig.data[0].value == 0.72
+
 
 # -----------------------------------------------------------------------
 # ui.layout tests
@@ -183,6 +198,12 @@ class TestLayoutModule:
         html = render_waveform_section('deep_focus')
         assert 'waveform-bar' in html
         assert 'Deep Focus' in html
+
+    def test_wellness_sidebar_card(self):
+        from ui.layout import render_wellness_sidebar_card
+        html = render_wellness_sidebar_card("Status", "<p>steady</p>", icon="🧘")
+        assert 'wellness-sidebar-card' in html
+        assert 'Status' in html
 
     def test_session_summary_card(self):
         from ui.layout import render_session_summary_card
@@ -292,6 +313,12 @@ class TestAnimationsModule:
         assert 'canvas' in html.lower()
         assert 'requestAnimationFrame' in html
 
+    def test_canvas_particles_theme_mode(self):
+        from ui.animations import canvas_particles_html
+        html = canvas_particles_html(theme='night_sky', calm_mode=True)
+        assert 'rgba(148,163,184' in html
+        assert '0.35' in html
+
     def test_breathing_circle_html(self):
         from ui.animations import breathing_circle_html
         html = breathing_circle_html()
@@ -299,6 +326,13 @@ class TestAnimationsModule:
         assert 'breathing-circle' in html
         assert 'Breathe' in html
         assert 'inhale' in html
+
+    def test_guided_breathing_message_html(self):
+        from ui.animations import guided_breathing_message_html
+        html = guided_breathing_message_html()
+        assert 'guided-breathing-msg' in html
+        assert 'Inhale' in html
+        assert 'Exhale' in html
 
 
 # -----------------------------------------------------------------------
@@ -364,6 +398,15 @@ class TestThemeNewComponents:
         css = get_theme_css()
         assert 'typing-label' in css
         assert 'typingLabelFade' in css
+
+    def test_motion_system_keyframes(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css(background_theme='night_sky')
+        assert 'fadeInUp' in css
+        assert 'softPulse' in css
+        assert 'floatingMotion' in css
+        assert 'breathingGlow' in css
+        assert 'gradientShift' in css
 
     def test_large_illustration_css(self):
         from ui.theme import get_theme_css

@@ -12,7 +12,8 @@ computed here so that the rest of the UI code can remain style-agnostic.
 # -----------------------------------------------------------------------
 
 def get_theme_css(*, dark_mode: bool = False, ui_theme: str = 'calm',
-                  risk_level: str = 'low') -> str:
+                  risk_level: str = 'low', background_theme: str = 'calm_gradient',
+                  calm_mode: bool = False) -> str:
     """Return the full CSS stylesheet as a string.
 
     Parameters
@@ -24,10 +25,11 @@ def get_theme_css(*, dark_mode: bool = False, ui_theme: str = 'calm',
     risk_level : str
         One of ``'low'``, ``'medium'``, ``'high'``, ``'critical'``.
     """
-    tv = _theme_vars(dark_mode, ui_theme)
+    tv = _theme_vars(dark_mode, ui_theme, background_theme)
     rv = _risk_vars(risk_level)
     critical_bar = _critical_bar_css() if risk_level == 'critical' else ''
-    return _BASE_CSS.format(**tv, **rv, critical_bar_css=critical_bar)
+    calm_dim = _CALM_MODE_DIM_OPACITY if calm_mode else '0'
+    return _BASE_CSS.format(**tv, **rv, critical_bar_css=critical_bar, calm_dim=calm_dim)
 
 
 # -----------------------------------------------------------------------
@@ -41,7 +43,16 @@ _LIGHT_THEMES = {
 }
 
 
-def _theme_vars(dark: bool, theme: str) -> dict:
+_BACKGROUND_OVERLAYS = {
+    'calm_gradient': 'linear-gradient(120deg, rgba(91,140,255,0.08), rgba(155,140,255,0.08), rgba(77,208,225,0.06))',
+    'night_sky': 'radial-gradient(circle at 30% 20%, rgba(148,163,184,0.14), transparent 55%), radial-gradient(circle at 70% 70%, rgba(59,130,246,0.12), transparent 50%)',
+    'soft_aurora': 'linear-gradient(120deg, rgba(77,208,225,0.12), rgba(155,140,255,0.10), rgba(91,140,255,0.10))',
+    'ocean_waves': 'linear-gradient(140deg, rgba(56,189,248,0.10), rgba(59,130,246,0.12), rgba(14,116,144,0.10))',
+}
+
+
+def _theme_vars(dark: bool, theme: str, background_theme: str = 'calm_gradient') -> dict:
+    overlay = _BACKGROUND_OVERLAYS.get(background_theme, _BACKGROUND_OVERLAYS['calm_gradient'])
     if dark:
         return dict(
             bg_gradient='linear-gradient(135deg, #0f172a 0%, #1e1b4b 25%, #1a1a2e 50%, #0f172a 75%, #1e1b4b 100%)',
@@ -55,6 +66,7 @@ def _theme_vars(dark: bool, theme: str) -> dict:
             input_bg='rgba(30,27,75,0.80)',
             particle_color='rgba(91,140,255,0.06)',
             h4_color='#cbd5e1',
+            bg_overlay=overlay,
         )
     return dict(
         bg_gradient=_LIGHT_THEMES.get(theme, _LIGHT_THEMES['calm']),
@@ -68,6 +80,7 @@ def _theme_vars(dark: bool, theme: str) -> dict:
         input_bg='rgba(255,255,255,0.75)',
         particle_color='rgba(91,140,255,0.04)',
         h4_color='#334155',
+        bg_overlay=overlay,
     )
 
 
@@ -83,6 +96,7 @@ _RISK_BORDER = {
     'high':     'rgba(239,83,80,0.45)',
     'critical': '#D32F2F',
 }
+_CALM_MODE_DIM_OPACITY = '0.24'
 
 
 def _risk_vars(risk_level: str) -> dict:
@@ -134,6 +148,25 @@ _BASE_CSS = """
     animation: gradientBG 20s ease infinite;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }}
+.stApp::after {{
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background: {bg_overlay};
+    background-size: 200% 200%;
+    animation: gradientShift 28s ease-in-out infinite;
+}}
+#wellness-particles {{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+}}
 
 /* ---- Floating particles (pure CSS) ---- */
 .stApp::before {{
@@ -158,6 +191,27 @@ _BASE_CSS = """
     0%   {{ background-position: 0% 0%; }}
     50%  {{ background-position: 100% 100%; }}
     100% {{ background-position: 0% 0%; }}
+}}
+@keyframes fadeInUp {{
+    from {{ opacity: 0; transform: translateY(16px); }}
+    to {{ opacity: 1; transform: translateY(0); }}
+}}
+@keyframes softPulse {{
+    0%, 100% {{ opacity: 0.72; transform: scale(1); }}
+    50% {{ opacity: 1; transform: scale(1.03); }}
+}}
+@keyframes floatingMotion {{
+    0%, 100% {{ transform: translateY(0); }}
+    50% {{ transform: translateY(-8px); }}
+}}
+@keyframes breathingGlow {{
+    0%, 100% {{ box-shadow: 0 0 22px rgba(91,140,255,0.14); }}
+    50% {{ box-shadow: 0 0 40px rgba(91,140,255,0.28); }}
+}}
+@keyframes gradientShift {{
+    0% {{ background-position: 0% 50%; }}
+    50% {{ background-position: 100% 50%; }}
+    100% {{ background-position: 0% 50%; }}
 }}
 
 /* ---- Premium typography hierarchy ---- */
@@ -470,10 +524,35 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     text-align: center;
     padding: 2.5rem 0 1.5rem;
     animation: heroFadeIn 0.8s ease-out;
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.2rem;
 }}
 @keyframes heroFadeIn {{
     from {{ opacity: 0; transform: translateY(20px); }}
     to   {{ opacity: 1; transform: translateY(0); }}
+}}
+.hero-parallax-layer {{
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}}
+.hero-parallax-back {{
+    background: radial-gradient(circle at 20% 20%, rgba(91,140,255,0.15), transparent 55%);
+    animation: floatingMotion 12s ease-in-out infinite;
+}}
+.hero-parallax-front {{
+    background: radial-gradient(circle at 80% 70%, rgba(155,140,255,0.12), transparent 60%);
+    animation: floatingMotion 10s ease-in-out infinite reverse;
+}}
+.hero-soft-particles {{
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(2px 2px at 18% 30%, rgba(155,140,255,0.35), transparent),
+        radial-gradient(2px 2px at 70% 40%, rgba(91,140,255,0.30), transparent),
+        radial-gradient(3px 3px at 50% 75%, rgba(77,208,225,0.26), transparent);
+    animation: particleDrift 24s linear infinite;
 }}
 
 /* Floating logo with radial glow */
@@ -522,6 +601,14 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     font-size: 1rem;
     letter-spacing: 0.03em;
     animation: taglineFade 1.2s ease-out 0.4s both;
+}}
+.hero-subtitle {{
+    color: {text_primary};
+    font-size: 0.95rem;
+    line-height: 1.6;
+    max-width: 520px;
+    margin: 0.4rem auto 0;
+    padding: 0 1rem;
 }}
 @keyframes taglineFade {{
     from {{ opacity: 0; transform: translateY(8px); }}
@@ -695,6 +782,14 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     background: radial-gradient(ellipse at center, rgba(91,140,255,0.04) 0%, transparent 70%);
     animation: calmPulse 4s ease-in-out infinite;
 }}
+.calm-mode-overlay {{
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background: rgba(9, 14, 38, {calm_dim});
+    transition: background 0.45s ease;
+}}
 @keyframes calmPulse {{
     0%, 100% {{ opacity: 0.4; transform: scale(1); }}
     50% {{ opacity: 0.8; transform: scale(1.02); }}
@@ -857,6 +952,20 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     letter-spacing: 0.02em;
     text-transform: uppercase;
 }}
+.avatar-ring {{
+    position: absolute;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    left: 50%;
+    top: 40%;
+    transform: translate(-50%, -50%);
+    border: 2px solid color-mix(in srgb, var(--avatar-color) 60%, white 40%);
+    z-index: 0;
+}}
+.avatar-ring-soft {{ animation: breathingGlow 4s ease-in-out infinite; }}
+.avatar-ring-pulse {{ animation: softPulse 1.8s ease-in-out infinite; }}
+.avatar-ring-bounce {{ animation: floatingMotion 2.2s ease-in-out infinite; }}
 
 /* =============================================
    ENHANCED TYPING INDICATOR
@@ -873,6 +982,20 @@ section[data-testid="stSidebar"] .stMarkdown p {{
 @keyframes typingLabelFade {{
     0%, 100% {{ opacity: 0.4; }}
     50% {{ opacity: 1; }}
+}}
+.guided-breathing-msg {{
+    display: flex;
+    justify-content: center;
+    gap: 0.65rem;
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: {text_secondary};
+}}
+.guided-breathing-msg span {{
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(91,140,255,0.08);
 }}
 
 /* =============================================
@@ -910,6 +1033,44 @@ section[data-testid="stSidebar"] .stMarkdown p {{
 .art-mini-leaf {{
     animation: leafSway 8s ease-in-out infinite 0.5s;
     transform-origin: center;
+}}
+.wellness-sidebar-card {{
+    background: {card_bg};
+    border: 1px solid {card_border};
+    border-radius: 0.9rem;
+    padding: 0.75rem 0.8rem;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 6px 20px rgba(91,140,255,0.08);
+    margin: 0.45rem 0;
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+}}
+.wellness-sidebar-card:hover {{
+    transform: translateY(-1px);
+    box-shadow: 0 10px 26px rgba(91,140,255,0.16);
+}}
+.wellness-card-title {{
+    font-size: 0.76rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: {text_secondary};
+    margin-bottom: 0.3rem;
+    font-weight: 700;
+}}
+.wellness-card-content {{
+    color: {text_primary};
+    font-size: 0.93rem;
+}}
+@media (max-width: 980px) {{
+    .hero-title {{ font-size: 2.1rem; }}
+    .hero-subtitle {{ font-size: 0.88rem; }}
+    .illustration-panel-large {{ margin-top: 0.5rem; }}
+}}
+@media (max-width: 720px) {{
+    .stTabs [data-baseweb="tab-list"] {{ flex-wrap: wrap; }}
+    .stTabs [data-baseweb="tab"] {{ flex: 1 1 45%; min-width: 130px; }}
+    .chat-header-bar {{ padding: 0.55rem 0.75rem; }}
+    .header-title {{ font-size: 0.95rem; }}
 }}
 </style>
 """

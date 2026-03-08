@@ -23,6 +23,7 @@ from ui.charts import (
     create_sentiment_chart, create_emotion_donut, create_risk_gauge,
     create_history_chart, create_weekly_chart, create_sparkline,
     create_moving_average_chart, create_risk_history_chart, create_emotion_heatmap,
+    create_emotion_journey_line, create_stress_intensity_gauge,
     EMO_COLORS, _HEATMAP_EMOTIONS,
 )
 from ui.layout import (
@@ -30,12 +31,12 @@ from ui.layout import (
     render_chat_header, render_user_avatar, render_risk_badge,
     render_session_info_card, render_streak_card, render_waveform_section,
     render_session_summary_card, render_emotion_flag,
-    render_emotional_avatar,
+    render_emotional_avatar, render_wellness_sidebar_card,
     EMO_ICONS, EMO_BUBBLE_CLASS, RISK_COLOUR, RISK_LEVEL_VALUES, SOUND_LABELS,
 )
 from ui.animations import (
     ambient_sound_html, ambient_stop_html, TYPING_INDICATOR_HTML,
-    canvas_particles_html, breathing_circle_html,
+    canvas_particles_html, breathing_circle_html, guided_breathing_message_html,
 )
 
 # Page configuration
@@ -71,9 +72,16 @@ for key, default in [
     ('dark_mode', False),
     ('ambient_sound', 'deep_focus'),  # deep_focus | calm_waves | soft_rain
     ('research_logging_enabled', False),
+    ('background_theme', 'calm_gradient'),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
+
+
+_JOURNEY_TAB_HEATMAP_BASELINE_INTENSITY = 0.05
+_JOURNEY_TAB_HEATMAP_MIN_INTENSITY = 0.2
+_JOURNEY_TAB_HEATMAP_MAX_INTENSITY = 1.0
+_JOURNEY_TAB_HEATMAP_RISK_BOOST = 0.2
 
 
 # -----------------------------------------------------------------------
@@ -638,6 +646,55 @@ def render_trends_tab():
         col_s3.metric("Trend", summary['trend'].upper())
 
 
+def render_emotional_journey_tab():
+    """Render the Emotional Journey insights panel.
+
+    If no timeline exists yet, a contextual prompt is shown. Otherwise this
+    tab displays a journey trend line, stress intensity gauge, heatmap
+    timeline, and compact session metrics.
+    """
+    st.subheader("🌊 Emotional Journey")
+    st.caption("EMOTION TRAJECTORY, HEATMAP TIMELINE, STRESS INTENSITY, AND SESSION SNAPSHOT")
+
+    timeline = st.session_state.buddy.get_emotion_timeline()
+    if not timeline:
+        st.info("Start chatting to unlock your emotional journey insights.")
+        return
+
+    line_col, gauge_col = st.columns([2, 1])
+    with line_col:
+        st.plotly_chart(create_emotion_journey_line(timeline), use_container_width=True)
+    with gauge_col:
+        latest_risk = float(timeline[-1].get('risk_score', 0.0))
+        st.plotly_chart(create_stress_intensity_gauge(latest_risk), use_container_width=True)
+
+    heatmap_payload = []
+    for point in timeline:
+        emo = point.get('emotion', 'neutral')
+        row = {key: _JOURNEY_TAB_HEATMAP_BASELINE_INTENSITY for key in _HEATMAP_EMOTIONS}
+        if emo in row:
+            row[emo] = min(
+                _JOURNEY_TAB_HEATMAP_MAX_INTENSITY,
+                max(
+                    _JOURNEY_TAB_HEATMAP_MIN_INTENSITY,
+                    float(point.get('risk_score', 0.0)) + _JOURNEY_TAB_HEATMAP_RISK_BOOST,
+                ),
+            )
+        heatmap_payload.append(row)
+    st.plotly_chart(create_emotion_heatmap(heatmap_payload), use_container_width=True)
+
+    emotion_counts = {}
+    for point in timeline:
+        emo = point.get('emotion', 'neutral')
+        emotion_counts[emo] = emotion_counts.get(emo, 0) + 1
+    dominant = max(emotion_counts, key=emotion_counts.get) if emotion_counts else 'neutral'
+    avg_risk = sum(float(p.get('risk_score', 0.0)) for p in timeline) / len(timeline)
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("Conversation Turns", len(timeline))
+    col_b.metric("Dominant Emotion", dominant.capitalize())
+    col_c.metric("Avg Session Risk", f"{avg_risk:.2f}")
+
+
 # -----------------------------------------------------------------------
 # Risk Dashboard tab (tab 3)
 # -----------------------------------------------------------------------
@@ -897,16 +954,20 @@ def show_chat_interface():
     with st.sidebar:
         # User avatar circle + name
         user_id = st.session_state.user_id
-        st.markdown(render_user_avatar(user_id), unsafe_allow_html=True)
-
-        st.markdown("---")
+        st.markdown(
+            render_wellness_sidebar_card("Profile", render_user_avatar(user_id), icon="🧘"),
+            unsafe_allow_html=True,
+        )
 
         # Risk badge — color-coded
         summary = st.session_state.buddy.pattern_tracker.get_pattern_summary()
         risk_level = 'low'
         if summary:
             risk_level = summary.get('risk_level', 'low')
-        st.markdown(render_risk_badge(risk_level), unsafe_allow_html=True)
+        st.markdown(
+            render_wellness_sidebar_card("Daily Emotional Status", render_risk_badge(risk_level), icon="💠"),
+            unsafe_allow_html=True,
+        )
 
         # Session info + streak card
         if st.session_state.buddy.user_profile:
@@ -915,10 +976,7 @@ def show_chat_interface():
             lang_pref = st.session_state.buddy.user_profile.get_language_preference()
             msg_count = len(st.session_state.get('chat_history', []))
 
-            st.markdown(
-                render_session_info_card(sessions + 1, lang_pref, msg_count),
-                unsafe_allow_html=True,
-            )
+            st.markdown(render_session_info_card(sessions + 1, lang_pref, msg_count), unsafe_allow_html=True)
             st.markdown(render_streak_card(streak), unsafe_allow_html=True)
 
         # Mini sentiment sparkline in sidebar
@@ -964,6 +1022,25 @@ def show_chat_interface():
         )
         _THEME_MAP = {"Calm Therapy": "calm", "Clinical": "clinical", "Modern Startup": "modern"}
         st.session_state.ui_theme = _THEME_MAP.get(theme_choice, 'calm')
+        bg_choice = st.selectbox(
+            "Background Scene",
+            ["Calm Gradient", "Night Sky Particles", "Soft Aurora Glow", "Ocean Waves"],
+            index=["Calm Gradient", "Night Sky Particles", "Soft Aurora Glow", "Ocean Waves"].index(
+                {
+                    "calm_gradient": "Calm Gradient",
+                    "night_sky": "Night Sky Particles",
+                    "soft_aurora": "Soft Aurora Glow",
+                    "ocean_waves": "Ocean Waves",
+                }.get(st.session_state.get('background_theme', 'calm_gradient'), "Calm Gradient")
+            ),
+            help="Switch visual ambience without affecting analytics functionality.",
+        )
+        st.session_state.background_theme = {
+            "Calm Gradient": "calm_gradient",
+            "Night Sky Particles": "night_sky",
+            "Soft Aurora Glow": "soft_aurora",
+            "Ocean Waves": "ocean_waves",
+        }.get(bg_choice, 'calm_gradient')
 
         # ---- Ambient Sound ----
         st.markdown(
@@ -1107,9 +1184,10 @@ def show_chat_interface():
         )
 
     # Main content — tabs
-    tab_chat, tab_trends, tab_risk, tab_report = st.tabs([
+    tab_chat, tab_trends, tab_journey, tab_risk, tab_report = st.tabs([
         "💬 Chat",
         "📈 Emotional Trends",
+        "🌊 Emotional Journey",
         "⚠️ Risk Dashboard",
         "📋 Weekly Report",
     ])
@@ -1119,6 +1197,9 @@ def show_chat_interface():
 
     with tab_trends:
         render_trends_tab()
+
+    with tab_journey:
+        render_emotional_journey_tab()
 
     with tab_risk:
         render_risk_tab()
@@ -1144,12 +1225,24 @@ def main():
     _dark = st.session_state.get('dark_mode', False)
     _theme = st.session_state.get('ui_theme', 'calm')
     st.markdown(
-        get_theme_css(dark_mode=_dark, ui_theme=_theme, risk_level=_risk_level),
+        get_theme_css(
+            dark_mode=_dark,
+            ui_theme=_theme,
+            risk_level=_risk_level,
+            background_theme=st.session_state.get('background_theme', 'calm_gradient'),
+            calm_mode=st.session_state.get('calm_music_enabled', False),
+        ),
         unsafe_allow_html=True,
     )
 
     # ---- Floating canvas particles ----
-    st.markdown(canvas_particles_html(), unsafe_allow_html=True)
+    st.markdown(
+        canvas_particles_html(
+            theme=st.session_state.get('background_theme', 'calm_gradient'),
+            calm_mode=st.session_state.get('calm_music_enabled', False),
+        ),
+        unsafe_allow_html=True,
+    )
 
     # ---- Background ambient sound with 4 soundscapes ----
     if st.session_state.get('calm_music_enabled', False):
@@ -1157,11 +1250,13 @@ def main():
         _sound = st.session_state.get('ambient_sound', 'deep_focus')
 
         # Calm mode pulsing background + waveform visualization
+        st.markdown('<div class="calm-mode-overlay"></div>', unsafe_allow_html=True)
         st.markdown(render_waveform_section(_sound), unsafe_allow_html=True)
         st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
 
         # Breathing meditation circle
         st.markdown(breathing_circle_html(), unsafe_allow_html=True)
+        st.markdown(guided_breathing_message_html(), unsafe_allow_html=True)
     else:
         # Stop ambient if it was playing
         st.markdown(ambient_stop_html(), unsafe_allow_html=True)
