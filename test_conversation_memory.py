@@ -285,6 +285,7 @@ def test_support_variations_exist():
         NEUTRAL_SUPPORT_RESPONSES,
     ):
         assert len(pool) >= 8
+        assert len(set(pool)) == len(pool)
 
     assert len(TAMIL_EMPATHY_VARIATIONS) >= 4
 
@@ -310,7 +311,7 @@ def test_escalation_followups_exist():
 
 def test_topic_detection_influences_response():
     """Work-stress topic should influence suggestions in response composition."""
-    from conversation_handler import ConversationHandler
+    from conversation_handler import ConversationHandler, _TOPIC_SUGGESTIONS
     from emotion_analyzer import EmotionAnalyzer
 
     analyzer = EmotionAnalyzer()
@@ -321,10 +322,7 @@ def test_topic_detection_influences_response():
     handler.add_message(msg, emotion_data)
 
     response = handler.generate_response(emotion_data)
-    assert any(
-        token in response.lower()
-        for token in ('workload', 'task list', 'urgent', 'can-wait', 'work pressure')
-    )
+    assert any(suggestion in response for suggestion in _TOPIC_SUGGESTIONS['work_stress'])
     print("✓ Topic-aware response includes work-stress support guidance")
 
 

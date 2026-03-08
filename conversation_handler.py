@@ -290,6 +290,9 @@ _TOPIC_SUGGESTIONS = {
     ],
 }
 
+_TOPIC_CONTEXT_WINDOW = 6
+_MAX_REGEN_ATTEMPTS = 6
+
 # Emotion-specific contextual follow-ups for escalation when the same
 # emotion is detected multiple consecutive times.
 _ESCALATION_FOLLOWUPS = {
@@ -416,11 +419,14 @@ class ConversationHandler:
             'fear': FEAR_RESPONSES,
             'neutral': NEUTRAL_SUPPORT_RESPONSES,
         }
-        empathy = self._choose_unique(empathy_map[emotion_key])
-
-        if lang_pref in ('tamil', 'bilingual'):
+        if lang_pref == 'tamil':
             tamil_empathy = self._choose_unique(TAMIL_EMPATHY_VARIATIONS)
-            empathy = tamil_empathy if lang_pref == 'tamil' else f"{tamil_empathy} {empathy}"
+            empathy = tamil_empathy
+        else:
+            empathy = self._choose_unique(empathy_map[emotion_key])
+            if lang_pref == 'bilingual':
+                tamil_empathy = self._choose_unique(TAMIL_EMPATHY_VARIATIONS)
+                empathy = f"{tamil_empathy} {empathy}"
 
         reflection_pool = {
             0: [
@@ -480,8 +486,12 @@ class ConversationHandler:
 
     def _ensure_no_repeat(self, response, emotion, regenerate_fn=None):
         """Avoid duplicates across the most recent assistant replies."""
+        _ = emotion  # kept for backward-compatible call signature
         attempts = 0
-        while response and response in self._recent_responses and regenerate_fn and attempts < 6:
+        while (
+            response and response in self._recent_responses and regenerate_fn
+            and attempts < _MAX_REGEN_ATTEMPTS
+        ):
             response = regenerate_fn()
             attempts += 1
         if response and response in self._recent_responses:
@@ -542,14 +552,18 @@ class ConversationHandler:
         if user_context and isinstance(user_context.get('context'), list):
             context_msgs = [
                 m.get('content', '')
-                for m in user_context['context'][-6:]
+                for m in user_context['context'][-_TOPIC_CONTEXT_WINDOW:]
                 if m.get('role') == 'user'
             ]
-        history_msgs = [e.get('user_message', '') for e in self.conversation_history[-6:]]
+        history_msgs = [
+            e.get('user_message', '')
+            for e in self.conversation_history[-_TOPIC_CONTEXT_WINDOW:]
+        ]
         context_blob = " ".join([m for m in (context_msgs + history_msgs) if m])
         detected_topic = self._detect_topic(context_blob)
 
         normalized_emotion = primary_emotion
+        # In work/pressure contexts, anger often reflects stress overload; route to stress pool.
         if normalized_emotion == 'anger' and detected_topic in ('work_stress', 'general_stress'):
             normalized_emotion = 'stress'
         if normalized_emotion not in ('anxiety', 'stress', 'sadness', 'fear'):
@@ -693,12 +707,16 @@ class ConversationHandler:
             )
 
         # ---- Anti-repeat safeguard (recent window of 5) ----
+        regen_stage = self._escalation_stage(
+            self._consecutive_emotion_count(primary_emotion) if primary_emotion else 1
+        )
+
         def _regen():
             refreshed = self._build_response_segments(
                 normalized_emotion or 'neutral',
                 detected_topic,
                 lang_pref,
-                self._escalation_stage(self._consecutive_emotion_count(primary_emotion) if primary_emotion else 1),
+                regen_stage,
             )
             return refreshed
 
