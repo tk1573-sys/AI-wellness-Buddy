@@ -53,6 +53,7 @@ for key, default in [
     ('messages', []),
     ('chat_history', []),        # structured {"role","content"} history
     ('last_response', None),     # anti-repeat tracking
+    ('last_response_meta', {}),
     ('user_id', None),
     ('profile_loaded', False),
     ('show_load', False),
@@ -68,6 +69,7 @@ for key, default in [
     ('ui_theme', 'calm'),          # calm | clinical | modern
     ('dark_mode', False),
     ('ambient_sound', 'deep_focus'),  # deep_focus | calm_waves | soft_rain
+    ('research_logging_enabled', False),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -475,10 +477,17 @@ def render_chat_tab():
         response = st.session_state.buddy.respond(
             voice_transcript,
             context=st.session_state.chat_history,
+            options={
+                'calm_mode_active': st.session_state.get('calm_music_enabled', False),
+                'research_logging': st.session_state.get('research_logging_enabled', False),
+            },
         )
         typing_placeholder.empty()
         _add_chat_message("assistant", response)
         st.session_state.last_response = response
+        st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
+        if st.session_state.last_response_meta.get('calm_mode_suggested'):
+            st.session_state.calm_music_enabled = True
         _play_tts(response)
         st.rerun()
 
@@ -493,9 +502,16 @@ def render_chat_tab():
         response = st.session_state.buddy.respond(
             prompt,
             context=st.session_state.chat_history,
+            options={
+                'calm_mode_active': st.session_state.get('calm_music_enabled', False),
+                'research_logging': st.session_state.get('research_logging_enabled', False),
+            },
         )
         _add_chat_message("assistant", response)
         st.session_state.last_response = response
+        st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
+        if st.session_state.last_response_meta.get('calm_mode_suggested'):
+            st.session_state.calm_music_enabled = True
         if st.session_state.get('tts_enabled', False):
             _play_tts(response)
         st.rerun()
@@ -980,6 +996,12 @@ def show_chat_interface():
             )
             st.session_state['_calm_volume'] = vol / 1000.0  # 0.0 – 0.1 range
 
+        st.session_state.research_logging_enabled = st.toggle(
+            "🧪 Research Logging",
+            value=st.session_state.get('research_logging_enabled', False),
+            help="When enabled, structured emotion/topic/trend metadata is logged for export.",
+        )
+
         st.markdown("---")
         st.markdown(
             '<p style="font-weight:600;font-size:0.95rem;color:#334155;margin-bottom:0.5rem;">'
@@ -1037,11 +1059,18 @@ def show_chat_interface():
     # Determine dominant emotion for header and avatar
     _dom_emo_str = 'neutral'
     _emo_icon = '😊'
+    _avatar_state = None
+    _trend = None
     if summary:
         dist = summary.get('emotion_distribution', {})
         if dist:
             _dom_emo_str = max(dist, key=dist.get)
             _emo_icon = EMO_ICONS.get(_dom_emo_str, '😊')
+    _meta = st.session_state.get('last_response_meta') or {}
+    if _meta.get('emotion'):
+        _dom_emo_str = _meta.get('emotion', _dom_emo_str)
+    _avatar_state = _meta.get('avatar_state')
+    _trend = _meta.get('trend')
     streak = st.session_state.buddy.user_profile.get_mood_streak()
 
     # Header + dynamic emotional avatar side-by-side
@@ -1056,7 +1085,10 @@ def show_chat_interface():
             unsafe_allow_html=True,
         )
     with avatar_col:
-        st.markdown(render_emotional_avatar(_dom_emo_str), unsafe_allow_html=True)
+        st.markdown(
+            render_emotional_avatar(_dom_emo_str, avatar_state=_avatar_state, trend=_trend),
+            unsafe_allow_html=True,
+        )
 
     # Main content — tabs
     tab_chat, tab_trends, tab_risk, tab_report = st.tabs([

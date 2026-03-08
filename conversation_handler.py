@@ -245,6 +245,8 @@ TAMIL_EMPATHY_VARIATIONS = [
     "உங்கள் மனநிலை பற்றி பகிர்ந்ததற்கு நன்றி.",
 ]
 
+_CONVERSATIONAL_STYLES = ('reflective', 'supportive', 'exploratory', 'coping_guidance')
+
 _TOPIC_KEYWORDS = {
     'work_stress': [
         'work', 'office', 'deadline', 'manager', 'boss', 'meeting', 'project',
@@ -290,8 +292,33 @@ _TOPIC_SUGGESTIONS = {
     ],
 }
 
+WORK_STRESS_COPING = [
+    "Would a short priority reset help — list only the top 2 tasks for the next hour?",
+    "A brief pause between work blocks can reduce pressure build-up; even 3 minutes can help.",
+    "If useful, we can quickly split today's workload into must-do and can-wait.",
+]
+
+ANXIETY_GROUNDING = [
+    "If you'd like, try grounding: notice 5 things you see, 4 you feel, 3 you hear.",
+    "A gentle breathing cycle can help: inhale slowly, hold briefly, and exhale longer.",
+    "Would it help to name one worry and one thing you can control right now?",
+]
+
+LOW_MOOD_SUPPORT = [
+    "If it feels okay, writing a few lines about what feels heaviest can bring clarity.",
+    "A very small act of care — water, stretch, or fresh air — can sometimes soften this moment.",
+    "Would you like to identify one supportive person you could text today?",
+]
+
+RELATIONSHIP_REFLECTION = [
+    "If you want, we can explore what you need most from that relationship right now.",
+    "Sometimes naming your boundary in one sentence can reduce internal pressure.",
+    "Would it help to separate what you can influence from what you can't in this situation?",
+]
+
 _TOPIC_CONTEXT_WINDOW = 6
 _MAX_REGEN_ATTEMPTS = 6
+_MEMORY_WINDOW = 10
 
 # Emotion-specific contextual follow-ups for escalation when the same
 # emotion is detected multiple consecutive times.
@@ -336,15 +363,35 @@ class ConversationHandler:
         self._last_pool_choice = None  # last base template chosen (for dedup)
         self._last_response = None     # full last assistant response (for anti-repeat)
         self._support_idx = 0          # rotating index into _SUPPORT_VARIATIONS
+        self._style_idx = 0
         self._recent_responses = deque(maxlen=5)
         self._recent_pool_choices = deque(maxlen=5)
+        self._topic_history = deque(maxlen=_MEMORY_WINDOW)
+        self._emotion_history = deque(maxlen=_MEMORY_WINDOW)
+        self._recent_user_messages = deque(maxlen=_MEMORY_WINDOW)
+        self._emotion_timeline = deque(maxlen=config.MAX_CONVERSATION_HISTORY)
+        self._last_response_metadata = {}
+        self._research_logging_enabled = False
+        self._session_log = []
 
     def add_message(self, user_message, emotion_data):
         """Add a message to conversation history"""
+        primary_emotion = emotion_data.get('primary_emotion') or emotion_data.get('emotion', 'neutral')
+        detected_topic = self._detect_topic(user_message)
+        risk_score = float(emotion_data.get('severity_score', 0.0)) / 10.0
         self.conversation_history.append({
             'timestamp': datetime.now(),
             'user_message': user_message,
             'emotion_data': emotion_data
+        })
+        self._recent_user_messages.append(user_message)
+        self._emotion_history.append(primary_emotion)
+        if detected_topic:
+            self._topic_history.append(detected_topic)
+        self._emotion_timeline.append({
+            'timestamp': datetime.now().isoformat(),
+            'emotion': primary_emotion,
+            'risk_score': round(risk_score, 3),
         })
 
         # Limit history size
@@ -362,6 +409,22 @@ class ConversationHandler:
             result.append({"role": "user", "content": entry['user_message']})
         return result
 
+    def get_emotion_timeline(self):
+        """Return timeline entries for UI analytics charts."""
+        return list(self._emotion_timeline)
+
+    def get_last_response_metadata(self):
+        """Return metadata from the most recently generated response."""
+        return dict(self._last_response_metadata)
+
+    def enable_research_logging(self, enabled=True):
+        """Enable/disable structured research logging for the session."""
+        self._research_logging_enabled = bool(enabled)
+
+    def export_session_log(self):
+        """Export structured response metadata collected in research mode."""
+        return list(self._session_log)
+
     def _consecutive_emotion_count(self, emotion):
         """Count how many of the most recent messages share the same primary emotion."""
         count = 0
@@ -372,6 +435,25 @@ class ConversationHandler:
             else:
                 break
         return count
+
+    def _detect_emotion_trend(self, history=None):
+        """Detect short-horizon emotion trend from recent states."""
+        seq = list(history or self._emotion_history)
+        if len(seq) < 3:
+            return 'stable'
+        severity_rank = {
+            'joy': 0, 'neutral': 1, 'stress': 2, 'anxiety': 3,
+            'fear': 3, 'sadness': 4, 'anger': 4, 'crisis': 5, 'distress': 5,
+        }
+        vals = [severity_rank.get(e, 1) for e in seq[-4:]]
+        delta = vals[-1] - vals[0]
+        if vals[-1] >= max(vals[:-1]) + 1:
+            return 'worsening'
+        if delta >= 2 or all(v2 >= v1 for v1, v2 in zip(vals, vals[1:])):
+            return 'worsening'
+        if delta <= -1 or all(v2 <= v1 for v1, v2 in zip(vals, vals[1:])):
+            return 'improving'
+        return 'stable'
 
     def _choose_unique(self, pool):
         """Pick a random item from pool, avoiding recently used templates."""
@@ -409,7 +491,68 @@ class ConversationHandler:
             return 1
         return 0
 
-    def _build_response_segments(self, emotion, topic, lang_pref, stage):
+    def _select_conversational_style(self):
+        """Rotate conversational style with slight randomness for variety."""
+        if random.random() < 0.4:
+            return random.choice(_CONVERSATIONAL_STYLES)
+        style_name = _CONVERSATIONAL_STYLES[self._style_idx % len(_CONVERSATIONAL_STYLES)]
+        self._style_idx += 1
+        return style_name
+
+    def _build_memory_reference(self, topic, emotion):
+        """Occasionally reference earlier repeated topic/emotion context."""
+        if random.random() > 0.35:
+            return ""
+        topic_count = self._topic_history.count(topic) if topic else 0
+        emotion_count = self._emotion_history.count(emotion) if emotion else 0
+        if topic and topic_count >= 2:
+            readable_topic = topic.replace('_', ' ')
+            return (
+                f"You mentioned earlier that {readable_topic} has been recurring. "
+                f"That kind of ongoing pressure can slowly drain energy."
+            )
+        if emotion and emotion_count >= 3:
+            return (
+                f"I've noticed this {emotion} feeling has shown up repeatedly in the recent messages, "
+                "which suggests it's been weighing on you for a while."
+            )
+        return ""
+
+    def _get_adaptive_suggestion(self, topic, emotion, stage, calm_mode_active=False):
+        """Return optional context-aware coping suggestion."""
+        if stage < 1 and not calm_mode_active and random.random() < 0.5:
+            return ""
+        if topic == 'work_stress':
+            return self._choose_unique(WORK_STRESS_COPING)
+        if topic == 'relationship_issues':
+            return self._choose_unique(RELATIONSHIP_REFLECTION)
+        if emotion in ('anxiety', 'stress') or calm_mode_active:
+            return self._choose_unique(ANXIETY_GROUNDING)
+        if emotion in ('sadness', 'fear'):
+            return self._choose_unique(LOW_MOOD_SUPPORT)
+        if topic in _TOPIC_SUGGESTIONS:
+            return self._choose_unique(_TOPIC_SUGGESTIONS[topic])
+        return ""
+
+    @staticmethod
+    def _avatar_state_for(emotion, trend):
+        """Map emotion/trend to UI avatar animation state."""
+        mapping = {
+            'anxiety': 'glow',
+            'sadness': 'slow_pulse',
+            'stress': 'bounce',
+            'neutral': 'soft_glow',
+            'joy': 'soft_glow',
+            'fear': 'pulse',
+            'anger': 'pulse',
+            'crisis': 'pulse',
+        }
+        if trend == 'worsening' and emotion in ('anxiety', 'stress', 'sadness', 'fear'):
+            return 'pulse'
+        return mapping.get(emotion, 'soft_glow')
+
+    def _build_response_segments(self, emotion, topic, lang_pref, stage, conversation_style='supportive',
+                                 calm_mode_active=False):
         """Compose response from modular empathy/reflection/suggestion/closing segments."""
         emotion_key = emotion if emotion in {'anxiety', 'stress', 'sadness', 'fear'} else 'neutral'
         empathy_map = {
@@ -446,17 +589,19 @@ class ConversationHandler:
                 "Given how persistent this is, we can combine emotional support with a simple action plan.",
             ],
         }
+        if conversation_style == 'exploratory':
+            reflection_pool[0].append("What part of this feels the hardest right now?")
+            reflection_pool[1].append("What has felt most draining about this lately?")
+        elif conversation_style == 'coping_guidance':
+            reflection_pool[2].append("Let's try one practical coping step and keep it manageable.")
+            reflection_pool[3].append("We'll combine emotional support with a clear, gentle action plan.")
+        elif conversation_style == 'reflective':
+            reflection_pool[0].append("It sounds like you're carrying quite a lot right now.")
+        else:  # supportive
+            reflection_pool[0].append("I'm really glad you're sharing this here.")
         reflection = self._choose_unique(reflection_pool[stage])
 
-        suggestion = ""
-        if topic in _TOPIC_SUGGESTIONS:
-            suggestion = self._choose_unique(_TOPIC_SUGGESTIONS[topic])
-        elif stage >= 2:
-            generic_suggestions = [
-                "Would a brief breathing exercise or short walk feel manageable right now?",
-                "If it helps, we can break this into one tiny, doable next step.",
-            ]
-            suggestion = self._choose_unique(generic_suggestions)
+        suggestion = self._get_adaptive_suggestion(topic, emotion_key, stage, calm_mode_active=calm_mode_active)
 
         if stage >= 3:
             guidance_pool = [
@@ -503,7 +648,7 @@ class ConversationHandler:
             self._recent_responses.append(response)
         return response
 
-    def generate_response(self, emotion_data, user_context=None):
+    def generate_response(self, emotion_data, user_context=None, return_metadata=False):
         """Generate a warm, humanoid, personalized response based on
         emotional state and optional user profile context.
         Supports English, Tamil, and bilingual (Tamil+English) responses.
@@ -544,8 +689,14 @@ class ConversationHandler:
         user_name = user_context.get('user_name') if user_context else None
 
         debug_enabled = bool(user_context and user_context.get('debug_response_generation'))
+        calm_mode_active = bool(user_context and user_context.get('calm_mode_active'))
+        research_logging = bool(user_context and user_context.get('research_logging'))
+        if research_logging:
+            self.enable_research_logging(True)
         detected_topic = None
         template_label = "legacy"
+        conversation_style = self._select_conversational_style()
+        suggestion_type = None
 
         # Build conversational context text (current + recent) for topic detection
         context_msgs = []
@@ -561,6 +712,7 @@ class ConversationHandler:
         ]
         context_blob = " ".join([m for m in (context_msgs + history_msgs) if m])
         detected_topic = self._detect_topic(context_blob)
+        emotion_trend = self._detect_emotion_trend()
 
         normalized_emotion = primary_emotion
         # In work/pressure contexts, anger often reflects stress overload; route to stress pool.
@@ -590,10 +742,32 @@ class ConversationHandler:
                 detected_topic,
                 lang_pref,
                 stage,
+                conversation_style=conversation_style,
+                calm_mode_active=calm_mode_active,
             )
             template_label = f"modular/{normalized_emotion or 'neutral'}/stage-{stage}"
             if detected_topic:
                 template_label += f"/{detected_topic}"
+            if detected_topic == 'work_stress':
+                suggestion_type = 'work_stress_coping'
+            elif detected_topic == 'relationship_issues':
+                suggestion_type = 'relationship_reflection'
+            elif normalized_emotion in ('anxiety', 'stress'):
+                suggestion_type = 'anxiety_grounding'
+            elif normalized_emotion in ('sadness', 'fear'):
+                suggestion_type = 'low_mood_support'
+            else:
+                suggestion_type = 'general_support'
+
+        memory_reference = self._build_memory_reference(detected_topic, normalized_emotion)
+        if memory_reference and lang_pref != 'tamil':
+            response += f"\n\n{memory_reference}"
+            template_label += "/memory-ref"
+
+        if emotion_trend == 'worsening' and lang_pref != 'tamil':
+            response += "\n\nIt sounds like things may be getting heavier over the last few messages."
+        elif emotion_trend == 'improving' and lang_pref != 'tamil' and random.random() < 0.5:
+            response += "\n\nI also notice some signs of steadier breathing room compared with earlier messages."
 
         # ---- Personalised name greeting (warm touch) ----
         if user_name and lang_pref != 'tamil' and primary_emotion not in ('crisis',) and response:
@@ -698,6 +872,16 @@ class ConversationHandler:
                 pool = _ESCALATION_FOLLOWUPS[primary_emotion]
                 response += pool[(consec - 2) % len(pool)]
 
+        calm_mode_suggested = False
+        if (primary_emotion in ('anxiety', 'stress') and self._consecutive_emotion_count(primary_emotion) >= 2
+                and not calm_mode_active):
+            response += (
+                "\n\nIf you'd like, we can take a brief breathing pause together to help settle your system."
+            )
+            calm_mode_suggested = True
+            if not suggestion_type:
+                suggestion_type = 'anxiety_grounding'
+
         if debug_enabled:
             _logger.info(
                 "Response debug | emotion=%s topic=%s template=%s",
@@ -717,6 +901,8 @@ class ConversationHandler:
                 detected_topic,
                 lang_pref,
                 regen_stage,
+                conversation_style=conversation_style,
+                calm_mode_active=calm_mode_active,
             )
             return refreshed
 
@@ -726,6 +912,33 @@ class ConversationHandler:
             regenerate_fn=_regen if primary_emotion != 'crisis' else None,
         )
 
+        avatar_state = self._avatar_state_for(normalized_emotion or 'neutral', emotion_trend)
+        metadata = {
+            'emotion': normalized_emotion or 'neutral',
+            'topic': detected_topic,
+            'trend': emotion_trend,
+            'avatar_state': avatar_state,
+            'calm_mode_suggested': calm_mode_suggested,
+            'calm_mode_active': calm_mode_active,
+            'conversational_style': conversation_style,
+            'response_template': template_label,
+            'suggestion_type': suggestion_type,
+            'response': response,
+        }
+        self._last_response_metadata = metadata
+
+        if self._research_logging_enabled:
+            self._session_log.append({
+                'timestamp': datetime.now().isoformat(),
+                'emotion': metadata['emotion'],
+                'topic': metadata['topic'],
+                'trend': metadata['trend'],
+                'response_template': metadata['response_template'],
+                'suggestion_type': metadata['suggestion_type'],
+            })
+
+        if return_metadata:
+            return metadata
         return response
 
     def get_greeting(self):

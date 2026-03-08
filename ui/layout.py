@@ -299,14 +299,25 @@ _AVATAR_MAP = {
 _DEFAULT_EMOTION_LABEL = 'Neutral'
 
 
-def render_emotional_avatar(emotion: str = 'neutral') -> str:
+def render_emotional_avatar(emotion: str = 'neutral', avatar_state: str | None = None, trend: str | None = None) -> str:
     """Return HTML for a dynamic emotional avatar with glow and animation.
 
     The avatar changes icon and colour based on the detected emotion,
     and includes a subtle CSS animation.
     """
     icon, color, anim = _AVATAR_MAP.get(emotion, _AVATAR_MAP['neutral'])
+    if avatar_state:
+        state_to_anim = {
+            'glow': 'avatarGlow',
+            'soft_glow': 'avatarGlow',
+            'pulse': 'avatarPulse',
+            'slow_pulse': 'avatarPulse',
+            'bounce': 'avatarBounce',
+        }
+        anim = state_to_anim.get(avatar_state, anim)
     label = emotion.capitalize() if emotion in _AVATAR_MAP else _DEFAULT_EMOTION_LABEL
+    if trend in ('worsening', 'improving', 'stable'):
+        label = f"{label} · {trend.title()}"
     return (
         f'<div class="emotional-avatar" style="--avatar-color:{color};">'
         f'<div class="avatar-glow" style="background:radial-gradient(circle,{color}33 0%,transparent 70%);"></div>'

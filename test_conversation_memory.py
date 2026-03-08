@@ -223,6 +223,32 @@ def test_respond_with_context_seeds_history():
     print("✓ respond() seeds history from context")
 
 
+def test_wellness_buddy_metadata_exports():
+    """WellnessBuddy should expose response metadata, timeline, and research log export."""
+    from wellness_buddy import WellnessBuddy
+    from user_profile import UserProfile
+
+    tmp = tempfile.mkdtemp()
+    try:
+        buddy = WellnessBuddy(data_dir=tmp)
+        buddy.user_profile = UserProfile('meta_user')
+        buddy.user_id = 'meta_user'
+        buddy.respond(
+            "I'm anxious about my job and deadlines",
+            options={'research_logging': True, 'calm_mode_active': False},
+        )
+        meta = buddy.get_last_response_metadata()
+        assert 'avatar_state' in meta and 'trend' in meta
+        timeline = buddy.get_emotion_timeline()
+        assert timeline and {'timestamp', 'emotion', 'risk_score'} <= set(timeline[-1].keys())
+        logs = buddy.export_session_log()
+        assert logs and 'response_template' in logs[-1]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    print("✓ WellnessBuddy exposes metadata/timeline/research export")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. Consecutive emotion counter
 # ─────────────────────────────────────────────────────────────────────────────
@@ -311,7 +337,7 @@ def test_escalation_followups_exist():
 
 def test_topic_detection_influences_response():
     """Work-stress topic should influence suggestions in response composition."""
-    from conversation_handler import ConversationHandler, _TOPIC_SUGGESTIONS
+    from conversation_handler import ConversationHandler, _TOPIC_SUGGESTIONS, WORK_STRESS_COPING
     from emotion_analyzer import EmotionAnalyzer
 
     analyzer = EmotionAnalyzer()
@@ -320,9 +346,11 @@ def test_topic_detection_influences_response():
     emotion_data = analyzer.classify_emotion(msg)
     emotion_data['primary_emotion'] = 'anxiety'
     handler.add_message(msg, emotion_data)
+    handler.add_message(msg, emotion_data)
 
     response = handler.generate_response(emotion_data)
-    assert any(suggestion in response for suggestion in _TOPIC_SUGGESTIONS['work_stress'])
+    work_suggestions = list(_TOPIC_SUGGESTIONS['work_stress']) + list(WORK_STRESS_COPING)
+    assert any(suggestion in response for suggestion in work_suggestions)
     print("✓ Topic-aware response includes work-stress support guidance")
 
 
@@ -352,6 +380,80 @@ def test_debug_logging_for_response_generation(caplog):
     print("✓ Debug logging emits response generation metadata")
 
 
+def test_emotion_trend_detection_helper():
+    """_detect_emotion_trend should identify worsening and improving sequences."""
+    from conversation_handler import ConversationHandler
+
+    handler = ConversationHandler()
+    assert handler._detect_emotion_trend(['anxiety', 'anxiety', 'stress', 'sadness']) == 'worsening'
+    assert handler._detect_emotion_trend(['sadness', 'stress', 'anxiety', 'neutral']) == 'improving'
+    assert handler._detect_emotion_trend(['neutral', 'anxiety', 'neutral']) == 'stable'
+    print("✓ Emotion trend detection identifies stable/improving/worsening")
+
+
+def test_memory_structures_and_timeline_tracking():
+    """Conversation memory helpers should track recent emotions/topics/timeline."""
+    from conversation_handler import ConversationHandler
+    from emotion_analyzer import EmotionAnalyzer
+
+    analyzer = EmotionAnalyzer()
+    handler = ConversationHandler()
+    for i in range(12):
+        msg = f"My work deadline stress is high {i}"
+        emotion_data = analyzer.classify_emotion(msg)
+        emotion_data['primary_emotion'] = 'stress'
+        handler.add_message(msg, emotion_data)
+
+    assert len(handler._recent_user_messages) == 10
+    assert len(handler._emotion_history) == 10
+    timeline = handler.get_emotion_timeline()
+    assert len(timeline) >= 10
+    assert {'timestamp', 'emotion', 'risk_score'} <= set(timeline[-1].keys())
+    print("✓ Memory structures and emotion timeline are tracked")
+
+
+def test_response_metadata_and_research_export():
+    """Metadata should include avatar/trend and research export should log entries."""
+    from conversation_handler import ConversationHandler
+    from emotion_analyzer import EmotionAnalyzer
+
+    analyzer = EmotionAnalyzer()
+    handler = ConversationHandler()
+    msg = "I feel anxious about work and interviews"
+    emotion_data = analyzer.classify_emotion(msg)
+    emotion_data['primary_emotion'] = 'anxiety'
+    handler.add_message(msg, emotion_data)
+    metadata = handler.generate_response(
+        emotion_data,
+        user_context={'research_logging': True},
+        return_metadata=True,
+    )
+    assert metadata['avatar_state'] in ('glow', 'pulse', 'bounce', 'soft_glow', 'slow_pulse')
+    assert metadata['trend'] in ('stable', 'improving', 'worsening')
+    exported = handler.export_session_log()
+    assert exported and 'response_template' in exported[-1]
+    print("✓ Response metadata + research export are available")
+
+
+def test_calm_mode_suggestion_for_repeated_stress():
+    """Repeated stress/anxiety should suggest calm mode when not active."""
+    from conversation_handler import ConversationHandler
+    from emotion_analyzer import EmotionAnalyzer
+
+    analyzer = EmotionAnalyzer()
+    handler = ConversationHandler()
+    msg = "I'm very stressed about work deadlines"
+    for _ in range(3):
+        emotion_data = analyzer.classify_emotion(msg)
+        emotion_data['primary_emotion'] = 'stress'
+        handler.add_message(msg, emotion_data)
+    response = handler.generate_response(emotion_data, user_context={'calm_mode_active': False})
+    meta = handler.get_last_response_metadata()
+    assert "breathing pause together" in response
+    assert meta.get('calm_mode_suggested') is True
+    print("✓ Calm mode suggestion is triggered for repeated stress")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Runner
 # ─────────────────────────────────────────────────────────────────────────────
@@ -366,11 +468,16 @@ if __name__ == '__main__':
         test_ensure_no_repeat_checks_recent_window,
         test_respond_method_exists_and_works,
         test_respond_with_context_seeds_history,
+        test_wellness_buddy_metadata_exports,
         test_consecutive_emotion_count,
         test_support_variations_exist,
         test_escalation_followups_exist,
         test_topic_detection_influences_response,
         test_debug_logging_for_response_generation,
+        test_emotion_trend_detection_helper,
+        test_memory_structures_and_timeline_tracking,
+        test_response_metadata_and_research_export,
+        test_calm_mode_suggestion_for_repeated_stress,
     ]
 
     print("\n" + "=" * 70)

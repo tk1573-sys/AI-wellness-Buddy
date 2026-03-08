@@ -233,6 +233,12 @@ class TestLayoutModule:
         assert '😐' in html
         assert 'Neutral' in html
 
+    def test_emotional_avatar_accepts_avatar_state(self):
+        from ui.layout import render_emotional_avatar
+        html = render_emotional_avatar('anxiety', avatar_state='bounce', trend='worsening')
+        assert 'avatarBounce' in html
+        assert 'Worsening' in html
+
     def test_wellness_illustration_large(self):
         from ui.layout import render_wellness_illustration_large
         html = render_wellness_illustration_large()
