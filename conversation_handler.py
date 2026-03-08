@@ -292,25 +292,25 @@ _TOPIC_SUGGESTIONS = {
     ],
 }
 
-WORK_STRESS_COPING = [
+_WORK_STRESS_COPING = [
     "Would a short priority reset help — list only the top 2 tasks for the next hour?",
     "A brief pause between work blocks can reduce pressure build-up; even 3 minutes can help.",
     "If useful, we can quickly split today's workload into must-do and can-wait.",
 ]
 
-ANXIETY_GROUNDING = [
+_ANXIETY_GROUNDING = [
     "If you'd like, try grounding: notice 5 things you see, 4 you feel, 3 you hear.",
     "A gentle breathing cycle can help: inhale slowly, hold briefly, and exhale longer.",
     "Would it help to name one worry and one thing you can control right now?",
 ]
 
-LOW_MOOD_SUPPORT = [
+_LOW_MOOD_SUPPORT = [
     "If it feels okay, writing a few lines about what feels heaviest can bring clarity.",
     "A very small act of care — water, stretch, or fresh air — can sometimes soften this moment.",
     "Would you like to identify one supportive person you could text today?",
 ]
 
-RELATIONSHIP_REFLECTION = [
+_RELATIONSHIP_REFLECTION = [
     "If you want, we can explore what you need most from that relationship right now.",
     "Sometimes naming your boundary in one sentence can reduce internal pressure.",
     "Would it help to separate what you can influence from what you can't in this situation?",
@@ -318,7 +318,27 @@ RELATIONSHIP_REFLECTION = [
 
 _TOPIC_CONTEXT_WINDOW = 6
 _MAX_REGEN_ATTEMPTS = 6
+# Keep lightweight memory limited to recent 10 turns for concise contextual references.
 _MEMORY_WINDOW = 10
+# Only occasionally reference memory to avoid overusing callback statements.
+_MEMORY_REFERENCE_PROBABILITY = 0.35
+# In early stage, skip suggestion half the time to avoid overly directive responses.
+_EARLY_STAGE_SUGGESTION_SKIP_PROBABILITY = 0.5
+_IMPROVING_TREND_MESSAGE_PROBABILITY = 0.5
+_WORSENING_TREND_MESSAGE = "It sounds like things may be getting heavier over the last few messages."
+_IMPROVING_TREND_MESSAGE = (
+    "I also notice some signs of steadier breathing room compared with earlier messages."
+)
+_CALM_MODE_SUGGESTION = (
+    "If you'd like, we can take a brief breathing pause together to help settle your system."
+)
+_TREND_LAST_STEP_THRESHOLD = 1
+_TREND_DELTA_THRESHOLD = 2
+_TREND_IMPROVEMENT_DELTA = -1
+_EMOTION_SEVERITY_RANK = {
+    'joy': 0, 'neutral': 1, 'stress': 2, 'anxiety': 3,
+    'fear': 3, 'sadness': 4, 'anger': 4, 'crisis': 5, 'distress': 5,
+}
 
 # Emotion-specific contextual follow-ups for escalation when the same
 # emotion is detected multiple consecutive times.
@@ -441,17 +461,11 @@ class ConversationHandler:
         seq = list(history or self._emotion_history)
         if len(seq) < 3:
             return 'stable'
-        severity_rank = {
-            'joy': 0, 'neutral': 1, 'stress': 2, 'anxiety': 3,
-            'fear': 3, 'sadness': 4, 'anger': 4, 'crisis': 5, 'distress': 5,
-        }
-        vals = [severity_rank.get(e, 1) for e in seq[-4:]]
+        vals = [_EMOTION_SEVERITY_RANK.get(e, 1) for e in seq[-4:]]
         delta = vals[-1] - vals[0]
-        if vals[-1] >= max(vals[:-1]) + 1:
+        if vals[-1] >= max(vals[:-1]) + _TREND_LAST_STEP_THRESHOLD or delta >= _TREND_DELTA_THRESHOLD:
             return 'worsening'
-        if delta >= 2 or all(v2 >= v1 for v1, v2 in zip(vals, vals[1:])):
-            return 'worsening'
-        if delta <= -1 or all(v2 <= v1 for v1, v2 in zip(vals, vals[1:])):
+        if vals[-1] <= min(vals[:-1]) - _TREND_LAST_STEP_THRESHOLD or delta <= _TREND_IMPROVEMENT_DELTA:
             return 'improving'
         return 'stable'
 
@@ -501,7 +515,7 @@ class ConversationHandler:
 
     def _build_memory_reference(self, topic, emotion):
         """Occasionally reference earlier repeated topic/emotion context."""
-        if random.random() > 0.35:
+        if random.random() > _MEMORY_REFERENCE_PROBABILITY:
             return ""
         topic_count = self._topic_history.count(topic) if topic else 0
         emotion_count = self._emotion_history.count(emotion) if emotion else 0
@@ -512,24 +526,25 @@ class ConversationHandler:
                 f"That kind of ongoing pressure can slowly drain energy."
             )
         if emotion and emotion_count >= 3:
+            readable_emotion = emotion.replace('_', ' ')
             return (
-                f"I've noticed this {emotion} feeling has shown up repeatedly in the recent messages, "
+                f"I've noticed this {readable_emotion} feeling has shown up repeatedly in the recent messages, "
                 "which suggests it's been weighing on you for a while."
             )
         return ""
 
     def _get_adaptive_suggestion(self, topic, emotion, stage, calm_mode_active=False):
         """Return optional context-aware coping suggestion."""
-        if stage < 1 and not calm_mode_active and random.random() < 0.5:
+        if stage < 1 and not calm_mode_active and random.random() < _EARLY_STAGE_SUGGESTION_SKIP_PROBABILITY:
             return ""
         if topic == 'work_stress':
-            return self._choose_unique(WORK_STRESS_COPING)
+            return self._choose_unique(_WORK_STRESS_COPING)
         if topic == 'relationship_issues':
-            return self._choose_unique(RELATIONSHIP_REFLECTION)
+            return self._choose_unique(_RELATIONSHIP_REFLECTION)
         if emotion in ('anxiety', 'stress') or calm_mode_active:
-            return self._choose_unique(ANXIETY_GROUNDING)
+            return self._choose_unique(_ANXIETY_GROUNDING)
         if emotion in ('sadness', 'fear'):
-            return self._choose_unique(LOW_MOOD_SUPPORT)
+            return self._choose_unique(_LOW_MOOD_SUPPORT)
         if topic in _TOPIC_SUGGESTIONS:
             return self._choose_unique(_TOPIC_SUGGESTIONS[topic])
         return ""
@@ -589,17 +604,19 @@ class ConversationHandler:
                 "Given how persistent this is, we can combine emotional support with a simple action plan.",
             ],
         }
+        style_extras = {0: [], 1: [], 2: [], 3: []}
         if conversation_style == 'exploratory':
-            reflection_pool[0].append("What part of this feels the hardest right now?")
-            reflection_pool[1].append("What has felt most draining about this lately?")
+            style_extras[0].append("What part of this feels the hardest right now?")
+            style_extras[1].append("What has felt most draining about this lately?")
         elif conversation_style == 'coping_guidance':
-            reflection_pool[2].append("Let's try one practical coping step and keep it manageable.")
-            reflection_pool[3].append("We'll combine emotional support with a clear, gentle action plan.")
+            style_extras[2].append("Let's try one practical coping step and keep it manageable.")
+            style_extras[3].append("We'll combine emotional support with a clear, gentle action plan.")
         elif conversation_style == 'reflective':
-            reflection_pool[0].append("It sounds like you're carrying quite a lot right now.")
+            style_extras[0].append("It sounds like you're carrying quite a lot right now.")
         else:  # supportive
-            reflection_pool[0].append("I'm really glad you're sharing this here.")
-        reflection = self._choose_unique(reflection_pool[stage])
+            style_extras[0].append("I'm really glad you're sharing this here.")
+        reflection_candidates = reflection_pool[stage] + style_extras[stage]
+        reflection = self._choose_unique(reflection_candidates)
 
         suggestion = self._get_adaptive_suggestion(topic, emotion_key, stage, calm_mode_active=calm_mode_active)
 
@@ -765,9 +782,13 @@ class ConversationHandler:
             template_label += "/memory-ref"
 
         if emotion_trend == 'worsening' and lang_pref != 'tamil':
-            response += "\n\nIt sounds like things may be getting heavier over the last few messages."
-        elif emotion_trend == 'improving' and lang_pref != 'tamil' and random.random() < 0.5:
-            response += "\n\nI also notice some signs of steadier breathing room compared with earlier messages."
+            response += f"\n\n{_WORSENING_TREND_MESSAGE}"
+        elif (
+            emotion_trend == 'improving'
+            and lang_pref != 'tamil'
+            and random.random() < _IMPROVING_TREND_MESSAGE_PROBABILITY
+        ):
+            response += f"\n\n{_IMPROVING_TREND_MESSAGE}"
 
         # ---- Personalised name greeting (warm touch) ----
         if user_name and lang_pref != 'tamil' and primary_emotion not in ('crisis',) and response:
@@ -873,11 +894,12 @@ class ConversationHandler:
                 response += pool[(consec - 2) % len(pool)]
 
         calm_mode_suggested = False
-        if (primary_emotion in ('anxiety', 'stress') and self._consecutive_emotion_count(primary_emotion) >= 2
-                and not calm_mode_active):
-            response += (
-                "\n\nIf you'd like, we can take a brief breathing pause together to help settle your system."
-            )
+        repeated_anxiety_or_stress = (
+            primary_emotion in ('anxiety', 'stress')
+            and self._consecutive_emotion_count(primary_emotion) >= 2
+        )
+        if repeated_anxiety_or_stress and not calm_mode_active:
+            response += f"\n\n{_CALM_MODE_SUGGESTION}"
             calm_mode_suggested = True
             if not suggestion_type:
                 suggestion_type = 'anxiety_grounding'
@@ -914,6 +936,7 @@ class ConversationHandler:
 
         avatar_state = self._avatar_state_for(normalized_emotion or 'neutral', emotion_trend)
         metadata = {
+            'timestamp': datetime.now().isoformat(),
             'emotion': normalized_emotion or 'neutral',
             'topic': detected_topic,
             'trend': emotion_trend,

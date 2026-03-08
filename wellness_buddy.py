@@ -293,8 +293,8 @@ class WellnessBuddy:
             
             # Reset counter after alert
             self.pattern_tracker.reset_consecutive_distress()
-        response_meta['risk_level'] = pattern_summary.get('risk_level') if pattern_summary else 'low'
-        response_meta['risk_score'] = pattern_summary.get('risk_score') if pattern_summary else 0.0
+        response_meta['risk_level'] = (pattern_summary or {}).get('risk_level', 'low')
+        response_meta['risk_score'] = (pattern_summary or {}).get('risk_score', 0.0)
         self._last_response_metadata = response_meta
 
         return response

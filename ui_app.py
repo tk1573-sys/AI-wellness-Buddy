@@ -7,6 +7,7 @@ Run with: streamlit run ui_app.py
 """
 
 import streamlit as st
+from datetime import datetime
 from wellness_buddy import WellnessBuddy
 from user_profile import UserProfile
 from data_store import DataStore
@@ -1067,7 +1068,22 @@ def show_chat_interface():
             _dom_emo_str = max(dist, key=dist.get)
             _emo_icon = EMO_ICONS.get(_dom_emo_str, '😊')
     _meta = st.session_state.get('last_response_meta') or {}
-    if _meta.get('emotion'):
+    _last_chat = st.session_state.get('chat_history', [])
+    _last_chat_entry = _last_chat[-1] if _last_chat else {}
+    _meta_ts = _meta.get('timestamp')
+    _is_recent_meta = False
+    if _meta_ts:
+        try:
+            _meta_age = (datetime.now() - datetime.fromisoformat(_meta_ts)).total_seconds()
+            _is_recent_meta = 0 <= _meta_age <= 900
+        except ValueError:
+            _is_recent_meta = False
+    meta_is_fresh = (
+        _last_chat
+        and _last_chat_entry.get('role') == 'assistant'
+        and _is_recent_meta
+    )
+    if _meta.get('emotion') and meta_is_fresh:
         _dom_emo_str = _meta.get('emotion', _dom_emo_str)
     _avatar_state = _meta.get('avatar_state')
     _trend = _meta.get('trend')

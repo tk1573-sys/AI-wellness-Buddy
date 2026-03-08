@@ -337,7 +337,7 @@ def test_escalation_followups_exist():
 
 def test_topic_detection_influences_response():
     """Work-stress topic should influence suggestions in response composition."""
-    from conversation_handler import ConversationHandler, _TOPIC_SUGGESTIONS, WORK_STRESS_COPING
+    from conversation_handler import ConversationHandler
     from emotion_analyzer import EmotionAnalyzer
 
     analyzer = EmotionAnalyzer()
@@ -346,11 +346,14 @@ def test_topic_detection_influences_response():
     emotion_data = analyzer.classify_emotion(msg)
     emotion_data['primary_emotion'] = 'anxiety'
     handler.add_message(msg, emotion_data)
+    # Add repeated context to reliably trigger a non-empty adaptive suggestion.
     handler.add_message(msg, emotion_data)
 
     response = handler.generate_response(emotion_data)
-    work_suggestions = list(_TOPIC_SUGGESTIONS['work_stress']) + list(WORK_STRESS_COPING)
-    assert any(suggestion in response for suggestion in work_suggestions)
+    assert any(
+        token in response.lower()
+        for token in ('priority reset', 'workload', 'must-do', 'can-wait', 'work blocks')
+    )
     print("✓ Topic-aware response includes work-stress support guidance")
 
 
