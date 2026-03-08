@@ -25,8 +25,7 @@ from ui.charts import (
     EMO_COLORS, _HEATMAP_EMOTIONS,
 )
 from ui.layout import (
-    render_hero_section, render_wellness_illustration,
-    render_wellness_illustration_large,
+    render_hero_section, render_wellness_illustration_large,
     render_chat_header, render_user_avatar, render_risk_badge,
     render_session_info_card, render_streak_card, render_waveform_section,
     render_session_summary_card, render_emotion_flag,
