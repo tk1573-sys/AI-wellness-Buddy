@@ -208,6 +208,40 @@ class TestLayoutModule:
         assert RISK_LEVEL_VALUES['high'] == 0.65
         assert SOUND_LABELS['soft_rain'] == 'Soft Rain'
 
+    def test_sound_labels_includes_white_noise(self):
+        from ui.layout import SOUND_LABELS
+        assert 'white_noise' in SOUND_LABELS
+        assert SOUND_LABELS['white_noise'] == 'White Noise'
+
+    def test_emotional_avatar_returns_html(self):
+        from ui.layout import render_emotional_avatar
+        html = render_emotional_avatar('joy')
+        assert 'emotional-avatar' in html
+        assert '😊' in html
+        assert 'Joy' in html
+        assert 'avatarBounce' in html
+
+    def test_emotional_avatar_crisis(self):
+        from ui.layout import render_emotional_avatar
+        html = render_emotional_avatar('crisis')
+        assert '⚠️' in html
+        assert 'avatarPulse' in html
+
+    def test_emotional_avatar_default_neutral(self):
+        from ui.layout import render_emotional_avatar
+        html = render_emotional_avatar('unknown_emotion')
+        assert '😐' in html
+        assert 'Neutral' in html
+
+    def test_wellness_illustration_large(self):
+        from ui.layout import render_wellness_illustration_large
+        html = render_wellness_illustration_large()
+        assert '<svg' in html
+        assert 'wellness-art-large' in html
+        assert 'viewBox="0 0 300 300"' in html
+        assert 'art-heart' in html
+        assert 'art-mini-leaf' in html
+
 
 # -----------------------------------------------------------------------
 # ui.animations tests
@@ -237,3 +271,97 @@ class TestAnimationsModule:
         from ui.animations import TYPING_INDICATOR_HTML
         assert 'typing-indicator' in TYPING_INDICATOR_HTML
         assert '<span>' in TYPING_INDICATOR_HTML
+        assert 'thinking' in TYPING_INDICATOR_HTML
+
+    def test_ambient_sound_white_noise(self):
+        from ui.animations import ambient_sound_html
+        html = ambient_sound_html('white_noise', 0.02)
+        assert '200' in html  # white_noise frequency
+        assert 'sawtooth' in html
+
+    def test_canvas_particles_html(self):
+        from ui.animations import canvas_particles_html
+        html = canvas_particles_html()
+        assert 'wellness-particles' in html
+        assert 'canvas' in html.lower()
+        assert 'requestAnimationFrame' in html
+
+    def test_breathing_circle_html(self):
+        from ui.animations import breathing_circle_html
+        html = breathing_circle_html()
+        assert 'breathing-container' in html
+        assert 'breathing-circle' in html
+        assert 'Breathe' in html
+        assert 'inhale' in html
+
+
+# -----------------------------------------------------------------------
+# New: ui.charts — emotion heatmap tests
+# -----------------------------------------------------------------------
+
+class TestHeatmapChart:
+    """Tests for the emotion heatmap chart."""
+
+    def test_emotion_heatmap_returns_figure(self):
+        from ui.charts import create_emotion_heatmap
+        timeline = [
+            {'joy': 0.8, 'neutral': 0.1, 'sadness': 0.0, 'anger': 0.0, 'fear': 0.0, 'crisis': 0.0},
+            {'joy': 0.3, 'neutral': 0.5, 'sadness': 0.1, 'anger': 0.0, 'fear': 0.1, 'crisis': 0.0},
+        ]
+        fig = create_emotion_heatmap(timeline)
+        assert fig is not None
+        assert fig.data[0].type == 'heatmap'
+
+    def test_emotion_heatmap_has_correct_axes(self):
+        from ui.charts import create_emotion_heatmap
+        timeline = [
+            {'joy': 0.5, 'sadness': 0.3},
+            {'joy': 0.2, 'sadness': 0.6},
+            {'joy': 0.7, 'sadness': 0.1},
+        ]
+        fig = create_emotion_heatmap(timeline)
+        # Should have 6 rows (emotions) and 3 columns (messages)
+        assert len(fig.data[0].z) == 6
+        assert len(fig.data[0].x) == 3
+
+    def test_emotion_heatmap_missing_keys(self):
+        from ui.charts import create_emotion_heatmap
+        # Some emotions missing — should default to 0
+        timeline = [{'joy': 0.5}, {'sadness': 0.8}]
+        fig = create_emotion_heatmap(timeline)
+        assert fig is not None
+
+
+# -----------------------------------------------------------------------
+# New: theme CSS — new component styles
+# -----------------------------------------------------------------------
+
+class TestThemeNewComponents:
+    """Tests for new CSS in theme.py."""
+
+    def test_breathing_circle_css(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        assert 'breathing-circle' in css
+        assert 'breatheCircle' in css
+
+    def test_emotional_avatar_css(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        assert 'emotional-avatar' in css
+        assert 'avatarBounce' in css
+        assert 'avatarGlow' in css
+        assert 'avatarPulse' in css
+
+    def test_typing_label_css(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        assert 'typing-label' in css
+        assert 'typingLabelFade' in css
+
+    def test_large_illustration_css(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        assert 'illustration-panel-large' in css
+        assert 'wellness-art-large' in css
+        assert 'art-heart' in css

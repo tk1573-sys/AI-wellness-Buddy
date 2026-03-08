@@ -258,3 +258,57 @@ def create_sparkline(sentiments: list) -> go.Figure:
         showlegend=False,
     )
     return fig
+
+
+# -----------------------------------------------------------------------
+# Emotion heatmap
+# -----------------------------------------------------------------------
+
+_HEATMAP_EMOTIONS = ['joy', 'neutral', 'sadness', 'anger', 'fear', 'crisis']
+
+
+def create_emotion_heatmap(emotion_timeline: list[dict]) -> go.Figure:
+    """Create a Plotly heatmap showing emotional intensity over conversation time.
+
+    Parameters
+    ----------
+    emotion_timeline : list[dict]
+        List of dicts with keys matching emotion names and float intensity
+        values (0–1).  Each dict represents one message/segment.
+        Example: ``[{'joy': 0.8, 'sadness': 0.1, ...}, ...]``
+
+    Returns a ``go.Figure`` ready for ``st.plotly_chart()``.
+    """
+    emotions = _HEATMAP_EMOTIONS
+    z_data = []
+    for emo in emotions:
+        row = [seg.get(emo, 0.0) for seg in emotion_timeline]
+        z_data.append(row)
+
+    x_labels = [f'Msg {i+1}' for i in range(len(emotion_timeline))]
+
+    fig = go.Figure(go.Heatmap(
+        z=z_data,
+        x=x_labels,
+        y=[e.capitalize() for e in emotions],
+        colorscale=[
+            [0, 'rgba(240,244,255,0.8)'],
+            [0.25, 'rgba(91,140,255,0.4)'],
+            [0.5, 'rgba(155,140,255,0.6)'],
+            [0.75, 'rgba(255,138,101,0.7)'],
+            [1.0, 'rgba(239,83,80,0.9)'],
+        ],
+        hovertemplate='%{y}: %{z:.2f}<br>%{x}<extra></extra>',
+        showscale=True,
+        colorbar=dict(
+            title=dict(text='Intensity', font=dict(size=11, family='Inter')),
+            tickfont=dict(size=10, family='Inter'),
+            len=0.8,
+        ),
+    ))
+    fig.update_layout(**_base_layout(
+        height=280,
+        margin=dict(l=80, r=20, t=20, b=40),
+        xaxis_title='Conversation Timeline',
+    ))
+    return fig

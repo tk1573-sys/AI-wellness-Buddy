@@ -39,6 +39,7 @@ SOUND_LABELS = {
     'deep_focus': 'Deep Focus',
     'calm_waves': 'Calm Waves',
     'soft_rain': 'Soft Rain',
+    'white_noise': 'White Noise',
 }
 
 LANG_ICONS = {'english': '🇬🇧', 'tamil': '🇮🇳', 'bilingual': '🇮🇳🇬🇧'}
@@ -273,3 +274,93 @@ def render_emotion_flag(dominant_emotion: str) -> str:
     assistant bubble colours."""
     emo_class = EMO_BUBBLE_CLASS.get(dominant_emotion, 'emo-neutral')
     return f'<div class="emo-reactive-flag {emo_class}" style="display:none;"></div>'
+
+
+# -----------------------------------------------------------------------
+# Dynamic emotional avatar
+# -----------------------------------------------------------------------
+
+# Extended avatar mapping with animation hints
+_AVATAR_MAP = {
+    'joy':      ('😊', '#4DD0E1', 'avatarBounce'),
+    'positive': ('😊', '#4DD0E1', 'avatarBounce'),
+    'neutral':  ('😐', '#9B8CFF', 'avatarGlow'),
+    'sadness':  ('😢', '#5B8CFF', 'avatarGlow'),
+    'negative': ('😟', '#5B8CFF', 'avatarGlow'),
+    'anger':    ('😠', '#EF5350', 'avatarPulse'),
+    'fear':     ('😰', '#FFB74D', 'avatarPulse'),
+    'anxiety':  ('😟', '#FFB74D', 'avatarPulse'),
+    'stress':   ('😓', '#FF8A65', 'avatarPulse'),
+    'crisis':   ('⚠️', '#D32F2F', 'avatarPulse'),
+    'distress': ('⚠️', '#D32F2F', 'avatarPulse'),
+}
+
+
+def render_emotional_avatar(emotion: str = 'neutral') -> str:
+    """Return HTML for a dynamic emotional avatar with glow and animation.
+
+    The avatar changes icon and colour based on the detected emotion,
+    and includes a subtle CSS animation.
+    """
+    icon, color, anim = _AVATAR_MAP.get(emotion, _AVATAR_MAP['neutral'])
+    label = emotion.capitalize() if emotion in _AVATAR_MAP else 'Neutral'
+    return (
+        f'<div class="emotional-avatar" style="--avatar-color:{color};">'
+        f'<div class="avatar-glow" style="background:radial-gradient(circle,{color}33 0%,transparent 70%);"></div>'
+        f'<span class="avatar-icon {anim}">{icon}</span>'
+        f'<span class="avatar-label">{label}</span>'
+        f'</div>'
+    )
+
+
+# -----------------------------------------------------------------------
+# Enhanced wellness illustration (larger SVG)
+# -----------------------------------------------------------------------
+
+def render_wellness_illustration_large() -> str:
+    """Return a larger, more detailed SVG wellness illustration.
+
+    Includes floating circles, leaves, soft shapes, and abstract
+    wellness visuals suitable for the landing page hero section.
+    """
+    return (
+        '<div class="illustration-panel-large">'
+        '<svg viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" class="wellness-art-large">'
+        '<defs>'
+        '<linearGradient id="gl1" x1="0%" y1="0%" x2="100%" y2="100%">'
+        '<stop offset="0%" style="stop-color:#5B8CFF;stop-opacity:0.25"/>'
+        '<stop offset="100%" style="stop-color:#9B8CFF;stop-opacity:0.25"/>'
+        '</linearGradient>'
+        '<linearGradient id="gl2" x1="0%" y1="100%" x2="100%" y2="0%">'
+        '<stop offset="0%" style="stop-color:#4DD0E1;stop-opacity:0.2"/>'
+        '<stop offset="100%" style="stop-color:#FF8A65;stop-opacity:0.15"/>'
+        '</linearGradient>'
+        '<radialGradient id="gr1" cx="50%" cy="50%" r="50%">'
+        '<stop offset="0%" style="stop-color:#9B8CFF;stop-opacity:0.2"/>'
+        '<stop offset="100%" style="stop-color:transparent"/>'
+        '</radialGradient>'
+        '</defs>'
+        # Outer rings
+        '<circle cx="150" cy="150" r="130" fill="none" stroke="url(#gl1)" '
+        'stroke-width="1" opacity="0.4" class="art-ring art-ring-1"/>'
+        '<circle cx="150" cy="150" r="105" fill="url(#gl1)" class="art-circle-outer"/>'
+        '<circle cx="150" cy="150" r="70" fill="url(#gl2)" class="art-circle-inner"/>'
+        '<circle cx="150" cy="150" r="35" fill="rgba(155,140,255,0.18)" class="art-circle-core"/>'
+        # Heart/leaf motif
+        '<path d="M150 60 Q190 100 150 150 Q110 200 150 240 Q190 200 150 150 Q110 100 150 60Z" '
+        'fill="rgba(91,140,255,0.10)" class="art-leaf"/>'
+        '<path d="M100 100 Q130 80 150 100 Q170 80 200 100 Q200 140 150 180 Q100 140 100 100Z" '
+        'fill="rgba(239,83,80,0.06)" class="art-heart"/>'
+        # Decorative floating dots
+        '<circle cx="70" cy="70" r="8" fill="rgba(77,208,225,0.3)" class="art-dot art-dot-1"/>'
+        '<circle cx="230" cy="80" r="5" fill="rgba(155,140,255,0.3)" class="art-dot art-dot-2"/>'
+        '<circle cx="55" cy="220" r="6" fill="rgba(255,138,101,0.25)" class="art-dot art-dot-3"/>'
+        '<circle cx="245" cy="210" r="4" fill="rgba(91,140,255,0.3)" class="art-dot art-dot-4"/>'
+        '<circle cx="120" cy="40" r="3" fill="rgba(77,208,225,0.25)" class="art-dot art-dot-1"/>'
+        '<circle cx="200" cy="260" r="5" fill="rgba(155,140,255,0.2)" class="art-dot art-dot-3"/>'
+        # Small leaf shapes
+        '<path d="M70 180 Q85 165 90 185 Q75 195 70 180Z" fill="rgba(77,208,225,0.15)" class="art-mini-leaf"/>'
+        '<path d="M220 120 Q235 105 240 125 Q225 135 220 120Z" fill="rgba(155,140,255,0.15)" class="art-mini-leaf"/>'
+        '</svg>'
+        '</div>'
+    )

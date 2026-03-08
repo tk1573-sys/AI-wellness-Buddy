@@ -748,5 +748,168 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     0%, 100% {{ box-shadow: 0 2px 16px rgba(91,140,255,0.08); }}
     50% {{ box-shadow: 0 2px 24px rgba(91,140,255,0.14); }}
 }}
+
+/* =============================================
+   BREATHING MEDITATION CIRCLE
+   ============================================= */
+
+.breathing-container {{
+    text-align: center;
+    padding: 2rem 0;
+    animation: heroFadeIn 0.6s ease-out;
+}}
+.breathing-circle {{
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(91,140,255,0.20) 0%, rgba(155,140,255,0.08) 60%, transparent 80%);
+    border: 2px solid rgba(91,140,255,0.25);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    animation: breatheCircle 10s ease-in-out infinite;
+    box-shadow: 0 0 40px rgba(91,140,255,0.15);
+}}
+@keyframes breatheCircle {{
+    0%   {{ transform: scale(0.8); opacity: 0.6; box-shadow: 0 0 20px rgba(91,140,255,0.12); }}
+    20%  {{ transform: scale(1.0); opacity: 0.85; }}
+    40%  {{ transform: scale(1.15); opacity: 1; box-shadow: 0 0 50px rgba(91,140,255,0.25); }}
+    60%  {{ transform: scale(1.15); opacity: 1; }}
+    80%  {{ transform: scale(1.0); opacity: 0.85; }}
+    100% {{ transform: scale(0.8); opacity: 0.6; box-shadow: 0 0 20px rgba(91,140,255,0.12); }}
+}}
+.breathing-text {{
+    font-size: 1rem;
+    font-weight: 600;
+    color: #5B8CFF;
+    letter-spacing: 0.05em;
+    animation: breatheText 10s ease-in-out infinite;
+}}
+@keyframes breatheText {{
+    0%, 100% {{ opacity: 0.5; }}
+    40%, 60% {{ opacity: 1; }}
+}}
+.breathing-caption {{
+    font-size: 0.78rem;
+    color: {text_secondary};
+    margin-top: 0.75rem;
+    font-style: italic;
+    letter-spacing: 0.02em;
+}}
+
+/* =============================================
+   EMOTIONAL AVATAR
+   ============================================= */
+
+.emotional-avatar {{
+    text-align: center;
+    padding: 0.5rem 0;
+    position: relative;
+}}
+.avatar-glow {{
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -55%);
+    z-index: 0;
+    animation: avatarGlowPulse 3s ease-in-out infinite;
+}}
+@keyframes avatarGlowPulse {{
+    0%, 100% {{ transform: translate(-50%, -55%) scale(1); opacity: 0.5; }}
+    50% {{ transform: translate(-50%, -55%) scale(1.2); opacity: 0.8; }}
+}}
+.avatar-icon {{
+    font-size: 2.2rem;
+    display: inline-block;
+    position: relative;
+    z-index: 1;
+    filter: drop-shadow(0 2px 8px var(--avatar-color, rgba(155,140,255,0.3)));
+}}
+.avatar-icon.avatarBounce {{
+    animation: emoAvatarBounce 2s ease-in-out infinite;
+}}
+.avatar-icon.avatarGlow {{
+    animation: emoAvatarGlow 3s ease-in-out infinite;
+}}
+.avatar-icon.avatarPulse {{
+    animation: emoAvatarPulse 1.5s ease-in-out infinite;
+}}
+@keyframes emoAvatarBounce {{
+    0%, 100% {{ transform: translateY(0); }}
+    50% {{ transform: translateY(-6px); }}
+}}
+@keyframes emoAvatarGlow {{
+    0%, 100% {{ filter: drop-shadow(0 2px 8px var(--avatar-color)); }}
+    50% {{ filter: drop-shadow(0 4px 16px var(--avatar-color)); }}
+}}
+@keyframes emoAvatarPulse {{
+    0%, 100% {{ transform: scale(1); }}
+    50% {{ transform: scale(1.08); }}
+}}
+.avatar-label {{
+    display: block;
+    font-size: 0.72rem;
+    color: {text_secondary};
+    margin-top: 0.15rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}}
+
+/* =============================================
+   ENHANCED TYPING INDICATOR
+   ============================================= */
+
+.typing-label {{
+    font-size: 0.7rem;
+    color: #9B8CFF;
+    margin-left: 4px;
+    font-style: italic;
+    letter-spacing: 0.02em;
+    animation: typingLabelFade 1.5s ease-in-out infinite;
+}}
+@keyframes typingLabelFade {{
+    0%, 100% {{ opacity: 0.4; }}
+    50% {{ opacity: 1; }}
+}}
+
+/* =============================================
+   LARGE WELLNESS ILLUSTRATION
+   ============================================= */
+
+.illustration-panel-large {{
+    text-align: center;
+    padding: 1.5rem 0;
+    animation: heroFadeIn 1s ease-out 0.3s both;
+}}
+.wellness-art-large {{
+    width: 90%;
+    max-width: 320px;
+    height: auto;
+    filter: drop-shadow(0 8px 32px rgba(91,140,255,0.15));
+}}
+.art-ring {{
+    animation: ringRotate 20s linear infinite;
+    transform-origin: center;
+}}
+.art-ring-1 {{ animation-duration: 25s; }}
+@keyframes ringRotate {{
+    from {{ transform: rotate(0deg); }}
+    to   {{ transform: rotate(360deg); }}
+}}
+.art-heart {{
+    animation: heartPulse 4s ease-in-out infinite;
+    transform-origin: 150px 130px;
+}}
+@keyframes heartPulse {{
+    0%, 100% {{ transform: scale(1); opacity: 0.6; }}
+    50% {{ transform: scale(1.05); opacity: 1; }}
+}}
+.art-mini-leaf {{
+    animation: leafSway 8s ease-in-out infinite 0.5s;
+    transform-origin: center;
+}}
 </style>
 """

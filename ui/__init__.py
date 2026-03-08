@@ -18,6 +18,7 @@ from ui.charts import (                       # noqa: F401
     create_sparkline,
     create_moving_average_chart,
     create_risk_history_chart,
+    create_emotion_heatmap,
 )
 from ui.layout import (                       # noqa: F401
     render_hero_section,
@@ -28,4 +29,10 @@ from ui.layout import (                       # noqa: F401
     render_streak_card,
     render_waveform_section,
     render_session_summary_card,
+    render_emotional_avatar,
+    render_wellness_illustration_large,
+)
+from ui.animations import (                   # noqa: F401
+    canvas_particles_html,
+    breathing_circle_html,
 )

@@ -21,17 +21,21 @@ from ui.theme import get_theme_css
 from ui.charts import (
     create_sentiment_chart, create_emotion_donut, create_risk_gauge,
     create_history_chart, create_weekly_chart, create_sparkline,
-    create_moving_average_chart, create_risk_history_chart, EMO_COLORS,
+    create_moving_average_chart, create_risk_history_chart, create_emotion_heatmap,
+    EMO_COLORS,
 )
 from ui.layout import (
     render_hero_section, render_wellness_illustration,
+    render_wellness_illustration_large,
     render_chat_header, render_user_avatar, render_risk_badge,
     render_session_info_card, render_streak_card, render_waveform_section,
     render_session_summary_card, render_emotion_flag,
+    render_emotional_avatar,
     EMO_ICONS, EMO_BUBBLE_CLASS, RISK_COLOUR, RISK_LEVEL_VALUES, SOUND_LABELS,
 )
 from ui.animations import (
     ambient_sound_html, ambient_stop_html, TYPING_INDICATOR_HTML,
+    canvas_particles_html, breathing_circle_html,
 )
 
 # Page configuration
@@ -110,7 +114,7 @@ def show_profile_setup():
     with hero_col:
         st.markdown(render_hero_section(), unsafe_allow_html=True)
     with art_col:
-        st.markdown(render_wellness_illustration(), unsafe_allow_html=True)
+        st.markdown(render_wellness_illustration_large(), unsafe_allow_html=True)
 
     # Check brute-force lockout
     if AuthManager.is_locked_out(st.session_state.failed_attempts):
@@ -553,6 +557,34 @@ def render_trends_tab():
                     use_container_width=True,
                 )
 
+    # ---- Emotion heatmap (intensity over conversation time) ----
+    if summary and sentiments:
+        dist = summary.get('emotion_distribution', {})
+        if dist and len(sentiments) >= 2:
+            st.markdown("#### Emotion Intensity Heatmap")
+            # Build a simple heatmap from available data
+            heatmap_emotions = ['joy', 'neutral', 'sadness', 'anger', 'fear', 'crisis']
+            total = sum(dist.values()) or 1
+            base_intensities = {e: dist.get(e, 0) / total for e in heatmap_emotions}
+            # Create per-message approximation using sentiment + distribution
+            emotion_timeline = []
+            for s_val in sentiments:
+                seg = {}
+                for emo in heatmap_emotions:
+                    base = base_intensities.get(emo, 0)
+                    # Modulate by sentiment: positive sentiment boosts joy, negative boosts sadness
+                    if emo in ('joy',):
+                        seg[emo] = min(1.0, base + max(0, s_val) * 0.3)
+                    elif emo in ('sadness', 'fear', 'crisis'):
+                        seg[emo] = min(1.0, base + max(0, -s_val) * 0.3)
+                    else:
+                        seg[emo] = base
+                emotion_timeline.append(seg)
+            st.plotly_chart(
+                create_emotion_heatmap(emotion_timeline),
+                use_container_width=True,
+            )
+
     # ---- Historical 30-day sentiment (Plotly interactive timeline) ----
     if history:
         st.markdown("#### Last 30 Days — Average Mood per Session")
@@ -930,15 +962,17 @@ def show_chat_interface():
             help="Play calming ambient background. Starts after interaction (browser safe).",
         )
         if st.session_state.calm_music_enabled:
+            _SOUND_OPTIONS = ["Deep Focus", "Calm Waves", "Soft Rain", "White Noise"]
+            _SOUND_KEYS = ["deep_focus", "calm_waves", "soft_rain", "white_noise"]
+            _cur_key = st.session_state.get('ambient_sound', 'deep_focus')
+            _cur_idx = _SOUND_KEYS.index(_cur_key) if _cur_key in _SOUND_KEYS else 0
             sound_choice = st.selectbox(
                 "Soundscape",
-                ["Deep Focus", "Calm Waves", "Soft Rain"],
-                index=["deep_focus", "calm_waves", "soft_rain"].index(
-                    st.session_state.get('ambient_sound', 'deep_focus')
-                ),
+                _SOUND_OPTIONS,
+                index=_cur_idx,
                 key="ambient_selector",
             )
-            _SOUND_MAP = {"Deep Focus": "deep_focus", "Calm Waves": "calm_waves", "Soft Rain": "soft_rain"}
+            _SOUND_MAP = dict(zip(_SOUND_OPTIONS, _SOUND_KEYS))
             st.session_state.ambient_sound = _SOUND_MAP.get(sound_choice, 'deep_focus')
             vol = st.slider(
                 "🔈 Volume",
@@ -1002,23 +1036,29 @@ def show_chat_interface():
     # ---- Animated header bar with risk accent + emotional state ----
     summary = st.session_state.buddy.pattern_tracker.get_pattern_summary()
     _risk_level_hdr = summary.get('risk_level', 'low') if summary else 'low'
-    # Determine dominant emotion icon for header
+    # Determine dominant emotion for header and avatar
+    _dom_emo_str = 'neutral'
     _emo_icon = '😊'
     if summary:
         dist = summary.get('emotion_distribution', {})
         if dist:
-            dom_emo = max(dist, key=dist.get)
-            _emo_icon = EMO_ICONS.get(dom_emo, '😊')
+            _dom_emo_str = max(dist, key=dist.get)
+            _emo_icon = EMO_ICONS.get(_dom_emo_str, '😊')
     streak = st.session_state.buddy.user_profile.get_mood_streak()
 
-    st.markdown(
-        render_chat_header(
-            accent_color=_risk_level_hdr,
-            emo_icon=_emo_icon,
-            streak=streak,
-        ),
-        unsafe_allow_html=True,
-    )
+    # Header + dynamic emotional avatar side-by-side
+    hdr_col, avatar_col = st.columns([5, 1])
+    with hdr_col:
+        st.markdown(
+            render_chat_header(
+                accent_color=_risk_level_hdr,
+                emo_icon=_emo_icon,
+                streak=streak,
+            ),
+            unsafe_allow_html=True,
+        )
+    with avatar_col:
+        st.markdown(render_emotional_avatar(_dom_emo_str), unsafe_allow_html=True)
 
     # Main content — tabs
     tab_chat, tab_trends, tab_risk, tab_report = st.tabs([
@@ -1062,7 +1102,10 @@ def main():
         unsafe_allow_html=True,
     )
 
-    # ---- Background ambient sound with 3 soundscapes ----
+    # ---- Floating canvas particles ----
+    st.markdown(canvas_particles_html(), unsafe_allow_html=True)
+
+    # ---- Background ambient sound with 4 soundscapes ----
     if st.session_state.get('calm_music_enabled', False):
         _vol = st.session_state.get('_calm_volume', 0.03)
         _sound = st.session_state.get('ambient_sound', 'deep_focus')
@@ -1070,6 +1113,9 @@ def main():
         # Calm mode pulsing background + waveform visualization
         st.markdown(render_waveform_section(_sound), unsafe_allow_html=True)
         st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
+
+        # Breathing meditation circle
+        st.markdown(breathing_circle_html(), unsafe_allow_html=True)
     else:
         # Stop ambient if it was playing
         st.markdown(ambient_stop_html(), unsafe_allow_html=True)
