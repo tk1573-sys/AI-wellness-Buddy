@@ -128,6 +128,9 @@ _CALM_MODE_PARTICLE_SPEED = 0.12
 _NORMAL_PARTICLE_SPEED = 0.30
 _THEME_PARTICLE_COLORS = {
     'night_sky': 'rgba(148,163,184,',
+    'aurora': 'rgba(77,208,225,',
+    'ocean': 'rgba(91,140,255,',
+    # Backwards-compatible aliases
     'soft_aurora': 'rgba(77,208,225,',
     'ocean_waves': 'rgba(91,140,255,',
 }
@@ -143,15 +146,20 @@ def canvas_particles_html(theme: str = 'calm_gradient', calm_mode: bool = False)
     speed = _CALM_MODE_PARTICLE_SPEED if calm_mode else _NORMAL_PARTICLE_SPEED
     color = _THEME_PARTICLE_COLORS.get(theme, 'rgba(155,140,255,')
     opacity = 0.35 if calm_mode else 0.5
+    speed_multiplier = round(speed / _NORMAL_PARTICLE_SPEED, 2)
     html = """
     <canvas id="wellness-particles" data-opacity="__OPACITY__"></canvas>
     <script>
     (function() {
-        if (window._particlesInit) return;
-        window._particlesInit = true;
+        // Keep these globals refreshed each rerun so theme/calm toggles
+        // immediately change live particles without full re-initialization.
+        window._particleColorPrefix = '__COLOR__';
+        window._particleMotion = __SPEED_MULTIPLIER__;
         var c = document.getElementById('wellness-particles');
         if (!c) return;
         c.style.opacity = c.dataset.opacity || '0.5';
+        if (window._particlesInit) return;
+        window._particlesInit = true;
         var ctx = c.getContext('2d');
         function resize() { c.width = window.innerWidth; c.height = window.innerHeight; }
         resize();
@@ -159,27 +167,27 @@ def canvas_particles_html(theme: str = 'calm_gradient', calm_mode: bool = False)
         var particles = [];
         var count = 40;
         for (var i = 0; i < count; i++) {
-            particles.push({
-                x: Math.random() * c.width,
-                y: Math.random() * c.height,
-                r: Math.random() * 2.5 + 1,
-                dx: (Math.random() - 0.5) * __SPEED__,
-                dy: (Math.random() - 0.5) * __SPEED__,
-                o: Math.random() * 0.4 + 0.1
-            });
-        }
+                particles.push({
+                    x: Math.random() * c.width,
+                    y: Math.random() * c.height,
+                    r: Math.random() * 2.5 + 1,
+                    dx: (Math.random() - 0.5) * __BASE_SPEED__,
+                    dy: (Math.random() - 0.5) * __BASE_SPEED__,
+                    o: Math.random() * 0.4 + 0.1
+                });
+            }
         function draw() {
             ctx.clearRect(0, 0, c.width, c.height);
             for (var i = 0; i < particles.length; i++) {
                 var p = particles[i];
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-                ctx.fillStyle = '__COLOR__' + p.o + ')';
+                ctx.fillStyle = (window._particleColorPrefix || 'rgba(155,140,255,') + p.o + ')';
                 ctx.shadowBlur = 8;
                 ctx.shadowColor = 'rgba(91,140,255,0.3)';
                 ctx.fill();
-                p.x += p.dx;
-                p.y += p.dy;
+                p.x += p.dx * (window._particleMotion || 1);
+                p.y += p.dy * (window._particleMotion || 1);
                 if (p.x < 0 || p.x > c.width) p.dx *= -1;
                 if (p.y < 0 || p.y > c.height) p.dy *= -1;
             }
@@ -192,7 +200,8 @@ def canvas_particles_html(theme: str = 'calm_gradient', calm_mode: bool = False)
     return (
         html
         .replace("__OPACITY__", str(opacity))
-        .replace("__SPEED__", str(speed))
+        .replace("__BASE_SPEED__", str(_NORMAL_PARTICLE_SPEED))
+        .replace("__SPEED_MULTIPLIER__", str(speed_multiplier))
         .replace("__COLOR__", color)
     )
 

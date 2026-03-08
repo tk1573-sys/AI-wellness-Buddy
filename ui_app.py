@@ -77,11 +77,23 @@ for key, default in [
     if key not in st.session_state:
         st.session_state[key] = default
 
+if (
+    not st.session_state.get('_theme_aliases_migrated', False)
+    and st.session_state.get('background_theme') in ('soft_aurora', 'ocean_waves')
+):
+    if st.session_state.get('background_theme') == 'soft_aurora':
+        st.session_state.background_theme = 'aurora'
+    elif st.session_state.get('background_theme') == 'ocean_waves':
+        st.session_state.background_theme = 'ocean'
+    st.session_state['_theme_aliases_migrated'] = True
+
 
 _JOURNEY_TAB_HEATMAP_BASELINE_INTENSITY = 0.05
 _JOURNEY_TAB_HEATMAP_MIN_INTENSITY = 0.2
 _JOURNEY_TAB_HEATMAP_MAX_INTENSITY = 1.0
 _JOURNEY_TAB_HEATMAP_RISK_BOOST = 0.2
+_BACKGROUND_SCENES = ["calm_gradient", "night_sky", "aurora", "ocean"]
+_UI_THEMES = ["calm", "modern", "clinical"]
 
 
 # -----------------------------------------------------------------------
@@ -1001,57 +1013,59 @@ def show_chat_interface():
         # ---- Theme & Display ----
         st.markdown(
             '<p style="font-weight:600;font-size:0.95rem;color:#334155;margin-bottom:0.25rem;">'
-            '🎨 Theme & Display</p>',
+            '🎨 UI Customization</p>',
             unsafe_allow_html=True,
         )
-        st.session_state.dark_mode = st.toggle(
-            "🌙 Dark Mode",
+        current_bg = st.session_state.get('background_theme', 'calm_gradient')
+        current_theme = st.session_state.get('ui_theme', 'calm')
+        selected_bg = st.selectbox(
+            "Background Scene",
+            _BACKGROUND_SCENES,
+            index=_BACKGROUND_SCENES.index(
+                current_bg
+                if current_bg in _BACKGROUND_SCENES
+                else "calm_gradient"
+            ),
+            help="Choose a dynamic background scene.",
+        )
+        selected_theme = st.selectbox(
+            "UI Style",
+            _UI_THEMES,
+            index=_UI_THEMES.index(
+                current_theme
+                if current_theme in _UI_THEMES
+                else "calm"
+            ),
+            help="Choose the global UI style tone.",
+        )
+        selected_dark = st.toggle(
+            "Dark Mode",
             value=st.session_state.get('dark_mode', False),
             help="Switch to a calm dark theme.",
         )
-        theme_choice = st.selectbox(
-            "Wellness Theme",
-            ["Calm Therapy", "Clinical", "Modern Startup"],
-            index=["Calm Therapy", "Clinical", "Modern Startup"].index(
-                {"calm": "Calm Therapy", "clinical": "Clinical", "modern": "Modern Startup"}.get(
-                    st.session_state.get('ui_theme', 'calm'), "Calm Therapy"
-                )
-            ),
-            key="theme_selector",
-            help="Visual theme: Calm (soft gradients), Clinical (professional), Modern (vibrant).",
+        selected_calm = st.toggle(
+            "Calm Mode",
+            value=st.session_state.get('calm_music_enabled', False),
+            help="Enable calm mode atmosphere and breathing visuals.",
         )
-        _THEME_MAP = {"Calm Therapy": "calm", "Clinical": "clinical", "Modern Startup": "modern"}
-        st.session_state.ui_theme = _THEME_MAP.get(theme_choice, 'calm')
-        bg_choice = st.selectbox(
-            "Background Scene",
-            ["Calm Gradient", "Night Sky Particles", "Soft Aurora Glow", "Ocean Waves"],
-            index=["Calm Gradient", "Night Sky Particles", "Soft Aurora Glow", "Ocean Waves"].index(
-                {
-                    "calm_gradient": "Calm Gradient",
-                    "night_sky": "Night Sky Particles",
-                    "soft_aurora": "Soft Aurora Glow",
-                    "ocean_waves": "Ocean Waves",
-                }.get(st.session_state.get('background_theme', 'calm_gradient'), "Calm Gradient")
-            ),
-            help="Switch visual ambience without affecting analytics functionality.",
+        theme_changed = (
+            selected_bg != st.session_state.get('background_theme')
+            or selected_theme != st.session_state.get('ui_theme')
+            or selected_dark != st.session_state.get('dark_mode')
+            or selected_calm != st.session_state.get('calm_music_enabled')
         )
-        st.session_state.background_theme = {
-            "Calm Gradient": "calm_gradient",
-            "Night Sky Particles": "night_sky",
-            "Soft Aurora Glow": "soft_aurora",
-            "Ocean Waves": "ocean_waves",
-        }.get(bg_choice, 'calm_gradient')
+        st.session_state.background_theme = selected_bg
+        st.session_state.ui_theme = selected_theme
+        st.session_state.dark_mode = selected_dark
+        st.session_state.calm_music_enabled = selected_calm
+        if theme_changed:
+            st.rerun()
 
         # ---- Ambient Sound ----
         st.markdown(
             '<p style="font-weight:600;font-size:0.95rem;color:#334155;margin-bottom:0.25rem;">'
             '🎵 Ambient Sound</p>',
             unsafe_allow_html=True,
-        )
-        st.session_state.calm_music_enabled = st.toggle(
-            "Enable Ambient",
-            value=st.session_state.get('calm_music_enabled', False),
-            help="Play calming ambient background. Starts after interaction (browser safe).",
         )
         if st.session_state.calm_music_enabled:
             _SOUND_OPTIONS = ["Deep Focus", "Calm Waves", "Soft Rain", "White Noise"]
@@ -1222,15 +1236,13 @@ def main():
             _risk_level = _sum.get('risk_level', 'low')
 
     # ---- Inject theme CSS from modular theme engine ----
-    _dark = st.session_state.get('dark_mode', False)
-    _theme = st.session_state.get('ui_theme', 'calm')
     st.markdown(
         get_theme_css(
-            dark_mode=_dark,
-            ui_theme=_theme,
+            dark_mode=st.session_state.dark_mode,
+            ui_theme=st.session_state.ui_theme,
             risk_level=_risk_level,
-            background_theme=st.session_state.get('background_theme', 'calm_gradient'),
-            calm_mode=st.session_state.get('calm_music_enabled', False),
+            background_theme=st.session_state.background_theme,
+            calm_mode=st.session_state.calm_music_enabled,
         ),
         unsafe_allow_html=True,
     )
@@ -1238,14 +1250,14 @@ def main():
     # ---- Floating canvas particles ----
     st.markdown(
         canvas_particles_html(
-            theme=st.session_state.get('background_theme', 'calm_gradient'),
-            calm_mode=st.session_state.get('calm_music_enabled', False),
+            theme=st.session_state.background_theme,
+            calm_mode=st.session_state.calm_music_enabled,
         ),
         unsafe_allow_html=True,
     )
 
     # ---- Background ambient sound with 4 soundscapes ----
-    if st.session_state.get('calm_music_enabled', False):
+    if st.session_state.calm_music_enabled:
         _vol = st.session_state.get('_calm_volume', 0.03)
         _sound = st.session_state.get('ambient_sound', 'deep_focus')
 

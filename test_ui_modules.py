@@ -40,6 +40,16 @@ class TestThemeModule:
         css = get_theme_css(dark_mode=False, ui_theme='modern', risk_level='low')
         assert '#ede9fe' in css
 
+    def test_background_theme_aurora_overlay(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css(background_theme='aurora')
+        assert 'rgba(77,208,225,0.12)' in css
+
+    def test_background_theme_ocean_overlay(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css(background_theme='ocean')
+        assert 'rgba(56,189,248,0.10)' in css
+
     def test_critical_risk_includes_pulse_bar(self):
         from ui.theme import get_theme_css
         css = get_theme_css(dark_mode=False, ui_theme='calm', risk_level='critical')
@@ -318,6 +328,12 @@ class TestAnimationsModule:
         html = canvas_particles_html(theme='night_sky', calm_mode=True)
         assert 'rgba(148,163,184' in html
         assert '0.35' in html
+
+    def test_canvas_particles_updates_existing_instance(self):
+        from ui.animations import canvas_particles_html
+        html = canvas_particles_html(theme='aurora', calm_mode=True)
+        assert 'window._particleColorPrefix' in html
+        assert 'window._particleMotion' in html
 
     def test_breathing_circle_html(self):
         from ui.animations import breathing_circle_html

@@ -46,6 +46,9 @@ _LIGHT_THEMES = {
 _BACKGROUND_OVERLAYS = {
     'calm_gradient': 'linear-gradient(120deg, rgba(91,140,255,0.08), rgba(155,140,255,0.08), rgba(77,208,225,0.06))',
     'night_sky': 'radial-gradient(circle at 30% 20%, rgba(148,163,184,0.14), transparent 55%), radial-gradient(circle at 70% 70%, rgba(59,130,246,0.12), transparent 50%)',
+    'aurora': 'linear-gradient(120deg, rgba(77,208,225,0.12), rgba(155,140,255,0.10), rgba(91,140,255,0.10))',
+    'ocean': 'linear-gradient(140deg, rgba(56,189,248,0.10), rgba(59,130,246,0.12), rgba(14,116,144,0.10))',
+    # Backwards-compatible aliases
     'soft_aurora': 'linear-gradient(120deg, rgba(77,208,225,0.12), rgba(155,140,255,0.10), rgba(91,140,255,0.10))',
     'ocean_waves': 'linear-gradient(140deg, rgba(56,189,248,0.10), rgba(59,130,246,0.12), rgba(14,116,144,0.10))',
 }
