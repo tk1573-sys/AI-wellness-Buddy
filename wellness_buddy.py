@@ -262,6 +262,9 @@ class WellnessBuddy:
         user_context['response_style'] = self.user_profile.get_response_style()
         user_context['user_name'] = self.user_id
 
+        # Attach structured conversation context for memory-aware responses
+        user_context['context'] = self.conversation_handler.get_chat_history()
+
         # Attach pre-distress warning if sentiment is trending downward
         sentiment_hist = list(self.pattern_tracker.sentiment_history)
         pre_distress = self.prediction_agent.get_pre_distress_warning(sentiment_hist)
@@ -287,6 +290,30 @@ class WellnessBuddy:
             self.pattern_tracker.reset_consecutive_distress()
         
         return response
+
+    def respond(self, user_input, context=None):
+        """Process user input with optional conversation context.
+
+        This is the context-aware entry point.  *context* is a list of
+        ``{"role": "user"|"assistant", "content": "..."}`` dicts that
+        represent prior conversation turns.  When provided the handler
+        can use it to avoid repetitive responses and maintain conversational
+        memory.
+        """
+        if context is not None and isinstance(context, list):
+            # Seed the conversation handler with context messages that
+            # are not already tracked (idempotent for repeated calls).
+            existing_msgs = {
+                e['user_message'] for e in self.conversation_handler.conversation_history
+            }
+            for msg in context:
+                content = msg.get('content')
+                if msg.get('role') == 'user' and content and content not in existing_msgs:
+                    emotion_data = self.emotion_analyzer.classify_emotion(content)
+                    self.conversation_handler.add_message(content, emotion_data)
+                    existing_msgs.add(content)
+
+        return self.process_message(user_input)
     
     def _show_resources(self):
         """Display support resources"""
