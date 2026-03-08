@@ -187,8 +187,9 @@ def canvas_particles_html() -> str:
 def breathing_circle_html() -> str:
     """Return HTML/CSS for an animated breathing meditation circle.
 
-    The circle expands over 4 s (inhale), holds for 2 s, then contracts
-    over 4 s (exhale), creating a simple guided-breathing rhythm.
+    The animation runs on a 10 s loop (CSS ``breatheCircle``):
+    0–40 % (4 s) inhale (scale up), 40–60 % (2 s) hold,
+    60–100 % (4 s) exhale (scale down).
     """
     return """
     <div class="breathing-container">

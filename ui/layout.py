@@ -296,6 +296,9 @@ _AVATAR_MAP = {
 }
 
 
+_DEFAULT_EMOTION_LABEL = 'Neutral'
+
+
 def render_emotional_avatar(emotion: str = 'neutral') -> str:
     """Return HTML for a dynamic emotional avatar with glow and animation.
 
@@ -303,7 +306,7 @@ def render_emotional_avatar(emotion: str = 'neutral') -> str:
     and includes a subtle CSS animation.
     """
     icon, color, anim = _AVATAR_MAP.get(emotion, _AVATAR_MAP['neutral'])
-    label = emotion.capitalize() if emotion in _AVATAR_MAP else 'Neutral'
+    label = emotion.capitalize() if emotion in _AVATAR_MAP else _DEFAULT_EMOTION_LABEL
     return (
         f'<div class="emotional-avatar" style="--avatar-color:{color};">'
         f'<div class="avatar-glow" style="background:radial-gradient(circle,{color}33 0%,transparent 70%);"></div>'

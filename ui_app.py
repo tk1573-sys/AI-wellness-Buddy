@@ -22,7 +22,7 @@ from ui.charts import (
     create_sentiment_chart, create_emotion_donut, create_risk_gauge,
     create_history_chart, create_weekly_chart, create_sparkline,
     create_moving_average_chart, create_risk_history_chart, create_emotion_heatmap,
-    EMO_COLORS,
+    EMO_COLORS, _HEATMAP_EMOTIONS,
 )
 from ui.layout import (
     render_hero_section, render_wellness_illustration,
@@ -563,14 +563,13 @@ def render_trends_tab():
         if dist and len(sentiments) >= 2:
             st.markdown("#### Emotion Intensity Heatmap")
             # Build a simple heatmap from available data
-            heatmap_emotions = ['joy', 'neutral', 'sadness', 'anger', 'fear', 'crisis']
             total = sum(dist.values()) or 1
-            base_intensities = {e: dist.get(e, 0) / total for e in heatmap_emotions}
+            base_intensities = {e: dist.get(e, 0) / total for e in _HEATMAP_EMOTIONS}
             # Create per-message approximation using sentiment + distribution
             emotion_timeline = []
             for s_val in sentiments:
                 seg = {}
-                for emo in heatmap_emotions:
+                for emo in _HEATMAP_EMOTIONS:
                     base = base_intensities.get(emo, 0)
                     # Modulate by sentiment: positive sentiment boosts joy, negative boosts sadness
                     if emo in ('joy',):
