@@ -31,6 +31,8 @@ st.set_page_config(
 for key, default in [
     ('buddy', None),
     ('messages', []),
+    ('chat_history', []),        # structured {"role","content"} history
+    ('last_response', None),     # anti-repeat tracking
     ('user_id', None),
     ('profile_loaded', False),
     ('show_load', False),
@@ -452,26 +454,32 @@ def render_chat_tab():
     )
 
     # Add a welcome message when there's no chat history yet
-    if not st.session_state.messages:
+    if not st.session_state.chat_history:
         user_name = st.session_state.user_id or "friend"
         greeting = (
             f"Hello **{user_name}** 👋  \n"
             "I'm your Wellness Buddy — a safe, confidential space for emotional support.  \n"
             "Share how you're feeling, and I'll do my best to listen and help."
         )
+        st.session_state.chat_history.append({"role": "assistant", "content": greeting})
+        # Keep legacy messages list in sync
         st.session_state.messages.append({"role": "assistant", "content": greeting})
 
-    # Display chat history with fade-in animation
-    for idx, message in enumerate(st.session_state.messages):
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-            # Replay TTS button for assistant messages
-            if message["role"] == "assistant" and st.session_state.get('tts_enabled', False):
-                vh: VoiceHandler = st.session_state.voice_handler
-                if vh and vh.tts_available:
-                    if st.button("🔊", key=f"tts_{idx}",
-                                 help="Listen to this response"):
-                        _play_tts(message["content"])
+    # --- Dedicated container: render from session history (prevents UI
+    #     duplication during Streamlit reruns) ---
+    chat_container = st.container()
+
+    with chat_container:
+        for idx, message in enumerate(st.session_state.chat_history):
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+                # Replay TTS button for assistant messages
+                if message["role"] == "assistant" and st.session_state.get('tts_enabled', False):
+                    vh: VoiceHandler = st.session_state.voice_handler
+                    if vh and vh.tts_available:
+                        if st.button("🔊", key=f"tts_{idx}",
+                                     help="Listen to this response"):
+                            _play_tts(message["content"])
 
     # Inline voice mic near chat input
     feedback_col, mic_col = st.columns([11, 1])
@@ -480,7 +488,7 @@ def render_chat_tab():
     if voice_transcript:
         with feedback_col:
             st.caption(f"🎤 *{voice_transcript}*")
-        st.session_state.messages.append({"role": "user", "content": voice_transcript})
+        _add_chat_message("user", voice_transcript)
         # Typing indicator (cleared after response)
         typing_placeholder = st.empty()
         with typing_placeholder.chat_message("assistant"):
@@ -490,9 +498,13 @@ def render_chat_tab():
                 '</div>',
                 unsafe_allow_html=True,
             )
-        response = st.session_state.buddy.process_message(voice_transcript)
+        response = st.session_state.buddy.respond(
+            voice_transcript,
+            context=st.session_state.chat_history,
+        )
         typing_placeholder.empty()
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        _add_chat_message("assistant", response)
+        st.session_state.last_response = response
         _play_tts(response)
         st.rerun()
 
@@ -503,12 +515,23 @@ def render_chat_tab():
     }.get(lang_pref, 'Share how you\'re feeling…')
 
     if prompt := st.chat_input(placeholder):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        response = st.session_state.buddy.process_message(prompt)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        _add_chat_message("user", prompt)
+        response = st.session_state.buddy.respond(
+            prompt,
+            context=st.session_state.chat_history,
+        )
+        _add_chat_message("assistant", response)
+        st.session_state.last_response = response
         if st.session_state.get('tts_enabled', False):
             _play_tts(response)
         st.rerun()
+
+
+def _add_chat_message(role, content):
+    """Append a message to both chat_history and legacy messages list."""
+    entry = {"role": role, "content": content}
+    st.session_state.chat_history.append(entry)
+    st.session_state.messages.append(entry)
 
 
 # -----------------------------------------------------------------------

@@ -161,12 +161,57 @@ _RESPONSES = {
 }
 
 
+_SUPPORT_VARIATIONS = [
+    "I'm here with you.",
+    "Thank you for sharing that.",
+    "That sounds really difficult.",
+    "You're not alone in this.",
+    "Let's take this one step at a time.",
+]
+
+# Emotion-specific contextual follow-ups for escalation when the same
+# emotion is detected multiple consecutive times.
+_ESCALATION_FOLLOWUPS = {
+    'anxiety': [
+        "\n\nLet's try a grounding exercise: name 5 things you can see around you right now. 🌿",
+        "\n\nWhen anxiety builds, slow breathing can help — try 4 seconds in, 7 hold, 8 out. 🌿",
+        "\n\nAnxiety often lives in the future. Let's gently bring your focus to this present moment. 🌿",
+    ],
+    'sadness': [
+        "\n\nYour sadness is valid and deserves to be heard. I'm sitting with you in this. 💙",
+        "\n\nSometimes sadness needs space, not solutions. I'm here for as long as you need. 💙",
+        "\n\nIt takes courage to sit with heavy feelings. You don't have to carry this alone. 💙",
+    ],
+    'fear': [
+        "\n\nFear can feel overwhelming, but you are safe in this moment. Let's focus on what's real right now. 🛡️",
+        "\n\nWhat you're feeling is a natural response. Let's work through it together, one thought at a time. 🛡️",
+        "\n\nRemember: you have navigated difficult moments before, and you can again. 🛡️",
+    ],
+    'anger': [
+        "\n\nAnger often signals that something important to you has been crossed. Let's explore that. 🔥",
+        "\n\nIt's okay to feel angry. Acknowledging it is the first step — what feels most frustrating right now? 🔥",
+        "\n\nYour anger is valid. When you're ready, let's talk about what might bring you some relief. 🔥",
+    ],
+    'stress': [
+        "\n\nWhen everything feels like too much, breaking tasks into small steps can help. What's the smallest thing you could tackle first? 🌱",
+        "\n\nStress often comes from carrying too much at once. Is there anything you could set down, even temporarily? 🌱",
+        "\n\nYou're under a lot of pressure. Let's think about one thing you can do right now to lighten the load. 🌱",
+    ],
+    'crisis': [
+        "\n\nI'm deeply concerned about you right now. Please know that help is available 24/7 — you can call 988 or text HOME to 741741. 💙",
+        "\n\nYou matter, and what you're going through matters. If you're in crisis, please reach out to 988. I'm here too. 💙",
+    ],
+}
+
+
 class ConversationHandler:
     """Manages conversation flow and responses"""
 
     def __init__(self):
         self.conversation_history = []
         self._last_pool_choice = None  # last base template chosen (for dedup)
+        self._last_response = None     # full last assistant response (for anti-repeat)
+        self._support_idx = 0          # rotating index into _SUPPORT_VARIATIONS
 
     def add_message(self, user_message, emotion_data):
         """Add a message to conversation history"""
@@ -180,6 +225,28 @@ class ConversationHandler:
         if len(self.conversation_history) > config.MAX_CONVERSATION_HISTORY:
             self.conversation_history = self.conversation_history[-config.MAX_CONVERSATION_HISTORY:]
 
+    # ------------------------------------------------------------------
+    # Conversation context helpers
+    # ------------------------------------------------------------------
+
+    def get_chat_history(self):
+        """Return structured chat history as a list of role/content dicts."""
+        result = []
+        for entry in self.conversation_history:
+            result.append({"role": "user", "content": entry['user_message']})
+        return result
+
+    def _consecutive_emotion_count(self, emotion):
+        """Count how many of the most recent messages share the same primary emotion."""
+        count = 0
+        for entry in reversed(self.conversation_history):
+            e = entry.get('emotion_data', {}).get('primary_emotion')
+            if e == emotion:
+                count += 1
+            else:
+                break
+        return count
+
     def _choose_unique(self, pool):
         """Pick a random item from pool, avoiding consecutive repetition of the same base template."""
         if len(pool) <= 1:
@@ -191,10 +258,24 @@ class ConversationHandler:
         self._last_pool_choice = chosen
         return chosen
 
+    def _ensure_no_repeat(self, response, emotion):
+        """If *response* is identical to the last assistant response,
+        append a rotating supportive follow-up to ensure variation."""
+        if response and response == self._last_response:
+            variation = _SUPPORT_VARIATIONS[self._support_idx % len(_SUPPORT_VARIATIONS)]
+            self._support_idx += 1
+            response = response + " " + variation
+        self._last_response = response
+        return response
+
     def generate_response(self, emotion_data, user_context=None):
         """Generate a warm, humanoid, personalized response based on
         emotional state and optional user profile context.
-        Supports English, Tamil, and bilingual (Tamil+English) responses."""
+        Supports English, Tamil, and bilingual (Tamil+English) responses.
+
+        *user_context* may contain a ``context`` key holding the structured
+        chat history (list of ``{"role": ..., "content": ...}`` dicts) so
+        the generator can take previous conversation into account."""
         primary_emotion = emotion_data.get('primary_emotion', None)
         coarse_emotion = emotion_data['emotion']
         severity = emotion_data['severity']
@@ -370,6 +451,16 @@ class ConversationHandler:
             pre_distress = user_context.get('pre_distress_warning')
             if pre_distress and primary_emotion not in ('crisis', 'joy'):
                 response += f"\n\n{pre_distress}"
+
+        # ---- Emotional escalation for repeated emotions ----
+        if primary_emotion and lang_pref != 'tamil':
+            consec = self._consecutive_emotion_count(primary_emotion)
+            if consec >= 2 and primary_emotion in _ESCALATION_FOLLOWUPS:
+                pool = _ESCALATION_FOLLOWUPS[primary_emotion]
+                response += pool[(consec - 2) % len(pool)]
+
+        # ---- Anti-repeat safeguard ----
+        response = self._ensure_no_repeat(response, primary_emotion)
 
         return response
 
