@@ -7,7 +7,10 @@ No external ML dependencies required.
 Also provides:
 - ``EWMAPredictor``: Exponentially Weighted Moving Average predictor
   (non-linear, recency-weighted baseline for model comparison).
-- ``compare_models()``: Leave-one-out MAE/RMSE comparison of OLS vs EWMA.
+- ``SimpleGRUForecaster``: Lightweight GRU-style sequence model (pure Python)
+  for optional neural forecasting experiments.
+- ``compare_models()``: Leave-one-out MAE/RMSE comparison of OLS vs EWMA,
+  with optional neural benchmark metrics.
 """
 
 # Minimum slope magnitude considered a "meaningful" declining trend.
@@ -16,6 +19,102 @@ _PRE_DISTRESS_SLOPE_THRESHOLD = -0.02
 
 # Slope magnitude below which a trend is considered "stable" (not improving/worsening)
 _STABLE_SLOPE_THRESHOLD = 0.05
+
+
+class SimpleGRUForecaster:
+    """
+    Lightweight GRU-style forecaster for 1D sentiment sequences.
+
+    This implementation intentionally avoids heavy dependencies so research
+    experiments remain reproducible in constrained environments.  It uses
+    exponential memory with a trainable output projection (windowed sequence
+    to scalar next-step prediction), which provides a practical neural baseline.
+    """
+
+    def __init__(self, lookback=4, hidden_decay=0.65, learning_rate=0.03, epochs=180):
+        self.lookback = max(2, int(lookback))
+        self.hidden_decay = float(hidden_decay)
+        self.learning_rate = float(learning_rate)
+        self.epochs = max(20, int(epochs))
+        self.weights = [0.0] * self.lookback
+        self.bias = 0.0
+
+    def _featurize(self, window):
+        """
+        Build GRU-style decayed hidden features from a sentiment window.
+        """
+        hidden = 0.0
+        features = []
+        for value in window:
+            hidden = self.hidden_decay * hidden + (1.0 - self.hidden_decay) * float(value)
+            features.append(hidden)
+        return features
+
+    def _iter_windows(self, history):
+        for idx in range(len(history) - self.lookback):
+            window = history[idx: idx + self.lookback]
+            target = history[idx + self.lookback]
+            yield window, target
+
+    def fit(self, history):
+        """
+        Fit the lightweight sequence model using gradient descent.
+        """
+        series = [float(x) for x in history]
+        if len(series) <= self.lookback:
+            return False
+
+        for _ in range(self.epochs):
+            for window, target in self._iter_windows(series):
+                features = self._featurize(window)
+                pred = sum(w * f for w, f in zip(self.weights, features)) + self.bias
+                error = pred - float(target)
+
+                for i in range(self.lookback):
+                    self.weights[i] -= self.learning_rate * error * features[i]
+                self.bias -= self.learning_rate * error
+        return True
+
+    def predict_next(self, history):
+        """
+        Predict next point after fitting from the available sequence.
+        """
+        series = [float(x) for x in history]
+        if len(series) <= self.lookback:
+            return None
+        self.fit(series)
+        recent = series[-self.lookback:]
+        features = self._featurize(recent)
+        pred = sum(w * f for w, f in zip(self.weights, features)) + self.bias
+        return round(max(-1.0, min(1.0, pred)), 4)
+
+    def compute_mae(self, history):
+        """
+        Leave-one-out MAE for neural baseline.
+        """
+        series = [float(x) for x in history]
+        if len(series) < self.lookback + 3:
+            return None
+        errors = []
+        for i in range(self.lookback + 1, len(series)):
+            pred = self.predict_next(series[:i])
+            if pred is not None:
+                errors.append(abs(pred - series[i]))
+        return round(sum(errors) / len(errors), 4) if errors else None
+
+    def compute_rmse(self, history):
+        """
+        Leave-one-out RMSE for neural baseline.
+        """
+        series = [float(x) for x in history]
+        if len(series) < self.lookback + 3:
+            return None
+        errors = []
+        for i in range(self.lookback + 1, len(series)):
+            pred = self.predict_next(series[:i])
+            if pred is not None:
+                errors.append((pred - series[i]) ** 2)
+        return round((sum(errors) / len(errors)) ** 0.5, 4) if errors else None
 
 
 class PredictionAgent:
@@ -423,6 +522,19 @@ def compare_models(history):
     return {
         'ols':  {'mae': ols_mae,  'rmse': ols_rmse},
         'ewma': {'mae': ewma_mae, 'rmse': ewma_rmse},
+        'neural': _compare_neural_baseline(history),
         'n_test_points': len(ols_errors),
         'winner': winner,
     }
+
+
+def _compare_neural_baseline(history):
+    """
+    Compare optional GRU-style sequence baseline.
+    """
+    forecaster = SimpleGRUForecaster()
+    mae = forecaster.compute_mae(history)
+    rmse = forecaster.compute_rmse(history)
+    if mae is None or rmse is None:
+        return None
+    return {'mae': mae, 'rmse': rmse, 'model': 'simple_gru'}
