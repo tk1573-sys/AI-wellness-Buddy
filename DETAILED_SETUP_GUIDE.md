@@ -903,7 +903,7 @@ Do you feel safe with your family/guardians? (yes/no/skip):
 **Step 5: Encryption Setup**
 
 ```
-Setting up AES-256 encryption for your data...
+Setting up Fernet encryption (AES-128-CBC) for your data...
 Generating encryption key...
 ✓ Encryption configured!
 
@@ -1162,7 +1162,7 @@ Testing Alert System...
 Testing Data Store...
 ✓ User data save: successful
 ✓ User data load: successful
-✓ Encryption: working (AES-256)
+✓ Encryption: working (Fernet/AES-128-CBC)
 ✓ Decryption: working
 ✓ Backup creation: successful
 

@@ -38,7 +38,7 @@ The AI Wellness Buddy is a comprehensive emotional support system with the follo
 
 ✅ **Enhanced Security (NEW)**
 - Password-protected profiles
-- AES-256 data encryption
+- Fernet data encryption (AES-128-CBC + HMAC-SHA256)
 - Session timeout protection
 - Account lockout security
 - Data integrity verification
@@ -307,11 +307,11 @@ Enter password: ********
 
 ### 2. Data Encryption
 
-**AES-256 encryption** for all stored data:
+**Fernet encryption (AES-128-CBC + HMAC-SHA256)** for all stored data:
 
 **How It Works:**
 ```
-User Data → Serialize to JSON → Encrypt with AES-256 → Save to disk
+User Data → Serialize to JSON → Encrypt with Fernet (AES-128-CBC) → Save to disk
 
 Encrypted file structure:
 {
@@ -825,7 +825,7 @@ GREETING_MESSAGES = [
 | Feature | Previous | **NEW Enhanced** |
 |---------|----------|------------------|
 | Password Protection | No | **Yes** |
-| Data Encryption | No | **AES-256** |
+| Data Encryption | No | **Fernet (AES-128-CBC)** |
 | Session Timeout | No | **Yes** |
 | Account Lockout | No | **Yes** |
 | Data Integrity | No | **SHA-256** |
@@ -878,7 +878,7 @@ A: Oldest entries are automatically removed, maintaining a rolling 365-day windo
 
 **Q: Is my data really secure?**
 A: Yes:
-- AES-256 encryption (military-grade)
+- Fernet encryption (AES-128-CBC + HMAC-SHA256)
 - Password hashing with unique salts
 - File permissions (owner-only)
 - No external data sharing
@@ -926,7 +926,7 @@ The AI Wellness Buddy provides:
 
 ### Security
 ✅ Password protection
-✅ AES-256 encryption
+✅ Fernet encryption (AES-128-CBC + HMAC-SHA256)
 ✅ Session timeouts
 ✅ Account lockout
 ✅ Data integrity checks

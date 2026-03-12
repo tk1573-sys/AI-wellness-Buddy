@@ -15,7 +15,7 @@ An AI-based emotional wellness support system that provides continuous text-base
 
 ### Enhanced Security Features 🔒 NEW
 - **Password Protection**: Secure profile access with password/PIN (SHA-256 hashing)
-- **Data Encryption**: AES-256 encryption for all stored data
+- **Data Encryption**: Fernet encryption (AES-128-CBC + HMAC-SHA256) for all stored data
 - **Session Timeout**: Automatic logout after inactivity (default: 30 minutes)
 - **Account Lockout**: Protection against brute force attacks (3 attempts, 15-minute lockout)
 - **Data Integrity**: SHA-256 hashing for data verification
@@ -126,7 +126,7 @@ The system remembers you! When you return:
 
 ### Enhanced Security Features (NEW)
 - **Password Protection**: Set a password to protect your profile from unauthorized access
-- **AES-256 Encryption**: All data encrypted at rest with industry-standard encryption
+- **Fernet Encryption**: All data encrypted at rest using Fernet (AES-128-CBC + HMAC-SHA256)
 - **Session Timeout**: Automatic logout after 30 minutes of inactivity
 - **Account Lockout**: Protection against brute force password attempts
 - **Secure Storage**: Encryption keys and data files with restricted permissions (owner-only)
@@ -135,7 +135,7 @@ The system remembers you! When you return:
 - **Local Storage Only**: All data is stored privately on your device in `~/.wellness_buddy/`
 - **No External Sharing**: Your conversations and profile are never shared externally
 - **Full User Control**: Delete your data anytime via the profile menu
-- **Encrypted Files**: Data files use JSON format with optional AES-256 encryption
+- **Encrypted Files**: Data files use JSON format with optional Fernet encryption (AES-128-CBC)
 - **Safe Support**: For women in toxic situations, family contacts are avoided; trusted friends prioritized
 - **Automatic Backups**: System creates timestamped backups before critical operations
 - This is a support tool, not a replacement for professional mental health care
@@ -241,7 +241,7 @@ AI-wellness-Buddy/
 ### Quick Summary
 - **NLP Libraries**: NLTK (>=3.8.1), TextBlob (>=0.17.1)
 - **Web Framework**: Streamlit (>=1.28.0)
-- **Security**: cryptography (>=41.0.0) for AES-256 encryption
+- **Security**: cryptography (>=41.0.0) for Fernet encryption (AES-128-CBC + HMAC-SHA256)
 - **NLTK Datasets**: Brown Corpus, Punkt Tokenizer Models
 - **Storage**: Local JSON files (`~/.wellness_buddy/`) with optional encryption
 - **Privacy**: All processing done locally, no external APIs

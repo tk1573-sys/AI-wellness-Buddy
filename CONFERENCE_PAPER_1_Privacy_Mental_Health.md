@@ -11,7 +11,7 @@
 
 ## Abstract
 
-Mental health monitoring systems face a critical challenge: balancing effective support with user privacy. Traditional cloud-based solutions expose sensitive emotional data to third parties, deterring privacy-conscious individuals from seeking help. We present AI Wellness Buddy, a privacy-first mental health monitoring system that processes all data locally while providing continuous emotional support, pattern tracking, and crisis intervention. Our system employs natural language processing (NLP) for sentiment analysis, maintains 365-day emotional history with AES-256 encryption, and includes a novel guardian alert system for crisis intervention. Evaluation with 45 users over 6 weeks demonstrates 82% improvement in user trust and willingness to engage with a mental health support tool compared to a cloud-based baseline, while maintaining complete data sovereignty. The system achieved 91% user satisfaction regarding privacy protection and successfully identified 79% of crisis situations requiring intervention, with a false positive rate of 18%. This work demonstrates that effective mental health monitoring can be achieved without compromising user privacy, paving the way for wider adoption of digital mental health tools.
+Mental health monitoring systems face a critical challenge: balancing effective support with user privacy. Traditional cloud-based solutions expose sensitive emotional data to third parties, deterring privacy-conscious individuals from seeking help. We present AI Wellness Buddy, a privacy-first mental health monitoring system that processes all data locally while providing continuous emotional support, pattern tracking, and crisis intervention. Our system employs natural language processing (NLP) for sentiment analysis, maintains 365-day emotional history with Fernet encryption (AES-128-CBC + HMAC-SHA256), and includes a novel guardian alert system for crisis intervention. Evaluation with 45 users over 6 weeks demonstrates 82% improvement in user trust and willingness to engage with a mental health support tool compared to a cloud-based baseline, while maintaining complete data sovereignty. The system achieved 91% user satisfaction regarding privacy protection and successfully identified 79% of crisis situations requiring intervention, with a false positive rate of 18%. This work demonstrates that effective mental health monitoring can be achieved without compromising user privacy, paving the way for wider adoption of digital mental health tools.
 
 **Keywords**: Mental health monitoring, privacy-preserving AI, local processing, emotional wellbeing, crisis detection, NLP, sentiment analysis
 
@@ -157,7 +157,7 @@ While existing work addresses either mental health support OR privacy preservati
 │              Data Layer (Local Only)                    │
 │  ┌─────────────────┐  ┌──────────────────────────┐     │
 │  │  User Profile   │  │  Encrypted Data Store    │     │
-│  │  • AES-256      │  │  • Local JSON Files      │     │
+│  │  • Fernet      │  │  • Local JSON Files      │     │
 │  │  • SHA-256 Hash │  │  • File Permissions 600  │     │
 │  │  • Session Mgmt │  │  • Automatic Backups     │     │
 │  └─────────────────┘  └──────────────────────────┘     │
@@ -173,7 +173,7 @@ While existing work addresses either mental health support OR privacy preservati
 2. **Emotion Analyzer**: Local NLP using TextBlob and NLTK (no API calls)
 3. **Pattern Tracker**: 365-day history analysis with trend detection
 4. **Alert System**: Crisis detection and guardian notification
-5. **Encrypted Storage**: AES-256 encrypted local data with SHA-256 integrity checks
+5. **Encrypted Storage**: Fernet encrypted local data (AES-128-CBC) with SHA-256 integrity checks
 
 ### 3.3 Data Flow
 
@@ -189,7 +189,7 @@ All steps execute on user's device. No network requests for analysis.
 ### 3.4 Privacy Mechanisms
 
 **Encryption at Rest**:
-- Algorithm: AES-256 in CBC mode via Fernet (symmetric encryption)
+- Algorithm: AES-128-CBC via Fernet (+ HMAC-SHA256 authentication)
 - Key Storage: `~/.wellness_buddy/.encryption_key` with 600 permissions
 - Scope: All user data (profile, conversations, emotional history)
 
@@ -254,7 +254,7 @@ def detect_crisis(emotional_history, current_message):
 - Streamlit 1.28.0+ (Web UI without external dependencies)
 
 **Security**:
-- cryptography 41.0.0+ (AES-256 encryption, Fernet)
+- cryptography 41.0.0+ (Fernet encryption / AES-128-CBC + HMAC-SHA256)
 - hashlib (SHA-256 for passwords and integrity)
 - secrets (Cryptographically secure random generation)
 
@@ -343,7 +343,7 @@ class SecureDataStore:
             return key
     
     def encrypt_data(self, data):
-        """Encrypt data with AES-256"""
+        """Encrypt data with Fernet (AES-128-CBC)"""
         json_data = json.dumps(data, default=str)
         encrypted = self.cipher.encrypt(json_data.encode())
         return base64.b64encode(encrypted).decode()
@@ -618,7 +618,7 @@ Participants volunteered, potentially skewing toward privacy-conscious individua
 
 ### 7.1 Summary
 
-We presented AI Wellness Buddy, a privacy-first mental health monitoring system that proves effective emotional support and crisis detection can be achieved without compromising user privacy. Through local NLP processing, AES-256 encryption, and zero cloud dependency, the system maintains complete data sovereignty while achieving [comparable] accuracy to cloud-based alternatives.
+We presented AI Wellness Buddy, a privacy-first mental health monitoring system that proves effective emotional support and crisis detection can be achieved without compromising user privacy. Through local NLP processing, Fernet encryption (AES-128-CBC), and zero cloud dependency, the system maintains complete data sovereignty while achieving F1 = 0.76 emotion classification accuracy (vs. 0.80 for cloud-based baseline).
 
 Evaluation with 45 users over 6 weeks demonstrated:
 - 82% improvement in user trust vs cloud-based baseline (mean 4.5 vs 3.0, p<0.001)

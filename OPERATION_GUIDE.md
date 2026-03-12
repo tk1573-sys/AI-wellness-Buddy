@@ -502,7 +502,7 @@ All data is stored locally:
 ### Data Security
 
 **Encryption:**
-- All data encrypted with AES-256
+- All data encrypted with Fernet (AES-128-CBC + HMAC-SHA256)
 - Password protected
 - Encryption key stored separately
 

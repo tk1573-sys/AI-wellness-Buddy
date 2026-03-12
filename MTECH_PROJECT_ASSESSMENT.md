@@ -37,7 +37,7 @@ This document provides a comprehensive analysis of the AI Wellness Buddy project
 **Advanced Programming:**
 - Object-Oriented Design (12 modules)
 - Multi-interface Architecture
-- Security Implementation (AES-256)
+- Security Implementation (Fernet/AES-128-CBC)
 - Real-time Processing
 - Data Persistence
 
