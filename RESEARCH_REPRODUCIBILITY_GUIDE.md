@@ -61,9 +61,17 @@ User Message
 - Added `Dockerfile` for containerized deployment.
 
 ### Run API
+Version note: `fastapi==0.115.11` and `uvicorn==0.34.0` are used as a
+known-stable optional API pair in this repository’s tested environment.
+If updating versions, re-run the full regression suite and API smoke tests.
+
 ```bash
 pip install fastapi==0.115.11 uvicorn==0.34.0
-uvicorn api_service:app --host 0.0.0.0 --port 8000
+# Local development (recommended):
+uvicorn api_service:app --host 127.0.0.1 --port 8000
+
+# Use 0.0.0.0 only for controlled network deployments (e.g., private VPC/LAN,
+# reverse proxy with TLS termination, strict ingress firewall rules).
 ```
 
 ## 8) Reproducibility Checklist

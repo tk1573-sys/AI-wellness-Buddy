@@ -28,7 +28,7 @@ def create_app():
     if FastAPI is None:
         raise RuntimeError("FastAPI is not installed. Install with: pip install fastapi uvicorn")
 
-    app = FastAPI(title='AI Emotional Wellness Buddy API', version='2.0-research')
+    app = FastAPI(title='AI Emotional Wellness Buddy API', version='2.0.0-research.1')
     pipeline = WellnessAgentPipeline()
     buddy = WellnessBuddy()
 

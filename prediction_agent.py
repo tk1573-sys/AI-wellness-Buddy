@@ -91,6 +91,12 @@ class SimpleGRUForecaster:
     def compute_mae(self, history):
         """
         Leave-one-out MAE for neural baseline.
+
+        Note: this intentionally refits on each prefix window to mirror
+        leave-one-out time-series validation for fairness vs OLS/EWMA
+        comparators in small-sequence experiments. This is computationally
+        expensive (roughly O(n²)) and is intended for research evaluation,
+        not large-history production scoring.
         """
         series = [float(x) for x in history]
         if len(series) < self.lookback + 3:
@@ -105,6 +111,11 @@ class SimpleGRUForecaster:
     def compute_rmse(self, history):
         """
         Leave-one-out RMSE for neural baseline.
+
+        Note: this intentionally refits on each prefix window to preserve the
+        same walk-forward validation semantics used across all forecasting
+        baselines in this repository. This is computationally expensive
+        (roughly O(n²)) and is intended for research benchmarking.
         """
         series = [float(x) for x in history]
         if len(series) < self.lookback + 3:
