@@ -9,6 +9,12 @@ Optional ML upgrade: MLEmotionAdapter attempts to load the
 adapter degrades gracefully and the system continues to use the keyword+polarity
 heuristic that has always been present.  All existing tests continue to pass
 unchanged.
+
+The :class:`models.emotion_transformer.EmotionTransformer` module provides a
+standalone, lazy-loading transformer classifier that is now the primary ML
+backend used by :class:`EmotionAnalyzer`.  The legacy :class:`MLEmotionAdapter`
+is kept for backward compatibility but the main ``classify_emotion()`` flow
+delegates to ``EmotionTransformer``.
 """
 
 from textblob import TextBlob
@@ -19,6 +25,7 @@ from language_handler import (
     TAMIL_UNICODE_EMOTION_KEYWORDS,
     LanguageHandler,
 )
+from models.emotion_transformer import EmotionTransformer
 
 
 class MLEmotionAdapter:
@@ -259,7 +266,10 @@ class EmotionAnalyzer:
         # Language handler for script detection
         self._lang_handler = LanguageHandler()
 
-        # Optional ML adapter — falls back silently when transformers/torch absent
+        # Transformer-based emotion classifier (lazy-loading, with keyword fallback)
+        self._emotion_transformer = EmotionTransformer()
+
+        # Legacy ML adapter kept for backward compatibility (e.g. direct imports)
         self.ml_adapter = MLEmotionAdapter()
         self.crisis_adapter = ContextualCrisisAdapter()
 
@@ -269,7 +279,7 @@ class EmotionAnalyzer:
 
     def classify_emotion_ml(self, text):
         """
-        Return the primary emotion using the ML adapter when available,
+        Return the primary emotion using the transformer model when available,
         otherwise fall back to :meth:`detect_primary_emotion`.
 
         The ML confidence score is fused with the heuristic keyword score
@@ -277,15 +287,21 @@ class EmotionAnalyzer:
 
         Returns the same fields as :meth:`classify_emotion` but also adds
         ``ml_available`` (bool) and ``ml_scores`` (dict|None).
+
+        .. note:: This method reuses the transformer result already computed
+           inside :meth:`classify_emotion` (via the single-message cache in
+           :class:`EmotionTransformer`) so no extra inference pass is needed.
         """
         result = self.classify_emotion(text)
-        ml_scores = self.ml_adapter.classify(text)
-        result['ml_available'] = self.ml_adapter.available
-        result['ml_scores'] = ml_scores
+        # Reuse cached transformer scores — no duplicate inference
+        transformer_scores = self._emotion_transformer.classify(text)
+        ml_available = self._emotion_transformer.available
+        result['ml_available'] = ml_available
+        result['ml_scores'] = transformer_scores if ml_available else None
 
-        if ml_scores:
+        if ml_available and transformer_scores:
             # Exclude 'crisis' from ML output (handled by keyword list only)
-            filtered = {k: v for k, v in ml_scores.items() if k != 'crisis'}
+            filtered = {k: v for k, v in transformer_scores.items() if k != 'crisis'}
             if filtered:
                 ml_primary = max(filtered, key=filtered.get)
                 # Override primary emotion with ML result (ML is authoritative
@@ -567,13 +583,53 @@ class EmotionAnalyzer:
 
         emotion_scores = self.detect_emotion_scores(text)
         emotion_probabilities = self.get_emotion_confidence(text)
-        ml_probs = self.ml_adapter.classify(text)
-        if ml_probs:
-            total = sum(ml_probs.values())
+
+        # --- Merge transformer predictions with heuristic keyword scores ---
+        # The EmotionTransformer uses the model when available, or falls back
+        # to its own keyword classifier.  We blend the two signals so that
+        # transformer predictions (70 %) are prioritised while heuristic
+        # keyword scores (30 %) still contribute.
+        transformer_probs = self._emotion_transformer.classify(text)
+        if self._emotion_transformer.available:
+            # Weighted merge: 70 % transformer + 30 % keyword heuristic
+            merged = {}
+            all_labels = set(emotion_probabilities) | set(transformer_probs)
+            for label in all_labels:
+                t_val = transformer_probs.get(label, 0.0)
+                h_val = emotion_probabilities.get(label, 0.0)
+                merged[label] = 0.7 * t_val + 0.3 * h_val
+            # Re-normalise so probabilities sum to 1.0
+            total = sum(merged.values())
             if total > 0:
-                normalized = {k: round(v / total, 4) for k, v in ml_probs.items()}
-                for label in ('joy', 'sadness', 'anger', 'fear', 'anxiety', 'neutral', 'crisis'):
-                    emotion_probabilities[label] = normalized.get(label, emotion_probabilities.get(label, 0.0))
+                emotion_probabilities = {k: round(v / total, 4) for k, v in merged.items()}
+            else:
+                emotion_probabilities = merged
+        else:
+            # Transformer unavailable — use keyword-based fallback from
+            # EmotionTransformer (same keyword logic) merged with heuristic
+            merged = {}
+            all_labels = set(emotion_probabilities) | set(transformer_probs)
+            for label in all_labels:
+                t_val = transformer_probs.get(label, 0.0)
+                h_val = emotion_probabilities.get(label, 0.0)
+                merged[label] = 0.5 * t_val + 0.5 * h_val
+            total = sum(merged.values())
+            if total > 0:
+                emotion_probabilities = {k: round(v / total, 4) for k, v in merged.items()}
+            else:
+                emotion_probabilities = merged
+
+        # Ensure all canonical labels are present (including crisis)
+        for label in ('joy', 'sadness', 'anger', 'fear', 'anxiety', 'neutral', 'crisis'):
+            emotion_probabilities.setdefault(label, 0.0)
+
+        # Final normalisation pass to guarantee sum == 1.0
+        ep_total = sum(emotion_probabilities.values())
+        if ep_total > 0 and abs(ep_total - 1.0) > 1e-6:
+            emotion_probabilities = {
+                k: round(v / ep_total, 4) for k, v in emotion_probabilities.items()
+            }
+
         explanation = self.explain_emotion(text, primary_emotion)
         contextual_crisis = self.crisis_adapter.classify(text) or {}
 
