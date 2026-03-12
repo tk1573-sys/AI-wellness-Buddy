@@ -75,6 +75,7 @@ An AI-based emotional wellness support system that provides continuous text-base
 - **Scientific Evaluation Utilities**: `research_evaluation.py` adds dataset evaluation pipelines with precision/recall/F1 reporting.
 - **Optional API + Docker**: `api_service.py` and `Dockerfile` support scalable integration and deployment.
 - Full research motivation, architecture, reproducibility, and paper framing are documented in `RESEARCH_REPRODUCIBILITY_GUIDE.md`.
+- IEEE/Scopus reviewer-focused manuscript rewrite guidance is provided in `IEEE_REVIEW_REVISION_GUIDE.md`.
 
 ### Prerequisites
 - Python 3.7 or higher
