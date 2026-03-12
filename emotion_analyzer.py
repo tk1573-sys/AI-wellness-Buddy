@@ -102,6 +102,53 @@ class MLEmotionAdapter:
             return None
 
 
+class ContextualCrisisAdapter:
+    """
+    Optional contextual crisis classifier using zero-shot transformer inference.
+
+    Falls back gracefully to keyword-only crisis detection if transformers
+    are unavailable.
+    """
+
+    _CRISIS_LABELS = ['suicidal ideation', 'severe distress', 'safe statement']
+
+    def __init__(self):
+        self.available = False
+        self._pipeline = None
+        try:
+            from transformers import pipeline as _hf_pipeline  # noqa: F401
+            self._pipeline = _hf_pipeline(
+                'zero-shot-classification',
+                model='facebook/bart-large-mnli',
+                device=-1,
+            )
+            self.available = True
+        except Exception:
+            pass
+
+    def classify(self, text):
+        """
+        Return contextual crisis probabilities or ``None`` when unavailable.
+        """
+        if not self.available or self._pipeline is None:
+            return None
+        try:
+            result = self._pipeline(text[:512], self._CRISIS_LABELS, multi_label=True)
+            scores = dict(zip(result.get('labels', []), result.get('scores', [])))
+            suicidal = float(scores.get('suicidal ideation', 0.0))
+            severe = float(scores.get('severe distress', 0.0))
+            safe = float(scores.get('safe statement', 0.0))
+            crisis_probability = max(suicidal, severe)
+            return {
+                'crisis_probability': round(crisis_probability, 4),
+                'suicidal_ideation_probability': round(suicidal, 4),
+                'severe_distress_probability': round(severe, 4),
+                'safety_probability': round(safe, 4),
+            }
+        except Exception:
+            return None
+
+
 class EmotionAnalyzer:
     """Analyzes emotional content in text messages"""
 
@@ -214,6 +261,7 @@ class EmotionAnalyzer:
 
         # Optional ML adapter — falls back silently when transformers/torch absent
         self.ml_adapter = MLEmotionAdapter()
+        self.crisis_adapter = ContextualCrisisAdapter()
 
     # ------------------------------------------------------------------
     # ML-fused primary emotion detection (uses ML when available)
@@ -345,7 +393,14 @@ class EmotionAnalyzer:
     def detect_crisis_indicators(self, text):
         """Detect crisis / self-harm keywords requiring immediate escalation"""
         text_lower = text.lower()
-        return [kw for kw in self.crisis_keywords if kw in text_lower]
+        matched_keywords = [kw for kw in self.crisis_keywords if kw in text_lower]
+
+        # Contextual escalation: catches self-harm intent without explicit keywords
+        context_scores = self.crisis_adapter.classify(text)
+        if context_scores and context_scores['crisis_probability'] >= 0.75:
+            matched_keywords.append('contextual_crisis_signal')
+
+        return matched_keywords
 
     # ------------------------------------------------------------------
     # Multi-emotion detection
@@ -511,7 +566,16 @@ class EmotionAnalyzer:
             primary_emotion = tanglish_emotion
 
         emotion_scores = self.detect_emotion_scores(text)
+        emotion_probabilities = self.get_emotion_confidence(text)
+        ml_probs = self.ml_adapter.classify(text)
+        if ml_probs:
+            total = sum(ml_probs.values())
+            if total > 0:
+                normalized = {k: round(v / total, 4) for k, v in ml_probs.items()}
+                for label in ('joy', 'sadness', 'anger', 'fear', 'anxiety', 'neutral', 'crisis'):
+                    emotion_probabilities[label] = normalized.get(label, emotion_probabilities.get(label, 0.0))
         explanation = self.explain_emotion(text, primary_emotion)
+        contextual_crisis = self.crisis_adapter.classify(text) or {}
 
         has_abuse_indicators = len(abuse_keywords) > 0
         is_crisis = len(crisis_keywords_found) > 0
@@ -541,8 +605,12 @@ class EmotionAnalyzer:
             # Fine-grained fields (new)
             'primary_emotion': primary_emotion,
             'emotion_scores': emotion_scores,
+            'emotion_probabilities': emotion_probabilities,
             'explanation': explanation,
             'is_crisis': is_crisis,
+            'crisis_probability': contextual_crisis.get('crisis_probability', 1.0 if is_crisis else 0.0),
+            'suicidal_ideation_probability': contextual_crisis.get('suicidal_ideation_probability', 1.0 if is_crisis else 0.0),
+            'severe_distress_probability': contextual_crisis.get('severe_distress_probability', 1.0 if is_crisis else 0.0),
             'crisis_keywords': crisis_keywords_found,
             # Language / script metadata
             'detected_script': detected_script,

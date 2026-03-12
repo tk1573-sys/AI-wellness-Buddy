@@ -157,6 +157,64 @@ class PatternTracker:
         drift = (values[-1] - values[0]) / (len(values) - 1)
         return round(drift, 4)
 
+    def get_emotional_volatility_index(self):
+        """
+        Volatility index in [0, 1] that combines std-dev and average jump size.
+        """
+        values = list(self.sentiment_history)
+        if len(values) < 2:
+            return 0.0
+        volatility, _ = self.get_volatility_and_stability()
+        avg_jump = sum(abs(values[i] - values[i - 1]) for i in range(1, len(values))) / (len(values) - 1)
+        score = min(1.0, 0.6 * volatility + 0.4 * avg_jump)
+        return round(score, 4)
+
+    def get_emotional_recovery_rate(self):
+        """
+        Positive slope over trailing distressed segment, higher means faster recovery.
+        """
+        values = list(self.sentiment_history)
+        if len(values) < 3:
+            return 0.0
+        low_idx = min(range(len(values)), key=lambda i: values[i])
+        if low_idx >= len(values) - 1:
+            return 0.0
+        recovery = (values[-1] - values[low_idx]) / max(1, len(values) - 1 - low_idx)
+        return round(max(0.0, min(1.0, recovery)), 4)
+
+    def get_stress_persistence_score(self):
+        """
+        Fraction of points below distress threshold, with consecutive distress boost.
+        """
+        values = list(self.sentiment_history)
+        if not values:
+            return 0.0
+        below = sum(1 for v in values if v <= config.DISTRESS_THRESHOLD)
+        ratio = below / len(values)
+        consecutive_boost = min(0.25, self.consecutive_distress * 0.05)
+        return round(min(1.0, ratio + consecutive_boost), 4)
+
+    def detect_behavioral_drift(self):
+        """
+        Detect distribution drift between early and recent segments.
+        """
+        values = list(self.sentiment_history)
+        if len(values) < 6:
+            return {'drift_detected': False, 'drift_score': 0.0}
+        split = len(values) // 2
+        early = values[:split]
+        recent = values[split:]
+        early_mean = sum(early) / len(early)
+        recent_mean = sum(recent) / len(recent)
+        mean_shift = abs(recent_mean - early_mean)
+        drift_score = round(min(1.0, mean_shift), 4)
+        return {
+            'drift_detected': drift_score >= 0.2,
+            'drift_score': drift_score,
+            'early_mean': round(early_mean, 4),
+            'recent_mean': round(recent_mean, 4),
+        }
+
     # ------------------------------------------------------------------
     # Formula-based risk scoring
     # ------------------------------------------------------------------
@@ -245,6 +303,7 @@ class PatternTracker:
         risk_score, risk_level = self.compute_risk_score()
         moving_avg = self.get_moving_average()
         emotion_distribution = self.get_emotion_distribution()
+        behavioral_drift = self.detect_behavioral_drift()
 
         return {
             # Backward-compatible keys
@@ -269,6 +328,12 @@ class PatternTracker:
             'moving_average': moving_avg,
             'emotion_distribution': emotion_distribution,
             'drift_score': self.get_emotional_drift_score(),
+            # Advanced research metrics
+            'emotional_volatility_index': self.get_emotional_volatility_index(),
+            'emotional_recovery_rate': self.get_emotional_recovery_rate(),
+            'stress_persistence_score': self.get_stress_persistence_score(),
+            'behavioral_drift_detected': behavioral_drift['drift_detected'],
+            'behavioral_drift_score': behavioral_drift['drift_score'],
         }
 
     def reset_consecutive_distress(self):

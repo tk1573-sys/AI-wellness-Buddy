@@ -13,7 +13,7 @@ An AI-based emotional wellness support system that provides continuous text-base
 - **XAI Explanations**: Every response shows which keywords drove the emotion classification (e.g. *"Detected 'anxiety' due to keywords: anxious, overwhelmed"*)
 - **Pattern Tracking**: Monitors emotional trends over time including moving average, volatility, and stability index
 - **Formula-based Risk Scoring**: Intelligent Low / Medium / High / Critical risk score (not simple threshold logic)
-- **Emotion Trend Forecasting**: OLS linear regression predicts next-session mood and risk escalation
+- **Emotion Trend Forecasting**: OLS + EWMA + lightweight GRU-style neural forecasting benchmarks
 - **Distress Alert System**: Automatically triggers alerts when sustained emotional distress is detected (3+ consecutive distress messages)
 - **Resource Connection**: Provides immediate access to crisis hotlines and support resources
 
@@ -39,8 +39,8 @@ An AI-based emotional wellness support system that provides continuous text-base
 - **Mood Streak**: Consecutive positive-mood session counter to celebrate progress
 - **Wellness Badges**: Earn 8 badge types — First Step, Consistent (7 sessions), Dedicated (30 sessions), 3-Day Streak, 7-Day Streak, Resilient, Self-Aware, Connected
 - **Weekly Summary Report**: Full 7-day breakdown — emotion distribution, risk incidents, average mood, suggestions, and OLS forecast — available via the `weekly` command
-- **Password Protection**: Secure profile access with password/PIN (SHA-256 hashing)
-- **Data Encryption**: AES-256 encryption for all stored data
+- **Password Protection**: Secure profile access with bcrypt hashing (+ legacy migration)
+- **Data Encryption**: Fernet encryption for all stored data at rest
 - **Session Timeout**: Automatic logout after inactivity (default: 30 minutes)
 - **Account Lockout**: Protection against brute force attacks (3 attempts, 15-minute lockout)
 - **Data Integrity**: SHA-256 hashing for data verification
@@ -68,6 +68,14 @@ An AI-based emotional wellness support system that provides continuous text-base
 - **Confidential & Safe**: Private, judgment-free space for emotional expression
 
 ## 🚀 Getting Started
+
+## 🧪 Research-Grade Upgrade (New)
+- **Modular Agent Pipeline**: `agent_pipeline.py` separates emotion analysis, pattern tracking, forecasting, alerting, and response generation.
+- **Transformer-First Emotion + Contextual Crisis**: `emotion_analyzer.py` now exposes probability-based emotion outputs and contextual crisis probabilities.
+- **Scientific Evaluation Utilities**: `research_evaluation.py` adds dataset evaluation pipelines with precision/recall/F1 reporting.
+- **Optional API + Docker**: `api_service.py` and `Dockerfile` support scalable integration and deployment.
+- Full research motivation, architecture, reproducibility, and paper framing are documented in `RESEARCH_REPRODUCIBILITY_GUIDE.md`.
+- IEEE/Scopus reviewer-focused manuscript rewrite guidance is provided in `IEEE_REVIEW_REVISION_GUIDE.md`.
 
 ### Prerequisites
 - Python 3.7 or higher
