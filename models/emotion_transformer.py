@@ -36,6 +36,11 @@ class EmotionTransformer:
 
     _DEFAULT_MODEL = "j-hartmann/emotion-english-distilroberta-base"
 
+    # Maximum input length (characters) — the underlying DistilRoBERTa model
+    # supports up to 512 word-piece tokens; character-level truncation is a
+    # simple safeguard against excessively long inputs.
+    _MAX_INPUT_LENGTH = 512
+
     # GoEmotions 7-class → internal schema mapping
     _LABEL_MAP: dict[str, str] = {
         "joy":      "joy",
@@ -174,7 +179,7 @@ class EmotionTransformer:
     def _classify_transformer(self, text: str) -> dict[str, float]:
         """Run transformer inference and map labels to internal schema."""
         try:
-            raw = self._pipeline(text[:512])[0]  # top_k=None → list of dicts
+            raw = self._pipeline(text[:self._MAX_INPUT_LENGTH])[0]
             mapped: dict[str, float] = {e: 0.0 for e in self.EMOTIONS}
             for entry in raw:
                 label = self._LABEL_MAP.get(

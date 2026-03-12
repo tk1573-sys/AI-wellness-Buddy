@@ -159,6 +159,10 @@ class ContextualCrisisAdapter:
 class EmotionAnalyzer:
     """Analyzes emotional content in text messages"""
 
+    # Blend weights for merging transformer and heuristic probabilities
+    _TRANSFORMER_WEIGHT = 0.7
+    _HEURISTIC_WEIGHT = 0.3
+
     def __init__(self):
         # --- Legacy coarse keywords (backward-compat) ---
         self.distress_keywords = [
@@ -591,13 +595,12 @@ class EmotionAnalyzer:
         # keyword scores (30 %) still contribute.
         transformer_probs = self._emotion_transformer.classify(text)
         if self._emotion_transformer.available:
-            # Weighted merge: 70 % transformer + 30 % keyword heuristic
             merged = {}
             all_labels = set(emotion_probabilities) | set(transformer_probs)
             for label in all_labels:
                 t_val = transformer_probs.get(label, 0.0)
                 h_val = emotion_probabilities.get(label, 0.0)
-                merged[label] = 0.7 * t_val + 0.3 * h_val
+                merged[label] = self._TRANSFORMER_WEIGHT * t_val + self._HEURISTIC_WEIGHT * h_val
             # Re-normalise so probabilities sum to 1.0
             total = sum(merged.values())
             if total > 0:
