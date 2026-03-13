@@ -523,7 +523,7 @@ def render_chat_tab():
         _conf = _xai.get('confidence', _probs.get(_det_emotion, 0))
         with st.expander(
             f"🔬 Emotion Analysis — **{_det_emotion.capitalize()}**"
-            f"  (confidence {_conf:.0%})",
+            f"  (confidence {_conf:.1%})",
             expanded=False,
         ):
             chart_col, info_col = st.columns([3, 2])
