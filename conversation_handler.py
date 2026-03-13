@@ -169,6 +169,15 @@ _SUPPORT_VARIATIONS = [
     "Let's take this one step at a time.",
 ]
 
+_EMPATHY_AMPLIFICATION_POOL = [
+    "I can sense this is weighing on you deeply right now. "
+    "Please be gentle with yourself — what you're feeling matters. 💙",
+    "The intensity of what you're going through is real and valid. "
+    "You don't have to face this alone — I'm right here with you. 💙",
+    "I hear you, and I want you to know that your courage in sharing this "
+    "means a great deal. You deserve support and kindness right now. 💙",
+]
+
 ANXIETY_RESPONSES = [
     "I can hear the tension in what you're sharing, and that feeling is valid.",
     "What you're feeling right now sounds really overwhelming, and you're not alone.",
@@ -803,15 +812,7 @@ class ConversationHandler:
         concern_level = emotion_data.get('concern_level', 'low')
         if lang_pref != 'tamil' and primary_emotion in ('sadness', 'fear', 'anxiety'):
             if emotion_confidence > 0.6 or concern_level in ('high', 'critical'):
-                _amplified_pool = [
-                    "I can sense this is weighing on you deeply right now. "
-                    "Please be gentle with yourself — what you're feeling matters. 💙",
-                    "The intensity of what you're going through is real and valid. "
-                    "You don't have to face this alone — I'm right here with you. 💙",
-                    "I hear you, and I want you to know that your courage in sharing this "
-                    "means a great deal. You deserve support and kindness right now. 💙",
-                ]
-                response += "\n\n" + self._choose_unique(_amplified_pool)
+                response += "\n\n" + self._choose_unique(_EMPATHY_AMPLIFICATION_POOL)
 
         # ---- Intensity adjustment based on sentiment score ----
         if lang_pref != 'tamil' and primary_emotion in ('sadness', 'fear', 'anxiety'):

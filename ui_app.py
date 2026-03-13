@@ -96,6 +96,15 @@ _JOURNEY_TAB_HEATMAP_RISK_BOOST = 0.2
 _BACKGROUND_SCENES = ["calm_gradient", "night_sky", "aurora", "ocean"]
 _UI_THEMES = ["calm", "modern", "clinical"]
 
+# Concern level badge colours and emoji icons
+_CONCERN_BADGE_COLORS = {
+    'low': '#4ade80', 'medium': '#facc15',
+    'high': '#f97316', 'critical': '#ef4444',
+}
+_CONCERN_EMOJI = {
+    'low': '🟢', 'medium': '🟡', 'high': '🟠', 'critical': '🔴',
+}
+
 
 # -----------------------------------------------------------------------
 # Helpers
@@ -501,11 +510,7 @@ def render_chat_tab():
                     _icon = EMO_ICONS.get(_msg_emo, "")
                     _msg_conf = message.get("confidence", 0.0)
                     _msg_concern = message.get("concern_level", "")
-                    _concern_colors = {
-                        'low': '#4ade80', 'medium': '#facc15',
-                        'high': '#f97316', 'critical': '#ef4444',
-                    }
-                    _badge_color = _concern_colors.get(_msg_concern, '#9B8CFF')
+                    _badge_color = _CONCERN_BADGE_COLORS.get(_msg_concern, '#9B8CFF')
                     _badge_parts = [f"{_icon} {_msg_emo.capitalize()}"]
                     if _msg_conf:
                         _badge_parts.append(f"{_msg_conf:.0%}")
@@ -556,8 +561,7 @@ def render_chat_tab():
                 st.markdown(f"**Detected emotion:** {_det_emotion.capitalize()}")
                 st.markdown(f"**Confidence:** {_conf:.1%}")
                 if _concern:
-                    _clr = {'low': '🟢', 'medium': '🟡', 'high': '🟠', 'critical': '🔴'}
-                    st.markdown(f"**Concern level:** {_clr.get(_concern, '⬜')} {_concern.capitalize()}")
+                    st.markdown(f"**Concern level:** {_CONCERN_EMOJI.get(_concern, '⬜')} {_concern.capitalize()}")
                 # XAI key indicators
                 indicators = _xai.get('key_indicators', [])
                 if indicators:

@@ -553,7 +553,7 @@ class EmotionAnalyzer:
 
         neg_prob = sum(
             emotion_probabilities.get(e, 0.0)
-            for e in ('sadness', 'fear', 'anxiety', 'anger')
+            for e in EmotionAnalyzer._CONCERN_EMOTIONS
         )
         primary_prob = emotion_probabilities.get(primary_emotion, 0.0)
 
