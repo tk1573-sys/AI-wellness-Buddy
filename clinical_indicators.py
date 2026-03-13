@@ -41,6 +41,7 @@ DISCLAIMER = (
 _SADNESS_THRESHOLD = 0.6
 _SADNESS_MIN_MESSAGES = 3
 _ANXIETY_TREND_WINDOW = 5
+_MAX_KEYWORDS_FOR_NORMALIZATION = 5.0
 
 _WITHDRAWAL_KEYWORDS = frozenset([
     "alone", "isolated", "lonely", "nobody", "no one", "withdrawn",
@@ -86,7 +87,11 @@ def _sustained_sadness(emotion_history: list[dict]) -> bool:
 
 
 def _anxiety_escalation(emotion_history: list[dict]) -> bool:
-    """True when anxiety probability is trending upward across the window."""
+    """True when anxiety probability shows an increasing pattern across the window.
+
+    Uses a simplified majority-of-increases heuristic rather than regression
+    to keep the computation lightweight and dependency-free.
+    """
     window = emotion_history[-_ANXIETY_TREND_WINDOW:]
     if len(window) < 2:
         return False
@@ -179,7 +184,7 @@ def compute_emotional_risk(
 
     # Distress keyword density (normalize to 0–1 range, cap at 1.0)
     distress_kw = emotion_data.get("distress_keywords", [])
-    kw_factor = min(1.0, len(distress_kw) / 5.0) if distress_kw else 0.0
+    kw_factor = min(1.0, len(distress_kw) / _MAX_KEYWORDS_FOR_NORMALIZATION) if distress_kw else 0.0
 
     # Weighted combination
     risk_score = (
