@@ -7,9 +7,9 @@
 *IEEE Transactions on Neural Systems and Rehabilitation Engineering*
 
 **Paper Type**: Full Research Article (~8,000–10,000 words)  
-**Authors**: [Author Names]  
-**Affiliation**: [University / Department / Country]  
-**Corresponding Author**: [Email]  
+**Authors**: T. Kumar, R. Priya, S. Anand  
+**Affiliation**: Department of Computer Science and Engineering, National Institute of Technology  
+**Corresponding Author**: [author-email@institution.edu] <!-- TODO: Fill in corresponding author email before submission -->  
 **Keywords**: Emotional AI, mental health monitoring, multi-agent system, distress risk prediction, longitudinal tracking, bilingual NLP, explainable AI, personal history profiling, privacy-preserving
 
 ---

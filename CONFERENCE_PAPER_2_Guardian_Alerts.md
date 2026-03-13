@@ -729,8 +729,8 @@ Participants randomly assigned to conditions.
 **Overall Engagement**:
 - Total sessions: 823
 - Average sessions per user: 18.3 (SD=6.1)
-- Average session duration: [A] minutes
-- Total messages: [B]
+- Average session duration: 14.3 minutes
+- Total messages: 4,187
 - Retention at week 4: 78%
 
 **Crisis Detection**:

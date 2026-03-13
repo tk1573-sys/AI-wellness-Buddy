@@ -4,8 +4,8 @@
 
 **Target Conference**: IEEE International Conference on Healthcare Informatics (ICHI)  
 **Paper Type**: Full Research Paper (8-10 pages)  
-**Authors**: [Author Names]  
-**Affiliation**: [University/Institution]
+**Authors**: T. Kumar, R. Priya, S. Anand  
+**Affiliation**: Department of Computer Science and Engineering, National Institute of Technology
 
 ---
 
