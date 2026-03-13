@@ -34,14 +34,18 @@ class PatternTrackingAgent:
 
 
 class ForecastingAgent:
-    def __init__(self, predictor=None):
+    def __init__(self, predictor=None, research_mode=False):
         self.predictor = predictor or PredictionAgent()
+        self.research_mode = research_mode
 
     def run(self, sentiment_history):
         if not sentiment_history:
             return None
         forecast = self.predictor.predict_next_sentiment(sentiment_history)
-        model_comparison = compare_models(sentiment_history) if len(sentiment_history) >= 5 else None
+        model_comparison = (
+            compare_models(sentiment_history, research_mode=self.research_mode)
+            if len(sentiment_history) >= 5 else None
+        )
         return {
             'forecast': forecast,
             'model_comparison': model_comparison,

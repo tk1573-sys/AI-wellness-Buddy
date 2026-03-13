@@ -295,6 +295,11 @@ class WellnessBuddy:
             self.pattern_tracker.reset_consecutive_distress()
         response_meta['risk_level'] = (pattern_summary or {}).get('risk_level', 'low')
         response_meta['risk_score'] = (pattern_summary or {}).get('risk_score', 0.0)
+        # Expose emotion analytics to UI (probability bar chart, explanation, confidence)
+        response_meta['emotion_probabilities'] = emotion_data.get('emotion_probabilities', {})
+        response_meta['explanation'] = emotion_data.get('explanation', '')
+        response_meta['distress_keywords'] = emotion_data.get('distress_keywords', [])
+        response_meta['xai_explanation'] = emotion_data.get('xai_explanation', {})
         self._last_response_metadata = response_meta
 
         return response

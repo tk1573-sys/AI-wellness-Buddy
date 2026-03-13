@@ -24,6 +24,7 @@ from ui.charts import (
     create_history_chart, create_weekly_chart, create_sparkline,
     create_moving_average_chart, create_risk_history_chart, create_emotion_heatmap,
     create_emotion_journey_line, create_stress_intensity_gauge,
+    create_emotion_probability_bar,
     EMO_COLORS, _HEATMAP_EMOTIONS,
 )
 from ui.layout import (
@@ -99,6 +100,26 @@ _UI_THEMES = ["calm", "modern", "clinical"]
 # -----------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------
+
+def _coarse_to_fine_emotion(label: str) -> str:
+    """Map coarse/legacy emotion labels to fine-grained display labels."""
+    if label in ('positive',):
+        return 'joy'
+    if label in ('negative', 'distress'):
+        return 'sadness'
+    return label
+
+
+def _count_emotions_from_history(history: list) -> dict[str, int]:
+    """Aggregate emotion counts from user emotional history snapshots."""
+    counts: dict[str, int] = {}
+    for snap in history:
+        ed = snap.get('emotion_data', {}) or {}
+        emo = ed.get('primary_emotion') or ed.get('emotion', 'neutral')
+        emo = _coarse_to_fine_emotion(emo)
+        counts[emo] = counts.get(emo, 0) + 1
+    return counts
+
 
 def init_buddy():
     """Initialize wellness buddy instance"""
@@ -474,7 +495,16 @@ def render_chat_tab():
     with chat_container:
         for idx, message in enumerate(st.session_state.chat_history):
             with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+                # Show emotion badge beside user messages
+                _msg_emo = message.get("emotion", "")
+                if _msg_emo and message["role"] == "user":
+                    _icon = EMO_ICONS.get(_msg_emo, "")
+                    st.markdown(
+                        f"{message['content']}  "
+                        f"&nbsp;`{_icon} {_msg_emo.capitalize()}`",
+                    )
+                else:
+                    st.markdown(message["content"])
                 # Replay TTS button for assistant messages
                 if message["role"] == "assistant" and st.session_state.get('tts_enabled', False):
                     vh: VoiceHandler = st.session_state.voice_handler
@@ -482,6 +512,52 @@ def render_chat_tab():
                         if st.button("🔊", key=f"tts_{idx}",
                                      help="Listen to this response"):
                             _play_tts(message["content"])
+
+    # ---- Emotion Result Panel: show analytics for the latest response ----
+    _meta = st.session_state.get('last_response_meta') or {}
+    _probs = _meta.get('emotion_probabilities', {})
+    _expl = _meta.get('explanation', '')
+    _det_emotion = _meta.get('emotion', '')
+    _xai = _meta.get('xai_explanation', {})
+    if _probs and _det_emotion:
+        _conf = _xai.get('confidence', _probs.get(_det_emotion, 0))
+        with st.expander(
+            f"🔬 Emotion Analysis — **{_det_emotion.capitalize()}**"
+            f"  (confidence {_conf:.1%})",
+            expanded=False,
+        ):
+            chart_col, info_col = st.columns([3, 2])
+            with chart_col:
+                st.plotly_chart(
+                    create_emotion_probability_bar(_probs),
+                    use_container_width=True,
+                )
+            with info_col:
+                st.markdown(f"**Detected emotion:** {_det_emotion.capitalize()}")
+                st.markdown(f"**Confidence:** {_conf:.1%}")
+                # XAI key indicators
+                indicators = _xai.get('key_indicators', [])
+                if indicators:
+                    st.markdown("**Key indicators:**")
+                    for kw in indicators:
+                        st.markdown(f"- {kw}")
+                elif _expl:
+                    st.markdown(f"**Explanation:** {_expl}")
+                # Sentiment contribution
+                _sent = _xai.get('sentiment_contribution', {})
+                if _sent:
+                    st.markdown(
+                        f"**Sentiment:** {_sent.get('influence', 'neutral')} "
+                        f"(polarity {_sent.get('polarity', 0):.2f})"
+                    )
+                # Model source
+                _src = _xai.get('model_source', '')
+                if _src:
+                    st.caption(f"Model: {_src}")
+                # Distress keywords (backward compat)
+                kw = _meta.get('distress_keywords', [])
+                if kw:
+                    st.markdown(f"**Distress keywords:** {', '.join(kw)}")
 
     # Inline voice mic near chat input
     feedback_col, mic_col = st.columns([11, 1])
@@ -507,6 +583,8 @@ def render_chat_tab():
         _add_chat_message("assistant", response)
         st.session_state.last_response = response
         st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
+        # Tag the user message with the detected emotion for badge display
+        _tag_last_user_emotion(st.session_state.last_response_meta)
         if st.session_state.last_response_meta.get('calm_mode_suggested'):
             st.session_state.calm_music_enabled = True
         _play_tts(response)
@@ -531,6 +609,8 @@ def render_chat_tab():
         _add_chat_message("assistant", response)
         st.session_state.last_response = response
         st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
+        # Tag the user message with the detected emotion for badge display
+        _tag_last_user_emotion(st.session_state.last_response_meta)
         if st.session_state.last_response_meta.get('calm_mode_suggested'):
             st.session_state.calm_music_enabled = True
         if st.session_state.get('tts_enabled', False):
@@ -538,11 +618,30 @@ def render_chat_tab():
         st.rerun()
 
 
-def _add_chat_message(role, content):
-    """Append a message to both chat_history and legacy messages list."""
+def _add_chat_message(role, content, emotion=None):
+    """Append a message to both chat_history and legacy messages list.
+
+    When *emotion* is provided it is stored alongside the message so the
+    Chat tab can display an emotion badge next to the user's text.
+    """
     entry = {"role": role, "content": content}
+    if emotion:
+        entry["emotion"] = emotion
     st.session_state.chat_history.append(entry)
-    st.session_state.messages.append(entry)
+    st.session_state.messages.append({"role": role, "content": content})
+
+
+def _tag_last_user_emotion(meta: dict):
+    """Retroactively annotate the most recent *user* message with the
+    emotion detected by the pipeline so a badge can be rendered."""
+    emo = meta.get('emotion', '')
+    if not emo:
+        return
+    # Walk backwards to find the last user message
+    for msg in reversed(st.session_state.chat_history):
+        if msg["role"] == "user":
+            msg["emotion"] = emo
+            break
 
 
 # -----------------------------------------------------------------------
@@ -657,6 +756,20 @@ def render_trends_tab():
                       help="1 = perfectly stable, 0 = highly volatile")
         col_s3.metric("Trend", summary['trend'].upper())
 
+    # ---- Weekly emotional distribution pie chart ----
+    history = buddy.user_profile.get_emotional_history(days=7)
+    if history:
+        weekly_counts = _count_emotions_from_history(history)
+        if weekly_counts:
+            st.markdown("#### Weekly Emotion Distribution")
+            emo_labels = sorted(weekly_counts.keys(), key=lambda e: -weekly_counts[e])
+            emo_vals = [weekly_counts[e] for e in emo_labels]
+            emo_cols = [EMO_COLORS.get(e, '#9B8CFF') for e in emo_labels]
+            st.plotly_chart(
+                create_emotion_donut(emo_labels, emo_vals, emo_cols),
+                use_container_width=True,
+            )
+
 
 def render_emotional_journey_tab():
     """Render the Emotional Journey insights panel.
@@ -747,6 +860,20 @@ def render_risk_tab():
             "or go to your nearest emergency room. You are not alone. 💙"
         )
 
+    # Alert history
+    alert_log = buddy.alert_system.get_alert_log()
+    if alert_log:
+        st.markdown("#### 🔔 Alert History")
+        for alert in reversed(alert_log[-10:]):
+            _sev = alert.get('severity', 'INFO')
+            _ts = alert.get('timestamp', '')
+            _ack = "✅" if alert.get('acknowledged') else "⏳"
+            if isinstance(_ts, str):
+                _ts_display = _ts[:19]
+            else:
+                _ts_display = _ts.strftime('%Y-%m-%d %H:%M') if hasattr(_ts, 'strftime') else str(_ts)
+            st.markdown(f"- {_ack} **{_sev}** — {_ts_display}")
+
     # Risk history (last 30 days) — Plotly
     history = buddy.user_profile.get_emotional_history(days=30)
     risk_hist = []
@@ -825,6 +952,35 @@ def render_weekly_report_tab():
         if sentiments:
             st.markdown("#### 7-Day Mood Chart")
             st.plotly_chart(create_weekly_chart(sentiments), use_container_width=True)
+
+            # Forecasted mood trend
+            if len(sentiments) >= 3:
+                predictor = PredictionAgent()
+                forecast = predictor.predict_next_sentiment(sentiments)
+                if forecast:
+                    st.markdown("#### Forecasted Mood Trend")
+                    st.plotly_chart(
+                        create_history_chart(sentiments, forecast),
+                        use_container_width=True,
+                    )
+                    st.info(
+                        f"📡 **Forecast** ({forecast['confidence']} confidence): "
+                        f"{forecast['interpretation']} "
+                        f"(predicted score: **{forecast['predicted_value']:.2f}**)"
+                    )
+
+        # Weekly emotion distribution
+        weekly_emo_counts = _count_emotions_from_history(history)
+        if weekly_emo_counts:
+            st.markdown("#### Emotion Distribution Summary")
+            emo_labels = sorted(weekly_emo_counts.keys(),
+                                key=lambda e: -weekly_emo_counts[e])
+            emo_vals = [weekly_emo_counts[e] for e in emo_labels]
+            emo_cols = [EMO_COLORS.get(e, '#9B8CFF') for e in emo_labels]
+            st.plotly_chart(
+                create_emotion_donut(emo_labels, emo_vals, emo_cols),
+                use_container_width=True,
+            )
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Sessions This Week", len(history))

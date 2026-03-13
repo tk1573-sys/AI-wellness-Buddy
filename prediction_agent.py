@@ -478,16 +478,34 @@ class EWMAPredictor:
 # Model comparison utility
 # ---------------------------------------------------------------------------
 
-def compare_models(history):
+def compare_models(history, research_mode=False):
     """
     Compare OLS and EWMA predictors on a shared sentiment *history* using
     leave-one-out cross-validation.
+
+    Parameters
+    ----------
+    history : list[float]
+        Sentiment values (typically in [-1, 1]).
+    research_mode : bool, optional
+        When *False* (default / production) only the fast OLS and EWMA
+        baselines are evaluated so that the pipeline latency stays low.
+        When *True* the expensive SimpleGRUForecaster neural baseline is
+        also benchmarked — intended for offline research experiments.
+
+        .. warning::
+           Enabling *research_mode* triggers O(n²) GRU training per
+           evaluation metric.  This can add significant latency on long
+           histories and should only be used for offline benchmarking,
+           not in latency-sensitive production paths.
 
     Returns
     -------
     dict with keys:
         ``ols``  — {'mae': float, 'rmse': float}
         ``ewma`` — {'mae': float, 'rmse': float}
+        ``neural`` — {'mae': float, 'rmse': float, 'model': 'simple_gru'}
+                     (only present when *research_mode=True*)
         ``n_test_points`` — int (number of points used for evaluation)
         ``winner`` — 'ols' | 'ewma' | 'tie' (based on lower MAE)
     or ``None`` if fewer than 5 data points.
@@ -530,22 +548,35 @@ def compare_models(history):
     else:
         winner = 'tie'
 
-    return {
+    result = {
         'ols':  {'mae': ols_mae,  'rmse': ols_rmse},
         'ewma': {'mae': ewma_mae, 'rmse': ewma_rmse},
-        'neural': _compare_neural_baseline(history),
         'n_test_points': len(ols_errors),
         'winner': winner,
     }
+
+    # Neural baseline is expensive (O(n²) GRU training) — only run in
+    # research mode so production latency is not affected.
+    if research_mode:
+        result['neural'] = _compare_neural_baseline(history)
+
+    return result
 
 
 def _compare_neural_baseline(history):
     """
     Compare optional GRU-style sequence baseline.
+
+    Uses **separate** ``SimpleGRUForecaster`` instances for MAE and RMSE so
+    that the learned weights from one evaluation do not bias the other,
+    ensuring independent and unbiased metric computation.
     """
-    forecaster = SimpleGRUForecaster()
-    mae = forecaster.compute_mae(history)
-    rmse = forecaster.compute_rmse(history)
+    # Separate instances guarantee evaluation independence: each forecaster
+    # starts with freshly initialised weights for its metric computation.
+    mae_forecaster  = SimpleGRUForecaster()
+    rmse_forecaster = SimpleGRUForecaster()
+    mae  = mae_forecaster.compute_mae(history)
+    rmse = rmse_forecaster.compute_rmse(history)
     if mae is None or rmse is None:
         return None
     return {'mae': mae, 'rmse': rmse, 'model': 'simple_gru'}

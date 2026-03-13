@@ -146,6 +146,28 @@ class TestChartsModule:
         assert fig is not None
         assert fig.data[0].value == 0.72
 
+    def test_emotion_probability_bar_returns_figure(self):
+        from ui.charts import create_emotion_probability_bar
+        probs = {'joy': 0.6, 'sadness': 0.2, 'neutral': 0.15, 'anger': 0.05}
+        fig = create_emotion_probability_bar(probs)
+        assert fig is not None
+        assert len(fig.data) == 1
+        # Bars should be sorted descending — first bar value is highest prob
+        assert fig.data[0].x[0] == 0.6
+
+    def test_emotion_probability_bar_empty_probs(self):
+        from ui.charts import create_emotion_probability_bar
+        fig = create_emotion_probability_bar({})
+        assert fig is not None
+        # Defaults to neutral = 1.0
+        assert fig.data[0].x[0] == 1.0
+
+    def test_emotion_probability_bar_single_emotion(self):
+        from ui.charts import create_emotion_probability_bar
+        fig = create_emotion_probability_bar({'crisis': 0.95})
+        assert fig is not None
+        assert len(fig.data[0].x) == 1
+
 
 # -----------------------------------------------------------------------
 # ui.layout tests

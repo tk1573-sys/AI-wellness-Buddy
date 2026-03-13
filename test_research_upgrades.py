@@ -21,7 +21,7 @@ def test_simple_gru_forecaster_and_model_comparison():
     assert pred is not None
     assert -1.0 <= pred <= 1.0
 
-    comparison = compare_models(history)
+    comparison = compare_models(history, research_mode=True)
     assert comparison is not None
     assert 'neural' in comparison
 

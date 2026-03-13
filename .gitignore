@@ -46,3 +46,8 @@ htmlcov/
 *.log
 *.db
 *.sqlite
+
+# Benchmark output
+evaluation_results.json
+confusion_matrix_*.png
+confusion_matrix_*.html
