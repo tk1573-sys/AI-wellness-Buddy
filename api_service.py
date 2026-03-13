@@ -49,7 +49,7 @@ class ChatResponse(BaseModel):
 # A threading lock ensures safe concurrent access from multiple request threads.
 # ---------------------------------------------------------------------------
 
-_pipelines: dict = {}
+_pipelines: dict[str, WellnessAgentPipeline] = {}
 _pipelines_lock = threading.Lock()
 
 
