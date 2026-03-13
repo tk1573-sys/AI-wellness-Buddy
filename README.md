@@ -290,7 +290,7 @@ AI-wellness-Buddy/
 ### Quick Summary
 - **NLP Libraries**: NLTK (>=3.8.1), TextBlob (>=0.17.1)
 - **Web Framework**: Streamlit (>=1.28.0)
-- **Security**: cryptography (>=41.0.0) for Fernet (AES-128-CBC + HMAC-SHA256) encryption
+- **Security**: cryptography (>=41.0.0) for AES-256 encryption
 - **Voice/TTS**: gTTS (>=2.5.4) for text-to-speech, SpeechRecognition (>=3.14.5) for voice input
 - **Language Detection**: langdetect (>=1.0.9), audio-recorder-streamlit (>=0.0.10)
 - **NLTK Datasets**: Brown Corpus, Punkt Tokenizer Models

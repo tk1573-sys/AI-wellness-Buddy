@@ -1252,7 +1252,110 @@ The app always works without TTS/STT — they gracefully degrade.
 
 ---
 
-## 9. Testing Your Installation
+#### Setting Language Preference
+
+**Via CLI (during profile creation):**
+```
+Choose your preferred response language:
+  1. English (default)
+  2. Tamil (தமிழ்)
+  3. Bilingual (Tamil + English)
+Your choice (1-3): 2
+✓ Language set to Tamil.
+```
+
+**Via CLI (after creation):**
+```
+You: profile
+> 7. Change language preference
+> Select: Bilingual
+✓ Language updated to bilingual.
+```
+
+**Via Web UI:** Select from the **"Preferred language / மொழி"** dropdown in the profile creation form or from the sidebar language menu.
+
+```bash
+python -m pytest test_wellness_buddy.py -v
+```
+
+#### Setting Up Voice Input (STT)
+
+Voice input requires `SpeechRecognition` and an internet connection.
+
+1. Verify SpeechRecognition is installed:
+   ```bash
+   python -c "import speech_recognition as sr; print('SR OK')"
+   ```
+2. In the Web UI (💬 Chat tab), expand **"🎤 Voice Input"**.
+3. Click **"Start Recording"**, speak your message, then click **"Stop"**.
+4. The transcript auto-fills the chat input — review and send.
+
+**Linux microphone setup (if needed):**
+```bash
+sudo apt install portaudio19-dev python3-pyaudio
+pip install pyaudio
+```
+
+Testing Emotion Analyzer...
+✓ Sentiment analysis: polarity calculated correctly
+✓ Multi-emotion classification (7 classes): working
+✓ Confidence scoring (normalized 0-1): accurate
+✓ XAI keyword attribution: working
+✓ Crisis keyword detection: accurate
+✓ Tamil/Tanglish emotion detection: working
+✓ Abuse keyword detection: working
+
+Testing Pattern Tracker...
+✓ Emotional snapshot addition: working
+✓ Consecutive distress tracking: accurate
+✓ Trend calculation: correct
+✓ Moving average: working
+✓ Volatility & stability index: accurate
+✓ 5-level risk scoring (INFO→CRITICAL): correct
+✓ Emotional drift score: working
+✓ 365-day retention: verified
+
+#### Disabling Voice for Offline Use
+
+Testing Prediction Agent...
+✓ OLS forecast: working
+✓ EWMA predictor: working
+✓ Model comparison (OLS vs EWMA): working
+✓ Pre-distress early warning: working
+
+Testing Data Store...
+✓ User data save: successful
+✓ User data load: successful
+✓ Encryption: working (AES-256)
+✓ Decryption: working
+✓ Backup creation: successful
+
+Testing User Profile...
+✓ Profile creation: working
+✓ Personal history fields (7): all saved/loaded correctly
+✓ Trauma history & triggers: working
+✓ Gamification (streak, 8 badges): working
+✓ Password hashing: secure (SHA-256)
+✓ Password verification: accurate
+✓ Session timeout: functioning
+✓ Account lockout: working
+
+Testing Bilingual & Voice...
+✓ Language detection (Tamil/Tanglish/English): working
+✓ Tanglish emotion detection: accurate
+✓ Bilingual response selection: working
+✓ Voice handler TTS (gTTS): available
+✓ Voice handler STT (SpeechRecognition): available
+
+Testing Evaluation Framework...
+✓ Scenario generation (5 scenarios): working
+✓ MAE/RMSE metrics: accurate
+✓ Pearson correlation: working
+✓ Detection metrics: working
+
+═══════════════════════════════════════════════════════════════
+Test Summary: 26/26 tests passed ✓
+═══════════════════════════════════════════════════════════════
 
 ### 9.1 Automated Tests
 
@@ -1793,7 +1896,7 @@ python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
 ├── prediction_agent.py         # OLS emotion & risk forecasting
 ├── conversation_handler.py     # Emotion-routed, style-aware responses
 ├── alert_system.py             # Distress alert management
-├── data_store.py               # Storage module (Fernet-encrypted)
+├── data_store.py               # Storage module (AES-256 encrypted)
 ├── user_profile.py             # Profile, personal history, gamification
 ├── language_handler.py         # Tamil/Tanglish/bilingual support
 ├── voice_handler.py            # TTS (gTTS) + STT (SpeechRecognition)

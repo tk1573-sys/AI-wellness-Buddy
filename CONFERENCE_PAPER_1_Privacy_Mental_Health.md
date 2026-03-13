@@ -185,7 +185,7 @@ While existing work addresses either mental health support OR privacy preservati
 6. **Alert System**: 5-level formula-based distress scoring with guardian notification
 7. **User Profile**: 7-field personal history, gamification (streak + 8 badges), language preference, response style
 8. **Language/Voice**: Tamil/Tanglish language handler, gTTS TTS, SpeechRecognition STT
-9. **Encrypted Storage**: Fernet (AES-128-CBC) encrypted local data with SHA-256 integrity checks
+9. **Encrypted Storage**: AES-256 encrypted local data with SHA-256 integrity checks
 
 ### 3.3 Data Flow
 

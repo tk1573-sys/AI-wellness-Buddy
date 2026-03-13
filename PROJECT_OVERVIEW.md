@@ -299,7 +299,7 @@ For women who can't rely on family:
 | **Guardian Alerts** | Emergency contact notification | External support layer |
 | **Women's Safety** | Abuse detection + resources | Specialised support |
 | **Government Resources** | 15+ official agencies | Trusted help channels |
-| **Encryption** | Fernet (AES-128-CBC) data encryption | Privacy protection |
+| **Encryption** | AES-256 data encryption | Privacy protection |
 | **4-Tab Web UI** | Chat/Trends/Risk/Report | Health analytics dashboard |
 
 ---

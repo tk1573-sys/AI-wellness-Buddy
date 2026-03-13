@@ -25,9 +25,9 @@ maxUploadSize = 50
 gatherUsageStats = false
 
 [theme]
-# Optional: Customize the theme
-primaryColor = "#6eb52f"
-backgroundColor = "#f0f2f6"
-secondaryBackgroundColor = "#e0e2e6"
-textColor = "#262730"
+# Professional soft color palette for research presentation
+primaryColor = "#5B7FE8"
+backgroundColor = "#FAFBFE"
+secondaryBackgroundColor = "#EEF1F8"
+textColor = "#1E293B"
 font = "sans serif"
