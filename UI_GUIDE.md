@@ -2,25 +2,26 @@
 
 ## Overview
 
-The AI Wellness Buddy now includes a **web-based user interface** that provides an easy-to-use, visual way to interact with the emotional wellness support system.
+The AI Wellness Buddy includes a **web-based user interface** with a full analytics dashboard that provides an easy-to-use, visual way to interact with the emotional wellness support system.
 
 ## Two Ways to Use the System
 
-### 1. **Command Line Interface (CLI)** - Original
+### 1. **Command Line Interface (CLI)** — Original
 ```bash
 python wellness_buddy.py
 ```
 - Text-based terminal interface
 - Suitable for users comfortable with command line
-- All features available
+- All features available (including `weekly` report, status, profile)
 
-### 2. **Web UI** - New ✨
+### 2. **Web UI** — 4-Tab Analytics Dashboard ✨
 ```bash
 streamlit run ui_app.py
 ```
 - Visual, browser-based interface
 - Easy point-and-click navigation
-- Same features with better accessibility
+- 4 tabs: Chat, Emotional Trends, Risk Dashboard, Weekly Report
+- Live risk level and streak in the sidebar
 
 ---
 
@@ -48,85 +49,94 @@ This will:
 
 **First Time Users:**
 1. Enter a username (private, for your eyes only)
-2. Optionally answer personalization questions
+2. Fill in optional personalization fields: gender, marital status, **response style**, family background, trauma history, personal triggers
 3. For women: Option to mark family as unsafe
 4. Click "Create Profile"
 
 **Returning Users:**
 1. Click "Load Existing Profile"
-2. Select your username from dropdown
+2. Select your username from the dropdown
 3. Click "Load Profile"
 
 ### Step 4: Start Chatting
 
 - Type your feelings in the chat input box
 - Press Enter or click Send
-- Receive empathetic responses from the AI
-- Your conversation is analyzed in real-time
+- Receive empathetic, emotion-specific responses
+- Each response includes an XAI explanation of which keywords were detected
 
 ---
 
-## Web UI Features
+## 4-Tab Dashboard
 
-### 💬 **Chat Interface**
+### 💬 Tab 1 — Chat
+
 - Clean, modern chat layout
-- Real-time emotional analysis
+- Real-time multi-emotion analysis (joy/sadness/anger/fear/anxiety/crisis)
+- XAI attribution shown under each response: *"(Analysis: Detected 'anxiety' due to keywords: anxious, overwhelmed)"*
 - Message history visible in chat window
 
-### 📞 **Help & Resources Button**
-- View crisis hotlines instantly
-- See your trusted contacts
-- Access women's support resources (if applicable)
+### 📈 Tab 2 — Emotional Trends
 
-### 📊 **Emotional Status Button**
-- Current session summary
-- 7-day emotional trends
-- Pattern analysis
+- **Sentiment over messages** — line chart of session polarity
+- **3-message moving average** — smoothed trend line
+- **Emotion distribution** — bar chart of fine-grained emotions in current session
+- **30-day session history** — long-term mood line chart
+- **OLS next-session forecast** — predicted sentiment with interpretation
+- **Stability metrics** — volatility and stability index (0–1)
 
-### ⚙️ **Manage Profile Button**
-- Add trusted contacts
-- View existing contacts
-- Mark family as unsafe
-- Delete all data
+### ⚠️ Tab 3 — Risk Dashboard
 
-### 🚪 **End Session Button**
-- Save your progress
-- View session summary
-- Close safely
+- **Current risk level** — displayed as 🟢 Low / 🟡 Medium / 🔴 High / 🚨 Critical
+- **Risk score progress bar** — numeric score (0.00–1.00)
+- **Key metrics**: risk score, stability, volatility, consecutive distress count
+- **30-day risk history** — line chart of risk level over time
+- **Risk escalation forecast** — will risk increase next session?
+- **Mood streak** — consecutive positive sessions
+- **Wellness badges** — earned badges displayed here
+
+### 📋 Tab 4 — Weekly Report
+
+- 7-day summary with check-in count, average mood, risk incidents
+- Mood streak count
+- Emotion distribution for the week
+- OLS next-session forecast with confidence level
+- Personalized improvement suggestions
 
 ---
 
-## Web UI Screenshots
+## Sidebar (always visible)
 
-### Main Chat Interface
 ```
-┌─────────────────────────────────────────┐
-│  🌟 AI Wellness Buddy                   │
-├─────────────────────────────────────────┤
-│ Sidebar:                    │ Chat:     │
-│ - User: sarah              │           │
-│ - Session: #3              │ You:      │
-│                            │ I'm...    │
-│ Commands:                  │           │
-│ [📞 Help & Resources]      │ Buddy:    │
-│ [📊 Emotional Status]      │ I hear... │
-│ [⚙️ Manage Profile]        │           │
-│ [🚪 End Session]           │ Input:    │
-│                            │ [Type...] │
-└────────────────────────────────────────┘
+┌─────────────────────────────┐
+│ User: sarah                 │
+│ Session: #14                │
+│ Risk: 🟡 MEDIUM             │
+│ ─────────────────────────── │
+│ Quick Actions               │
+│ [📞 Help & Resources]       │
+│ [📊 Emotional Status]       │
+│ [⚙️ Manage Profile]         │
+│ ─────────────────────────── │
+│ [🚪 End Session]            │
+└─────────────────────────────┘
 ```
+
+- **Risk level** updates automatically after every message
+- **Manage Profile** opens profile management options including personal history, response style, and contact management
 
 ---
 
 ## Advantages of Web UI
 
-✅ **Visual & Intuitive** - No command memorization needed  
-✅ **Accessible** - Works in any modern browser  
-✅ **Clean Layout** - Easy to read conversation history  
-✅ **Button Navigation** - Simple point-and-click for commands  
-✅ **Responsive** - Works on desktop and tablets  
-✅ **Same Features** - All CLI functionality available  
-✅ **Professional Look** - Modern interface design  
+✅ **4-Tab Analytics Dashboard** — full trend, risk, and report views  
+✅ **Live Risk Indicator** — always visible in the sidebar  
+✅ **XAI Transparency** — see why the AI classified each emotion  
+✅ **Visual & Intuitive** — no command memorization needed  
+✅ **Accessible** — works in any modern browser  
+✅ **Responsive** — works on desktop and tablets  
+✅ **Same Features** — all CLI functionality available  
+✅ **Professional Look** — modern health analytics interface  
 
 ---
 

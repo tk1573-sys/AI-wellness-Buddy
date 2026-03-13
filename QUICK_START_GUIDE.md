@@ -58,7 +58,8 @@ python wellness_buddy.py
 **Web UI - User Friendly**
 ```bash
 streamlit run ui_app.py
-# Opens in browser automatically
+# Opens in browser automatically with 4-tab analytics dashboard:
+# 💬 Chat | 📈 Emotional Trends | ⚠️ Risk Dashboard | 📋 Weekly Report
 ```
 
 **Network UI - Access from Phone/Tablet**
@@ -75,7 +76,15 @@ When you first run, you'll be asked:
 1. Username: yourname
 2. Password: ********** (min 8 characters)
 3. Gender (optional): female/male/other/skip
-4. Safe with family? (optional): yes/no/skip
+4. Marital / relationship status (optional)
+5. Living situation (alone/with family/in hostel/other/skip)
+6. Family responsibilities (caretaker/single parent/breadwinner/none/skip)
+7. Occupation (student/employed/unemployed/homemaker/skip)
+8. Response style: short / balanced (default) / detailed
+9. Family background (optional)
+10. Trauma or significant loss (optional)
+11. Sensitive topics / personal triggers (optional, comma-separated)
+12. Safe with family? (optional): yes/no/skip
 ```
 
 **That's it! You're ready to use the system.**
@@ -98,8 +107,9 @@ Wellness Buddy: I can sense you're going through a stressful time...
 | Command | What it does |
 |---------|--------------|
 | `help` | Show crisis resources and your contacts |
-| `status` | View your emotional patterns |
-| `profile` | Manage contacts and settings |
+| `status` | View risk level, stability, emotion distribution |
+| `weekly` / `report` | 7-day wellness summary with AI forecast |
+| `profile` | Manage personal history, contacts, and settings |
 | `quit` | Save and exit |
 
 ### Example Session

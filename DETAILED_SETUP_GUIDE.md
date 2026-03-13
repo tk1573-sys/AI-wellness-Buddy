@@ -2,8 +2,8 @@
 
 ## Comprehensive Installation and Configuration Manual
 
-**Last Updated**: [Date]  
-**Version**: 2.0  
+**Last Updated**: February 2026  
+**Version**: 5.0  
 **For**: Windows, macOS, and Linux
 
 ---
@@ -43,6 +43,7 @@ By the end of this guide, you will have:
 - ✅ Created your first user profile
 - ✅ Tested all major features
 - ✅ Set up guardian/emergency contacts (optional)
+- ✅ Configured language preference and voice I/O (optional)
 - ✅ Configured security settings
 
 ### Time Required
@@ -323,6 +324,10 @@ Same as Option A, Steps 1-4.
    - streamlit (Web UI)
    - cryptography (Encryption)
    - python-dateutil (Date handling)
+   - gTTS (Text-to-Speech, requires internet)
+   - SpeechRecognition (Voice input, requires internet)
+   - langdetect (Language detection)
+   - audio-recorder-streamlit (Browser microphone widget)
 
 2. Wait for installation (2-5 minutes depending on internet speed)
 
@@ -887,7 +892,50 @@ Age range? (18-25/26-35/36-50/51+/skip):
 ✓ Profile preferences saved.
 ```
 
-**Step 4: Safety Settings**
+**Step 4: Personal History (Optional)**
+
+```
+These questions help tailor responses to your life experience.
+You can skip any question by pressing Enter.
+
+Relationship / marital status (single/married/divorced/other/skip):
+> divorced
+
+Living situation (alone/with family/with partner/in hostel/other/skip):
+> Alone
+
+Family responsibilities (caretaker/single parent/breadwinner/none/skip):
+> Single parent
+
+Occupation (student/employed/unemployed/homemaker/skip):
+> Employed (full-time)
+
+Family background (optional):
+> Estranged from parents.
+
+Any trauma or significant loss? (optional):
+> Lost spouse in 2023.
+
+Sensitive topics / triggers (comma-separated, optional):
+> death, hospital
+
+✓ Personal history saved.
+```
+
+**Step 5: Language Preference**
+
+```
+Choose your preferred response language:
+  1. English (default)
+  2. Tamil (தமிழ்) — responses in Tamil script
+  3. Bilingual (Tamil + English) — mixed responses
+
+Your choice (1-3): 1
+
+✓ Language set to English.
+```
+
+**Step 6: Safety Settings**
 
 ```
 For your safety, we can provide specialized resources.
@@ -900,10 +948,10 @@ Do you feel safe with your family/guardians? (yes/no/skip):
 
 **Important:** This affects which resources are shown.
 
-**Step 5: Encryption Setup**
+**Step 7: Encryption Setup**
 
 ```
-Setting up Fernet encryption (AES-128-CBC) for your data...
+Setting up Fernet (AES-128-CBC + HMAC-SHA256) encryption for your data...
 Generating encryption key...
 ✓ Encryption configured!
 
@@ -913,7 +961,7 @@ Your encryption key is stored at:
 Keep your device secure. If you lose this key, data cannot be recovered.
 ```
 
-**Step 6: Complete**
+**Step 8: Complete**
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
@@ -969,9 +1017,10 @@ Would you like to try a breathing exercise right now?
 > 
 
 Commands available:
-  help    - View crisis resources and your contacts
-  status  - Check your emotional patterns
-  profile - Manage settings and contacts
+  help    - View crisis resources, hotlines, and your trusted contacts
+  status  - View risk level, stability index, emotion distribution
+  weekly  - Generate 7-day wellness report with forecast
+  profile - Manage personal history, language, response style, contacts
   quit    - Save and exit session
 ```
 
@@ -990,11 +1039,14 @@ Profile Options:
 1. View profile information
 2. Manage guardian contacts
 3. Manage trusted friends
-4. Change password
-5. Export data
-6. Delete all data
+4. View personal history
+5. Add trauma / trigger
+6. Change response style
+7. Change language preference
+8. Change password
+9. Delete all my data
 
-Your choice (1-6): 2
+Your choice (1-9): 2
 
 Guardian Contact Management:
 1. Add guardian contact
@@ -1123,6 +1175,81 @@ Only use on trusted networks (home Wi-Fi, not public Wi-Fi).
 Your data remains on your computer.
 ```
 
+### 8.5 Language & Voice Setup
+
+#### Setting Language Preference
+
+**Via CLI (during profile creation):**
+```
+Choose your preferred response language:
+  1. English (default)
+  2. Tamil (தமிழ்)
+  3. Bilingual (Tamil + English)
+Your choice (1-3): 2
+✓ Language set to Tamil.
+```
+
+**Via CLI (after creation):**
+```
+You: profile
+> 7. Change language preference
+> Select: Bilingual
+✓ Language updated to bilingual.
+```
+
+**Via Web UI:** Select from the **"Preferred language / மொழி"** dropdown in the profile creation form or from the sidebar language menu.
+
+#### Setting Up Text-to-Speech (TTS)
+
+TTS requires `gTTS` and an internet connection.
+
+1. Verify gTTS is installed:
+   ```bash
+   python -c "from gtts import gTTS; print('gTTS OK')"
+   ```
+2. In the Web UI, toggle **"🔊 Voice Responses"** in the sidebar.
+3. AI responses will now be read aloud in the selected language.
+
+**Tamil TTS example:**
+```python
+from gtts import gTTS
+tts = gTTS(text="வணக்கம்!", lang='ta')
+tts.save("hello_tamil.mp3")
+```
+
+#### Setting Up Voice Input (STT)
+
+Voice input requires `SpeechRecognition` and an internet connection.
+
+1. Verify SpeechRecognition is installed:
+   ```bash
+   python -c "import speech_recognition as sr; print('SR OK')"
+   ```
+2. In the Web UI (💬 Chat tab), expand **"🎤 Voice Input"**.
+3. Click **"Start Recording"**, speak your message, then click **"Stop"**.
+4. The transcript auto-fills the chat input — review and send.
+
+**Linux microphone setup (if needed):**
+```bash
+sudo apt install portaudio19-dev python3-pyaudio
+pip install pyaudio
+```
+
+**macOS microphone permission:**
+- System Preferences → Security & Privacy → Microphone → allow your browser.
+
+**Windows:** Microphone should work out of the box; check Settings → Privacy → Microphone if it doesn't.
+
+#### Disabling Voice for Offline Use
+
+Edit `config.py`:
+```python
+TTS_ENABLED = False   # Responses text-only
+STT_ENABLED = False   # No microphone input
+```
+
+The app always works without TTS/STT — they gracefully degrade.
+
 ---
 
 ## 9. Testing Your Installation
@@ -1132,7 +1259,7 @@ Your data remains on your computer.
 Run the test suite:
 
 ```bash
-python test_wellness_buddy.py
+python -m pytest test_wellness_buddy.py -v
 ```
 
 **Expected output:**
@@ -1143,14 +1270,21 @@ Running AI Wellness Buddy Test Suite
 
 Testing Emotion Analyzer...
 ✓ Sentiment analysis: polarity calculated correctly
-✓ Emotion categorization: working
-✓ Keyword detection: distress keywords found
+✓ Multi-emotion classification (7 classes): working
+✓ Confidence scoring (normalized 0-1): accurate
+✓ XAI keyword attribution: working
+✓ Crisis keyword detection: accurate
+✓ Tamil/Tanglish emotion detection: working
 ✓ Abuse keyword detection: working
 
 Testing Pattern Tracker...
 ✓ Emotional snapshot addition: working
 ✓ Consecutive distress tracking: accurate
 ✓ Trend calculation: correct
+✓ Moving average: working
+✓ Volatility & stability index: accurate
+✓ 5-level risk scoring (INFO→CRITICAL): correct
+✓ Emotional drift score: working
 ✓ 365-day retention: verified
 
 Testing Alert System...
@@ -1159,22 +1293,44 @@ Testing Alert System...
 ✓ Severity detection: accurate
 ✓ Guardian alert formatting: correct
 
+Testing Prediction Agent...
+✓ OLS forecast: working
+✓ EWMA predictor: working
+✓ Model comparison (OLS vs EWMA): working
+✓ Pre-distress early warning: working
+
 Testing Data Store...
 ✓ User data save: successful
 ✓ User data load: successful
-✓ Encryption: working (Fernet/AES-128-CBC)
+✓ Encryption: working (Fernet (AES-128-CBC))
 ✓ Decryption: working
 ✓ Backup creation: successful
 
 Testing User Profile...
 ✓ Profile creation: working
+✓ Personal history fields (7): all saved/loaded correctly
+✓ Trauma history & triggers: working
+✓ Gamification (streak, 8 badges): working
 ✓ Password hashing: secure (SHA-256)
 ✓ Password verification: accurate
 ✓ Session timeout: functioning
 ✓ Account lockout: working
 
+Testing Bilingual & Voice...
+✓ Language detection (Tamil/Tanglish/English): working
+✓ Tanglish emotion detection: accurate
+✓ Bilingual response selection: working
+✓ Voice handler TTS (gTTS): available
+✓ Voice handler STT (SpeechRecognition): available
+
+Testing Evaluation Framework...
+✓ Scenario generation (5 scenarios): working
+✓ MAE/RMSE metrics: accurate
+✓ Pearson correlation: working
+✓ Detection metrics: working
+
 ═══════════════════════════════════════════════════════════════
-Test Summary: 23/23 tests passed ✓
+Test Summary: 26/26 tests passed ✓
 ═══════════════════════════════════════════════════════════════
 
 🎉 All tests passed! Your installation is working correctly.
@@ -1253,6 +1409,28 @@ bash start_ui_network.sh
 1. Note network URL
 2. Access from phone/tablet
 3. Verify functionality
+
+**Test 7: Bilingual Emotion Detection**
+
+```bash
+python wellness_buddy.py
+```
+
+Try Tamil/Tanglish input:
+1. Type `romba kastam ah iruku` — should detect `sadness`
+2. Type `tension ah iruku` — should detect `anxiety`
+3. Set language to `bilingual` via `profile > 7`, then type a message and verify the response includes Tamil text
+
+**Test 8: TTS & Voice Input**
+
+```bash
+streamlit run ui_app.py
+```
+
+1. Toggle **"🔊 Voice Responses"** in the sidebar — it should switch on without error
+2. Send a chat message and check that a 🔊 button appears next to the response
+3. Click 🔊 to play the response audio
+4. In the 💬 Chat tab, expand **"🎤 Voice Input"** — record a short message and verify transcript appears
 
 ---
 
@@ -1483,6 +1661,60 @@ System is sluggish, responses take long.
 4. **Use CLI instead of Web UI:**
    CLI uses less resources
 
+#### Issue 11: TTS Not Working / No Audio
+
+**Error:**
+No audio plays when TTS is enabled.
+
+**Solution:**
+
+1. Verify gTTS is installed:
+   ```bash
+   python -c "from gtts import gTTS; print('OK')"
+   ```
+   If not:
+   ```bash
+   pip install gTTS>=2.5.4
+   ```
+
+2. Check internet connection (gTTS requires network access to Google TTS).
+
+3. Disable TTS for offline use in `config.py`:
+   ```python
+   TTS_ENABLED = False
+   ```
+
+#### Issue 12: Voice Input Not Recording
+
+**Error:**
+Microphone button does nothing or transcription is empty.
+
+**Solution:**
+
+1. Verify SpeechRecognition is installed:
+   ```bash
+   python -c "import speech_recognition; print('OK')"
+   ```
+   If not:
+   ```bash
+   pip install SpeechRecognition>=3.14.5 audio-recorder-streamlit>=0.0.10
+   ```
+
+2. **Linux:** Install PortAudio:
+   ```bash
+   sudo apt install portaudio19-dev python3-pyaudio
+   pip install pyaudio
+   ```
+
+3. **macOS:** Allow microphone in System Preferences → Privacy → Microphone.
+
+4. **Browser:** Ensure the browser has microphone permission (look for the mic icon in the URL bar).
+
+5. Disable STT for offline use:
+   ```python
+   STT_ENABLED = False
+   ```
+
 ---
 
 ## 11. Uninstallation
@@ -1594,10 +1826,24 @@ python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
 
 **While using the system:**
 
-- `help` - Show crisis resources
-- `status` - View emotional patterns
-- `profile` - Manage settings
-- `quit` - Save and exit
+- `help` — Show crisis resources, hotlines, and your trusted contacts
+- `status` — View risk level, stability index, emotion distribution, 7-day history
+- `weekly` / `report` — Generate 7-day wellness report with OLS forecast and suggestions
+- `profile` — Manage personal history, response style, language, contacts, security
+- `quit` — Save and exit (streak and badges updated)
+
+**Profile menu options:**
+```
+1. View profile information
+2. Manage guardian contacts
+3. Manage trusted friends
+4. View personal history
+5. Add trauma / trigger
+6. Change response style
+7. Change language preference
+8. Change password
+9. Delete all my data
+```
 
 ---
 
@@ -1606,15 +1852,20 @@ python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
 **Application Files:**
 ```
 ~/Documents/AI-wellness-Buddy/  (or installation directory)
-├── wellness_buddy.py           # Main CLI application
-├── ui_app.py                   # Web UI application
+├── wellness_buddy.py           # Main CLI application / orchestrator
+├── ui_app.py                   # Web UI application (4-tab Streamlit)
 ├── config.py                   # Configuration
-├── emotion_analyzer.py         # NLP module
-├── pattern_tracker.py          # Pattern analysis
-├── alert_system.py             # Alert module
-├── data_store.py               # Storage module
-├── user_profile.py             # Profile module
-└── requirements.txt            # Dependencies
+├── emotion_analyzer.py         # Multi-emotion NLP + crisis + XAI
+├── pattern_tracker.py          # Pattern analysis, risk scoring, volatility
+├── prediction_agent.py         # OLS emotion & risk forecasting
+├── conversation_handler.py     # Emotion-routed, style-aware responses
+├── alert_system.py             # Distress alert management
+├── data_store.py               # Storage module (Fernet-encrypted)
+├── user_profile.py             # Profile, personal history, gamification
+├── language_handler.py         # Tamil/Tanglish/bilingual support
+├── voice_handler.py            # TTS (gTTS) + STT (SpeechRecognition)
+├── evaluation_framework.py     # Scenario-based evaluation, MAE/RMSE/correlation/t-test
+└── requirements.txt            # Python dependencies
 ```
 
 **User Data:**
@@ -1660,19 +1911,20 @@ python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
 You should now have AI Wellness Buddy fully installed and configured. Key achievements:
 
 ✅ System installed and verified  
-✅ Profile created with security  
+✅ Profile created with personal history and language preference  
 ✅ Guardian contacts configured (optional)  
+✅ Language & voice (TTS/STT) set up (optional)  
 ✅ Network access set up (optional)  
-✅ All tests passing  
+✅ All 26 tests passing  
 ✅ First conversation completed  
 
 ### Next Steps
 
 1. **Use regularly:** Daily or every other day for best results
-2. **Review patterns:** Check `status` weekly
+2. **Review patterns:** Check `status` weekly; type `weekly` for full 7-day report
 3. **Update guardians:** Keep contacts current
 4. **Backup data:** Monthly export recommended
-5. **Explore features:** Try all interfaces (CLI, Web, Network)
+5. **Explore features:** Try all interfaces (CLI, Web, Network) and voice I/O
 
 ### Remember
 
