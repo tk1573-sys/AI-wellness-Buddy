@@ -26,6 +26,7 @@ from language_handler import (
     LanguageHandler,
 )
 from models.emotion_transformer import EmotionTransformer
+from explainability import generate_explanation
 
 
 class MLEmotionAdapter:
@@ -636,6 +637,20 @@ class EmotionAnalyzer:
         explanation = self.explain_emotion(text, primary_emotion)
         contextual_crisis = self.crisis_adapter.classify(text) or {}
 
+        # Structured XAI explanation (explainability.py)
+        xai_explanation = generate_explanation(
+            text,
+            {
+                'primary_emotion': primary_emotion,
+                'emotion_probabilities': emotion_probabilities,
+                'polarity': polarity,
+                'subjectivity': sentiment['subjectivity'],
+            },
+            emotion_keywords=self.emotion_keywords,
+            crisis_keywords=self.crisis_keywords,
+            transformer_available=self._emotion_transformer.available,
+        )
+
         has_abuse_indicators = len(abuse_keywords) > 0
         is_crisis = len(crisis_keywords_found) > 0
 
@@ -678,6 +693,7 @@ class EmotionAnalyzer:
             'crisis_detected': is_crisis,
             'severity_score': severity_score,
             'keyword_explanation': explanation,
+            'xai_explanation': xai_explanation,
         }
 
 
