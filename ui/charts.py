@@ -116,6 +116,38 @@ def create_emotion_donut(emotions: list, counts: list,
     return fig
 
 
+def create_emotion_probability_bar(probabilities: dict) -> go.Figure:
+    """Horizontal bar chart for emotion probability distribution.
+
+    *probabilities* maps emotion labels to float values in [0, 1].
+    Bars are sorted descending so the most likely emotion appears first.
+    """
+    if not probabilities:
+        probabilities = {'neutral': 1.0}
+    sorted_items = sorted(probabilities.items(), key=lambda kv: kv[1], reverse=True)
+    labels = [e.capitalize() for e, _ in sorted_items]
+    values = [v for _, v in sorted_items]
+    colors = [EMO_COLORS.get(e, '#9B8CFF') for e, _ in sorted_items]
+    fig = go.Figure(go.Bar(
+        y=labels,
+        x=values,
+        orientation='h',
+        marker=dict(color=colors, line=dict(color='#ffffff', width=1)),
+        text=[f'{v:.0%}' for v in values],
+        textposition='outside',
+        textfont=dict(size=11),
+        hovertemplate='%{y}: %{x:.2%}<extra></extra>',
+    ))
+    fig.update_layout(**_base_layout(
+        height=max(160, 28 * len(labels)),
+        xaxis=dict(range=[0, 1.12], showgrid=False, zeroline=False,
+                   showticklabels=False),
+        yaxis=dict(autorange='reversed', showgrid=False),
+        margin=dict(l=80, r=40, t=10, b=10),
+    ))
+    return fig
+
+
 def create_risk_gauge(risk_score: float, risk_level: str = 'low') -> go.Figure:
     """Semi-circular animated risk dial."""
     bar_color = _GAUGE_COLORS.get(risk_level, '#5B8CFF')

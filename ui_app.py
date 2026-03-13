@@ -24,6 +24,7 @@ from ui.charts import (
     create_history_chart, create_weekly_chart, create_sparkline,
     create_moving_average_chart, create_risk_history_chart, create_emotion_heatmap,
     create_emotion_journey_line, create_stress_intensity_gauge,
+    create_emotion_probability_bar,
     EMO_COLORS, _HEATMAP_EMOTIONS,
 )
 from ui.layout import (
@@ -483,6 +484,33 @@ def render_chat_tab():
                                      help="Listen to this response"):
                             _play_tts(message["content"])
 
+    # ---- Emotion Result Panel: show analytics for the latest response ----
+    _meta = st.session_state.get('last_response_meta') or {}
+    _probs = _meta.get('emotion_probabilities', {})
+    _expl = _meta.get('explanation', '')
+    _det_emotion = _meta.get('emotion', '')
+    if _probs and _det_emotion:
+        with st.expander(
+            f"🔬 Emotion Analysis — **{_det_emotion.capitalize()}**"
+            f"  (confidence {_probs.get(_det_emotion, 0):.0%})",
+            expanded=False,
+        ):
+            chart_col, info_col = st.columns([3, 2])
+            with chart_col:
+                st.plotly_chart(
+                    create_emotion_probability_bar(_probs),
+                    use_container_width=True,
+                )
+            with info_col:
+                st.markdown(f"**Detected emotion:** {_det_emotion.capitalize()}")
+                top_prob = _probs.get(_det_emotion, 0)
+                st.markdown(f"**Confidence:** {top_prob:.1%}")
+                if _expl:
+                    st.markdown(f"**Explanation:** {_expl}")
+                kw = _meta.get('distress_keywords', [])
+                if kw:
+                    st.markdown(f"**Keywords:** {', '.join(kw)}")
+
     # Inline voice mic near chat input
     feedback_col, mic_col = st.columns([11, 1])
     with mic_col:
@@ -657,6 +685,28 @@ def render_trends_tab():
                       help="1 = perfectly stable, 0 = highly volatile")
         col_s3.metric("Trend", summary['trend'].upper())
 
+    # ---- Weekly emotional distribution pie chart ----
+    history = buddy.user_profile.get_emotional_history(days=7)
+    if history:
+        weekly_counts: dict[str, int] = {}
+        for snap in history:
+            ed = snap.get('emotion_data', {}) or {}
+            emo = ed.get('primary_emotion') or ed.get('emotion', 'neutral')
+            if emo in ('positive',):
+                emo = 'joy'
+            elif emo in ('negative', 'distress'):
+                emo = 'sadness'
+            weekly_counts[emo] = weekly_counts.get(emo, 0) + 1
+        if weekly_counts:
+            st.markdown("#### Weekly Emotion Distribution")
+            emo_labels = sorted(weekly_counts.keys(), key=lambda e: -weekly_counts[e])
+            emo_vals = [weekly_counts[e] for e in emo_labels]
+            emo_cols = [EMO_COLORS.get(e, '#9B8CFF') for e in emo_labels]
+            st.plotly_chart(
+                create_emotion_donut(emo_labels, emo_vals, emo_cols),
+                use_container_width=True,
+            )
+
 
 def render_emotional_journey_tab():
     """Render the Emotional Journey insights panel.
@@ -825,6 +875,43 @@ def render_weekly_report_tab():
         if sentiments:
             st.markdown("#### 7-Day Mood Chart")
             st.plotly_chart(create_weekly_chart(sentiments), use_container_width=True)
+
+            # Forecasted mood trend
+            if len(sentiments) >= 3:
+                predictor = PredictionAgent()
+                forecast = predictor.predict_next_sentiment(sentiments)
+                if forecast:
+                    st.markdown("#### Forecasted Mood Trend")
+                    st.plotly_chart(
+                        create_history_chart(sentiments, forecast),
+                        use_container_width=True,
+                    )
+                    st.info(
+                        f"📡 **Forecast** ({forecast['confidence']} confidence): "
+                        f"{forecast['interpretation']} "
+                        f"(predicted score: **{forecast['predicted_value']:.2f}**)"
+                    )
+
+        # Weekly emotion distribution
+        weekly_emo_counts: dict[str, int] = {}
+        for snap in history:
+            ed = snap.get('emotion_data', {}) or {}
+            emo = ed.get('primary_emotion') or ed.get('emotion', 'neutral')
+            if emo in ('positive',):
+                emo = 'joy'
+            elif emo in ('negative', 'distress'):
+                emo = 'sadness'
+            weekly_emo_counts[emo] = weekly_emo_counts.get(emo, 0) + 1
+        if weekly_emo_counts:
+            st.markdown("#### Emotion Distribution Summary")
+            emo_labels = sorted(weekly_emo_counts.keys(),
+                                key=lambda e: -weekly_emo_counts[e])
+            emo_vals = [weekly_emo_counts[e] for e in emo_labels]
+            emo_cols = [EMO_COLORS.get(e, '#9B8CFF') for e in emo_labels]
+            st.plotly_chart(
+                create_emotion_donut(emo_labels, emo_vals, emo_cols),
+                use_container_width=True,
+            )
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Sessions This Week", len(history))
