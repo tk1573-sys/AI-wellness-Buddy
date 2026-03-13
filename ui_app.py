@@ -101,6 +101,26 @@ _UI_THEMES = ["calm", "modern", "clinical"]
 # Helpers
 # -----------------------------------------------------------------------
 
+def _coarse_to_fine_emotion(label: str) -> str:
+    """Map coarse/legacy emotion labels to fine-grained display labels."""
+    if label in ('positive',):
+        return 'joy'
+    if label in ('negative', 'distress'):
+        return 'sadness'
+    return label
+
+
+def _count_emotions_from_history(history: list) -> dict[str, int]:
+    """Aggregate emotion counts from user emotional history snapshots."""
+    counts: dict[str, int] = {}
+    for snap in history:
+        ed = snap.get('emotion_data', {}) or {}
+        emo = ed.get('primary_emotion') or ed.get('emotion', 'neutral')
+        emo = _coarse_to_fine_emotion(emo)
+        counts[emo] = counts.get(emo, 0) + 1
+    return counts
+
+
 def init_buddy():
     """Initialize wellness buddy instance"""
     if st.session_state.buddy is None:
@@ -688,15 +708,7 @@ def render_trends_tab():
     # ---- Weekly emotional distribution pie chart ----
     history = buddy.user_profile.get_emotional_history(days=7)
     if history:
-        weekly_counts: dict[str, int] = {}
-        for snap in history:
-            ed = snap.get('emotion_data', {}) or {}
-            emo = ed.get('primary_emotion') or ed.get('emotion', 'neutral')
-            if emo in ('positive',):
-                emo = 'joy'
-            elif emo in ('negative', 'distress'):
-                emo = 'sadness'
-            weekly_counts[emo] = weekly_counts.get(emo, 0) + 1
+        weekly_counts = _count_emotions_from_history(history)
         if weekly_counts:
             st.markdown("#### Weekly Emotion Distribution")
             emo_labels = sorted(weekly_counts.keys(), key=lambda e: -weekly_counts[e])
@@ -893,15 +905,7 @@ def render_weekly_report_tab():
                     )
 
         # Weekly emotion distribution
-        weekly_emo_counts: dict[str, int] = {}
-        for snap in history:
-            ed = snap.get('emotion_data', {}) or {}
-            emo = ed.get('primary_emotion') or ed.get('emotion', 'neutral')
-            if emo in ('positive',):
-                emo = 'joy'
-            elif emo in ('negative', 'distress'):
-                emo = 'sadness'
-            weekly_emo_counts[emo] = weekly_emo_counts.get(emo, 0) + 1
+        weekly_emo_counts = _count_emotions_from_history(history)
         if weekly_emo_counts:
             st.markdown("#### Emotion Distribution Summary")
             emo_labels = sorted(weekly_emo_counts.keys(),

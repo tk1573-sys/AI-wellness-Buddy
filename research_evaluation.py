@@ -297,7 +297,11 @@ def evaluate_emotion_model(dataset_path, classifier_fn=None, dataset_type=None,
     if classifier_fn is None:
         from emotion_analyzer import EmotionAnalyzer
         _analyzer = EmotionAnalyzer()
-        classifier_fn = lambda text: _analyzer.classify_emotion(text)['primary_emotion']
+
+        def _default_classifier(text):
+            return _analyzer.classify_emotion(text)['primary_emotion']
+
+        classifier_fn = _default_classifier
 
     samples = load_emotion_dataset(dataset_path, dataset_type=dataset_type)
     return evaluate_classifier(samples, classifier_fn, labels=labels)
