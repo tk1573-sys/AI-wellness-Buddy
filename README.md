@@ -161,7 +161,7 @@ The system remembers you! When you return:
 
 ### Enhanced Security Features
 - **Password Protection**: Set a password to protect your profile from unauthorized access
-- **AES-256 Encryption**: All data encrypted at rest with industry-standard encryption
+- **Fernet (AES-128-CBC + HMAC-SHA256) Encryption**: All data encrypted at rest with industry-standard encryption
 - **Session Timeout**: Automatic logout after 30 minutes of inactivity
 - **Account Lockout**: Protection against brute force password attempts
 - **Secure Storage**: Encryption keys and data files with restricted permissions (owner-only)
@@ -170,7 +170,7 @@ The system remembers you! When you return:
 - **Local Storage Only**: All data is stored privately on your device in `~/.wellness_buddy/`
 - **No External Sharing**: Your conversations and profile are never shared externally
 - **Full User Control**: Delete your data anytime via the profile menu
-- **Encrypted Files**: Data files use JSON format with optional AES-256 encryption
+- **Encrypted Files**: Data files use JSON format with optional Fernet (AES-128-CBC + HMAC-SHA256) encryption
 - **Safe Support**: For women in toxic situations, family contacts are avoided; trusted friends prioritized
 - **Automatic Backups**: System creates timestamped backups before critical operations
 - This is a support tool, not a replacement for professional mental health care

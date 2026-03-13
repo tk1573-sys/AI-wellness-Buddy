@@ -180,7 +180,7 @@ For women who can't rely on family:
 **What it provides:**
 
 **Data Security:**
-- AES-256 encryption at rest
+- Fernet (AES-128-CBC + HMAC-SHA256) encryption at rest
 - SHA-256 password hashing
 - Unique salt per user
 - Owner-only file permissions (600)
@@ -411,7 +411,7 @@ For women who can't rely on family:
   - Network accessibility
 
 **Security:**
-- cryptography 41.0.0+ (AES-256 encryption)
+- cryptography 41.0.0+ (Fernet (AES-128-CBC + HMAC-SHA256) encryption)
   - Fernet symmetric encryption
   - Secure key generation
 
@@ -423,7 +423,7 @@ For women who can't rely on family:
 ### Data Storage
 
 **Format:** JSON (human-readable, portable)
-**Encryption:** AES-256 in CBC mode
+**Encryption:** Fernet (AES-128-CBC) in CBC mode
 **Location:** Local filesystem (`~/.wellness_buddy/`)
 **Backup:** Automatic timestamped backups
 

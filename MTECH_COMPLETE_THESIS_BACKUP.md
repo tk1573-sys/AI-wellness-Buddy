@@ -84,11 +84,11 @@ Finally, I am forever indebted to my family and friends for their unwavering sup
 
 Mental health monitoring systems face a fundamental challenge: providing effective support while protecting user privacy. Traditional cloud-based solutions expose sensitive emotional data to third parties, deterring privacy-conscious individuals from seeking help. This thesis presents **AI Wellness Buddy**, a comprehensive privacy-first mental health monitoring system that performs all data processing locally while providing continuous emotional support, long-term pattern tracking, and crisis intervention capabilities.
 
-The system employs natural language processing (NLP) using TextBlob and NLTK for sentiment analysis, maintains 365-day emotional history with AES-256 encryption, and includes a novel guardian-in-the-loop alert system for crisis situations. Unlike existing solutions that rely on cloud-based APIs, our architecture ensures complete data sovereignty with zero external data transmission for analysis.
+The system employs natural language processing (NLP) using TextBlob and NLTK for sentiment analysis, maintains 365-day emotional history with Fernet (AES-128-CBC + HMAC-SHA256) encryption, and includes a novel guardian-in-the-loop alert system for crisis situations. Unlike existing solutions that rely on cloud-based APIs, our architecture ensures complete data sovereignty with zero external data transmission for analysis.
 
 Key innovations include: (1) Local NLP pipeline achieving comparable accuracy to cloud-based alternatives, (2) Extended 365-day tracking enabling seasonal pattern detection and long-term progress monitoring, (3) Privacy-respecting guardian notification system with multi-threshold severity detection and user consent mechanisms, (4) Specialized support features for women in vulnerable situations, including abuse detection and government resource integration.
 
-The system was implemented using Python with cross-platform support (CLI, Web UI, and Network UI). Security mechanisms include AES-256 encryption, SHA-256 password hashing, session timeout, account lockout, and file permission controls. Evaluation with [N] participants over [X] weeks demonstrated [Y]% improvement in privacy satisfaction compared to cloud baselines, while maintaining [Z]% accuracy in emotion detection and achieving [W]% sensitivity for crisis detection.
+The system was implemented using Python with cross-platform support (CLI, Web UI, and Network UI). Security mechanisms include Fernet (AES-128-CBC + HMAC-SHA256) encryption, SHA-256 password hashing, session timeout, account lockout, and file permission controls. Evaluation with [N] participants over [X] weeks demonstrated [Y]% improvement in privacy satisfaction compared to cloud baselines, while maintaining [Z]% accuracy in emotion detection and achieving [W]% sensitivity for crisis detection.
 
 This research demonstrates that effective mental health monitoring can be achieved without compromising user privacy, paving the way for wider adoption of digital mental health tools among privacy-conscious populations. The work contributes to both mental health technology and privacy-preserving system design, with implications for healthcare providers, researchers, and policy makers.
 
@@ -561,7 +561,7 @@ The primary objectives of this research are:
 ### O1: Design a Privacy-First Architecture
 Develop a comprehensive mental health monitoring system architecture that:
 - Performs all data processing locally (zero cloud dependency for analysis)
-- Implements military-grade encryption (AES-256) for data at rest
+- Implements Fernet encryption (AES-128-CBC + HMAC-SHA256) for data at rest
 - Provides complete data sovereignty (users own and control their data)
 - Enables secure multi-device access without cloud storage
 
@@ -652,7 +652,7 @@ This research encompasses:
 - Privacy-first architecture design
 - Local NLP implementation (sentiment analysis, emotion detection, crisis keywords)
 - Guardian notification system with multi-threshold severity detection
-- AES-256 encryption and security mechanisms
+- Fernet (AES-128-CBC) encryption and security mechanisms
 - Cross-platform interfaces (CLI, Web, Network)
 - 365-day longitudinal tracking
 - Women-specific support features

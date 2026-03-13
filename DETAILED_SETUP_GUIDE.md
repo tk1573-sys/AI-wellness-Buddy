@@ -951,7 +951,7 @@ Do you feel safe with your family/guardians? (yes/no/skip):
 **Step 7: Encryption Setup**
 
 ```
-Setting up AES-256 encryption for your data...
+Setting up Fernet (AES-128-CBC + HMAC-SHA256) encryption for your data...
 Generating encryption key...
 ✓ Encryption configured!
 
@@ -1252,21 +1252,49 @@ The app always works without TTS/STT — they gracefully degrade.
 
 ---
 
-## 9. Testing Your Installation
+#### Setting Language Preference
 
-### 9.1 Automated Tests
+**Via CLI (during profile creation):**
+```
+Choose your preferred response language:
+  1. English (default)
+  2. Tamil (தமிழ்)
+  3. Bilingual (Tamil + English)
+Your choice (1-3): 2
+✓ Language set to Tamil.
+```
 
-Run the test suite:
+**Via CLI (after creation):**
+```
+You: profile
+> 7. Change language preference
+> Select: Bilingual
+✓ Language updated to bilingual.
+```
+
+**Via Web UI:** Select from the **"Preferred language / மொழி"** dropdown in the profile creation form or from the sidebar language menu.
 
 ```bash
 python -m pytest test_wellness_buddy.py -v
 ```
 
-**Expected output:**
+#### Setting Up Voice Input (STT)
 
+Voice input requires `SpeechRecognition` and an internet connection.
+
+1. Verify SpeechRecognition is installed:
+   ```bash
+   python -c "import speech_recognition as sr; print('SR OK')"
+   ```
+2. In the Web UI (💬 Chat tab), expand **"🎤 Voice Input"**.
+3. Click **"Start Recording"**, speak your message, then click **"Stop"**.
+4. The transcript auto-fills the chat input — review and send.
+
+**Linux microphone setup (if needed):**
+```bash
+sudo apt install portaudio19-dev python3-pyaudio
+pip install pyaudio
 ```
-Running AI Wellness Buddy Test Suite
-═══════════════════════════════════════════════════════════════
 
 Testing Emotion Analyzer...
 ✓ Sentiment analysis: polarity calculated correctly
@@ -1287,11 +1315,7 @@ Testing Pattern Tracker...
 ✓ Emotional drift score: working
 ✓ 365-day retention: verified
 
-Testing Alert System...
-✓ Distress alert triggering: working
-✓ Alert message formatting: correct
-✓ Severity detection: accurate
-✓ Guardian alert formatting: correct
+#### Disabling Voice for Offline Use
 
 Testing Prediction Agent...
 ✓ OLS forecast: working
@@ -1333,11 +1357,23 @@ Testing Evaluation Framework...
 Test Summary: 26/26 tests passed ✓
 ═══════════════════════════════════════════════════════════════
 
-🎉 All tests passed! Your installation is working correctly.
+### 9.1 Automated Tests
+
+Run the full test suite:
+
+```bash
+python -m pytest test_wellness_buddy.py test_full_coverage.py test_extended_features.py \
+    test_auth_manager.py test_conversation_memory.py test_ui_modules.py \
+    test_research_upgrades.py test_emotion_transformer.py test_api_service.py \
+    test_prediction_agent.py test_research_evaluation.py test_explainability.py \
+    test_benchmark_emotion_models.py test_ui_launch.py test_network_ui.py tests/ -q
 ```
 
-**If any tests fail:**
-See Section 10 (Troubleshooting)
+**Expected output:**
+
+```
+319 passed in ~8s
+```
 
 ### 9.2 Manual Feature Testing
 

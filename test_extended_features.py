@@ -320,7 +320,7 @@ def main():
         print("\n✨ Summary of new features:")
         print("   • Extended tracking: 365 days (was 90 days)")
         print("   • Password protection with SHA-256 hashing")
-        print("   • AES-256 data encryption")
+        print("   • Fernet (AES-128-CBC + HMAC-SHA256) data encryption")
         print("   • Session timeout and account lockout")
         print("   • Data integrity verification")
         print("   • Automatic backups")

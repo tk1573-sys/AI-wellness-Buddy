@@ -22,7 +22,7 @@ The AI Wellness Buddy includes multiple layers of security to protect your sensi
 
 ### ✅ Security Features
 - **Password Protection**: Optional password/PIN for profile access
-- **Data Encryption**: AES-256 encryption for data at rest
+- **Data Encryption**: Fernet (AES-128-CBC + HMAC-SHA256) encryption for data at rest
 - **Session Timeout**: Automatic logout after inactivity
 - **Account Lockout**: Protection against brute force attacks
 - **Data Integrity**: SHA-256 hashing for data verification
@@ -80,12 +80,12 @@ ENABLE_PROFILE_PASSWORD = False
 
 ### Encryption at Rest
 
-All user data can be encrypted when stored on disk using industry-standard AES-256 encryption.
+All user data can be encrypted when stored on disk using Fernet (AES-128-CBC + HMAC-SHA256) encryption.
 
 **How It Works:**
 
 1. **Key Generation**: A unique encryption key is generated for your installation
-2. **Fernet Encryption**: Uses symmetric encryption (AES-256 in CBC mode)
+2. **Fernet Encryption**: Uses symmetric encryption (AES-128 in CBC mode)
 3. **Encrypted Storage**: All profile data is encrypted before writing to disk
 4. **Secure Key Storage**: Encryption key is stored in `.wellness_buddy/.encryption_key` with restricted permissions
 
