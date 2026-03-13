@@ -493,6 +493,12 @@ def compare_models(history, research_mode=False):
         When *True* the expensive SimpleGRUForecaster neural baseline is
         also benchmarked — intended for offline research experiments.
 
+        .. warning::
+           Enabling *research_mode* triggers O(n²) GRU training per
+           evaluation metric.  This can add significant latency on long
+           histories and should only be used for offline benchmarking,
+           not in latency-sensitive production paths.
+
     Returns
     -------
     dict with keys:
