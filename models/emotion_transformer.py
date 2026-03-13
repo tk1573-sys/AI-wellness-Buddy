@@ -222,3 +222,17 @@ class EmotionTransformer:
         """Clear the single-message inference cache."""
         self._cache_key = None
         self._cache_value = None
+
+    def classify_keywords_only(self, text: str) -> dict[str, float]:
+        """Return keyword-based probability distribution (no transformer).
+
+        This is the public API for obtaining keyword-only predictions,
+        useful for benchmarking the rule-based baseline independently.
+
+        Returns
+        -------
+        dict[str, float]
+            Keys are emotion labels from :attr:`EMOTIONS`.
+            Values are probabilities that sum to 1.0.
+        """
+        return self._classify_keywords(text)

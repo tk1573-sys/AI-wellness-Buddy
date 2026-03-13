@@ -76,9 +76,9 @@ def _make_keyword_classifier():
     from models.emotion_transformer import EmotionTransformer
 
     _et = EmotionTransformer()
-    # Force keyword-only mode regardless of transformer availability
+    # Use the public keyword-only API
     def _classify(text: str) -> str:
-        probs = _et._classify_keywords(text)
+        probs = _et.classify_keywords_only(text)
         if not probs:
             return "neutral"
         return max(probs, key=probs.get)
