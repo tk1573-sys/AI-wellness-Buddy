@@ -796,6 +796,23 @@ class ConversationHandler:
             if primary_emotion in ('sadness', 'fear', 'anxiety', 'anger', 'joy'):
                 response = f"{user_name}, " + response[0].lower() + response[1:]
 
+        # ---- Confidence-based empathy amplification ----
+        # When the dominant negative emotion probability is very high (>0.6),
+        # add stronger supportive language to acknowledge intensity.
+        emotion_confidence = float(emotion_data.get('emotion_confidence', 0.0))
+        concern_level = emotion_data.get('concern_level', 'low')
+        if lang_pref != 'tamil' and primary_emotion in ('sadness', 'fear', 'anxiety'):
+            if emotion_confidence > 0.6 or concern_level in ('high', 'critical'):
+                _amplified_pool = [
+                    "I can sense this is weighing on you deeply right now. "
+                    "Please be gentle with yourself — what you're feeling matters. 💙",
+                    "The intensity of what you're going through is real and valid. "
+                    "You don't have to face this alone — I'm right here with you. 💙",
+                    "I hear you, and I want you to know that your courage in sharing this "
+                    "means a great deal. You deserve support and kindness right now. 💙",
+                ]
+                response += "\n\n" + self._choose_unique(_amplified_pool)
+
         # ---- Intensity adjustment based on sentiment score ----
         if lang_pref != 'tamil' and primary_emotion in ('sadness', 'fear', 'anxiety'):
             if sentiment_score < -0.6:
