@@ -328,7 +328,7 @@ This approach is standard in AI mental health research where: (a) ethical constr
 
 **Research Reproducibility**: `research_evaluation.py` provides dataset loaders for GoEmotions, EmotionLines, and DailyDialog-style corpora (`.jsonl`, `.json`, `.csv`) with automatic label normalisation, enabling researchers to reproduce classification metrics against established benchmarks. `evaluation_framework.py` encapsulates all five scenario generators and statistical utilities (Welch's t-test, Pearson *r*, 95% CI, detection confusion-matrix metrics) used in this evaluation.
 
-**Automated Test Coverage**: The system includes 256+ pytest tests across 13 test files covering all modules, the agent pipeline, transformer adapter, API service, explainability layer, and benchmark utilities.
+**Automated Test Coverage**: The system includes 319 pytest tests across 20 test files covering all modules, the agent pipeline, transformer adapter, API service, explainability layer, and benchmark utilities.
 
 ### 6.2 Scenario Descriptions
 

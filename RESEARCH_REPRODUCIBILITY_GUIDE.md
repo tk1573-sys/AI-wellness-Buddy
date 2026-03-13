@@ -77,7 +77,7 @@ uvicorn api_service:app --host 127.0.0.1 --port 8000
 ## 8) Reproducibility Checklist
 - Python version: 3.12
 - Install: `pip install -r requirements.txt`
-- Tests: `python -m pytest test_wellness_buddy.py test_full_coverage.py test_extended_features.py test_auth_manager.py test_conversation_memory.py test_ui_modules.py -q`
+- Tests: `python -m pytest test_wellness_buddy.py test_full_coverage.py test_extended_features.py test_auth_manager.py test_conversation_memory.py test_ui_modules.py test_research_upgrades.py test_emotion_transformer.py test_api_service.py test_prediction_agent.py test_research_evaluation.py test_explainability.py test_benchmark_emotion_models.py test_ui_launch.py test_network_ui.py tests/ -q`
 - Record:
   - model availability flags,
   - dataset split strategy,

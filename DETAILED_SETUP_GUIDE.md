@@ -1256,88 +1256,21 @@ The app always works without TTS/STT — they gracefully degrade.
 
 ### 9.1 Automated Tests
 
-Run the test suite:
+Run the full test suite:
 
 ```bash
-python -m pytest test_wellness_buddy.py -v
+python -m pytest test_wellness_buddy.py test_full_coverage.py test_extended_features.py \
+    test_auth_manager.py test_conversation_memory.py test_ui_modules.py \
+    test_research_upgrades.py test_emotion_transformer.py test_api_service.py \
+    test_prediction_agent.py test_research_evaluation.py test_explainability.py \
+    test_benchmark_emotion_models.py test_ui_launch.py test_network_ui.py tests/ -q
 ```
 
 **Expected output:**
 
 ```
-Running AI Wellness Buddy Test Suite
-═══════════════════════════════════════════════════════════════
-
-Testing Emotion Analyzer...
-✓ Sentiment analysis: polarity calculated correctly
-✓ Multi-emotion classification (7 classes): working
-✓ Confidence scoring (normalized 0-1): accurate
-✓ XAI keyword attribution: working
-✓ Crisis keyword detection: accurate
-✓ Tamil/Tanglish emotion detection: working
-✓ Abuse keyword detection: working
-
-Testing Pattern Tracker...
-✓ Emotional snapshot addition: working
-✓ Consecutive distress tracking: accurate
-✓ Trend calculation: correct
-✓ Moving average: working
-✓ Volatility & stability index: accurate
-✓ 5-level risk scoring (INFO→CRITICAL): correct
-✓ Emotional drift score: working
-✓ 365-day retention: verified
-
-Testing Alert System...
-✓ Distress alert triggering: working
-✓ Alert message formatting: correct
-✓ Severity detection: accurate
-✓ Guardian alert formatting: correct
-
-Testing Prediction Agent...
-✓ OLS forecast: working
-✓ EWMA predictor: working
-✓ Model comparison (OLS vs EWMA): working
-✓ Pre-distress early warning: working
-
-Testing Data Store...
-✓ User data save: successful
-✓ User data load: successful
-✓ Encryption: working (Fernet (AES-128-CBC))
-✓ Decryption: working
-✓ Backup creation: successful
-
-Testing User Profile...
-✓ Profile creation: working
-✓ Personal history fields (7): all saved/loaded correctly
-✓ Trauma history & triggers: working
-✓ Gamification (streak, 8 badges): working
-✓ Password hashing: secure (SHA-256)
-✓ Password verification: accurate
-✓ Session timeout: functioning
-✓ Account lockout: working
-
-Testing Bilingual & Voice...
-✓ Language detection (Tamil/Tanglish/English): working
-✓ Tanglish emotion detection: accurate
-✓ Bilingual response selection: working
-✓ Voice handler TTS (gTTS): available
-✓ Voice handler STT (SpeechRecognition): available
-
-Testing Evaluation Framework...
-✓ Scenario generation (5 scenarios): working
-✓ MAE/RMSE metrics: accurate
-✓ Pearson correlation: working
-✓ Detection metrics: working
-
-═══════════════════════════════════════════════════════════════
-Test Summary: 26/26 tests passed ✓
-═══════════════════════════════════════════════════════════════
-
-🎉 All tests passed! Your installation is working correctly.
+319 passed in ~8s
 ```
-
-**If any tests fail:**
-See Section 10 (Troubleshooting)
 
 ### 9.2 Manual Feature Testing
 

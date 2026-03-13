@@ -2675,16 +2675,23 @@ def test_lockout_activates():
 | test_full_coverage.py | 40 | Comprehensive coverage across all core modules |
 | test_extended_features.py | 6 | Security, encryption, 365-day tracking |
 | test_auth_manager.py | 15 | bcrypt hashing, session lockout, strength validation |
-| test_conversation_memory.py | 10 | Conversation history, topic/emotion tracking, session log export |
-| test_ui_modules.py | 49 | UI package components (theme, charts, layout, animations) |
-| test_research_upgrades.py | varies | Agent pipeline, evaluation framework integration |
+| test_conversation_memory.py | 18 | Conversation history, topic/emotion tracking, session log export |
+| test_ui_modules.py | 62 | UI package components (theme, charts, layout, animations) |
+| test_research_upgrades.py | 5 | Agent pipeline, evaluation framework integration |
 | test_emotion_transformer.py | 24 | EmotionTransformer, keyword fallback, ContextualCrisisAdapter |
 | test_api_service.py | 7 | FastAPI endpoints, pipeline integration |
 | test_prediction_agent.py | 8 | OLS, EWMA, SimpleGRU, compare_models() |
 | test_research_evaluation.py | 12 | Dataset loaders, precision/recall/F1, confusion matrix |
 | test_explainability.py | 17 | XAI explanation generation, key indicator extraction |
 | test_benchmark_emotion_models.py | 16 | Keyword/transformer/hybrid classifier benchmarking |
-| **Total** | **256+** | **Comprehensive multi-tier system coverage** |
+| test_ui_launch.py | 3 | UI launch smoke tests |
+| test_network_ui.py | 4 | UI configuration and dependency tests |
+| tests/test_emotion_model.py | 11 | EmotionTransformer integration (tests/ package) |
+| tests/test_forecasting.py | 10 | Forecasting agents (tests/ package) |
+| tests/test_pipeline.py | 12 | Agent pipeline end-to-end (tests/ package) |
+| tests/test_api.py | 11 | API endpoints (tests/ package) |
+| tests/test_evaluation.py | 12 | Evaluation framework (tests/ package) |
+| **Total** | **319** | **Comprehensive multi-tier system coverage** |
 
 All tests pass on Ubuntu 20.04, macOS 12, and Windows 10 (Python 3.12):
 
@@ -2693,8 +2700,8 @@ python -m pytest test_wellness_buddy.py test_full_coverage.py test_extended_feat
     test_auth_manager.py test_conversation_memory.py test_ui_modules.py \
     test_research_upgrades.py test_emotion_transformer.py test_api_service.py \
     test_prediction_agent.py test_research_evaluation.py test_explainability.py \
-    test_benchmark_emotion_models.py -q
-# 256 passed in ~12s
+    test_benchmark_emotion_models.py test_ui_launch.py test_network_ui.py tests/ -q
+# 319 passed in ~8s
 ```
 
 ## 4.8 Research-Grade Architecture Extensions
@@ -2912,7 +2919,7 @@ This chapter presented the complete implementation of AI Wellness Buddy, includi
 11. **Interfaces**: CLI (four commands), modular Streamlit web UI (`ui/` package: theme/charts/layout/animations), network mode, optional FastAPI REST API
 12. **Bilingual Support**: `language_handler.py` (Tamil Unicode + Tanglish) + `voice_handler.py` (gTTS TTS + Google STT) with per-profile language preference
 13. **Security**: Defence-in-depth through bcrypt hashing, Fernet encryption, session management, file permissions, and separate `AuthManager`
-14. **Testing**: 256+ pytest tests across 13 files achieving multi-tier system coverage including UI, API, transformer, evaluation, and explainability tests
+14. **Testing**: 319 pytest tests across 20 files achieving multi-tier system coverage including UI, API, transformer, evaluation, and explainability tests
 15. **Extended Features**: Conversation archive configuration, demographic profile fields, usage examples module, one-step launch scripts, and research reproducibility guides
 
 The implementation validates the core architectural claim: a functionally comprehensive, research-grade mental health monitoring system can operate entirely without external network calls, cloud storage, or third-party processing, while providing optional integration pathways for deployments that require scalability.
@@ -4064,10 +4071,10 @@ python -m pytest test_wellness_buddy.py test_full_coverage.py test_extended_feat
     test_auth_manager.py test_conversation_memory.py test_ui_modules.py \
     test_research_upgrades.py test_emotion_transformer.py test_api_service.py \
     test_prediction_agent.py test_research_evaluation.py test_explainability.py \
-    test_benchmark_emotion_models.py -q
+    test_benchmark_emotion_models.py test_ui_launch.py test_network_ui.py tests/ -q
 ```
 
-Expected output: 256 tests passed.
+Expected output: 319 tests passed.
 
 ---
 
@@ -4249,52 +4256,84 @@ Rate your agreement (1 = Strongly Disagree, 5 = Strongly Agree):
 
 ### E.1 Test Files and Organisation
 
+The full test suite spans 20 files across three tiers:
+
 ```
-test_wellness_buddy.py          # Core module workflow tests (7 tests)
-test_extended_features.py       # Security, encryption, and extended tracking tests (6 tests)
+# Tier 1 — Core system (root directory)
+test_wellness_buddy.py          # Core module workflow tests (26 tests)
+test_full_coverage.py           # Comprehensive coverage across all core modules (40 tests)
+test_extended_features.py       # Security, encryption, 365-day tracking (6 tests)
 test_network_ui.py              # UI configuration and dependency tests (4 tests)
+test_ui_launch.py               # UI launch smoke tests (3 tests)
+
+# Tier 2 — Extended features and research (root directory)
+test_auth_manager.py            # bcrypt hashing, session lockout, strength validation (15 tests)
+test_conversation_memory.py     # Conversation history, topic/emotion tracking (18 tests)
+test_ui_modules.py              # UI package components — theme, charts, layout (62 tests)
+test_research_upgrades.py       # Agent pipeline, evaluation framework integration (5 tests)
+test_emotion_transformer.py     # EmotionTransformer, keyword fallback, crisis adapter (24 tests)
+test_api_service.py             # FastAPI endpoints, pipeline integration (7 tests)
+test_prediction_agent.py        # OLS, EWMA, SimpleGRU, compare_models() (8 tests)
+test_research_evaluation.py     # Dataset loaders, precision/recall/F1 (12 tests)
+test_explainability.py          # XAI explanation generation, key indicator extraction (17 tests)
+test_benchmark_emotion_models.py # Keyword/transformer/hybrid benchmarking (16 tests)
+
+# Tier 3 — Structured tests/ package
+tests/test_emotion_model.py     # EmotionTransformer integration (11 tests)
+tests/test_forecasting.py       # Forecasting agents: OLS/EWMA/GRU (10 tests)
+tests/test_pipeline.py          # Agent pipeline end-to-end (12 tests)
+tests/test_api.py               # REST API endpoints (11 tests)
+tests/test_evaluation.py        # Evaluation framework metrics (12 tests)
 ```
 
 ### E.2 Test Categories
 
-**Core Workflow Tests** — test_wellness_buddy.py (7 tests):
-- test_emotion_analysis: sentiment, keyword detection, and classification
-- test_pattern_tracking: sliding window, consecutive distress, trend detection
-- test_alert_system: trigger logic, women's resources, guardian notification
-- test_conversation_handler: emotion-appropriate response selection
-- test_user_profile: gender setting, trusted/unsafe contacts
-- test_data_persistence: save, load, list, delete cycle
-- test_full_workflow: end-to-end pipeline with abuse detection and alert
+**Core Workflow Tests** — test_wellness_buddy.py (26 tests):
+- Emotion classification: positive, neutral, negative, distress, crisis, abuse keywords
+- Pattern tracking: sliding window, consecutive distress, volatility, drift
+- Alert system: threshold logic, severity levels, guardian notification
+- Conversation handler: emotion-appropriate response selection, response styles
+- User profile: password, lockout, personal history fields, 365-day history
+- Data persistence: Fernet encryption, save/load/delete cycle, backup
+
+**Authentication Tests** — test_auth_manager.py (15 tests):
+- bcrypt password hashing and verification
+- Session-level brute-force lockout (5 attempts)
+- Password strength validation (8-char minimum, complexity)
+- SHA-256 legacy auto-migration path
 
 **Security and Extended Feature Tests** — test_extended_features.py (6 tests):
-- test_extended_tracking: 365-day config, conversation archive settings
-- test_security_configuration: all security config values
-- test_user_profile_security: password set, verify correct/wrong
-- test_data_encryption: ciphertext-only verification
-- test_extended_history_retention: snapshot accumulation and pruning
-- test_backwards_compatibility: legacy unencrypted data loading
+- 365-day config, conversation archive settings
+- All security config values
+- Password set and verify correct/wrong
+- Ciphertext-only verification (no plaintext in encrypted files)
+- Snapshot accumulation and pruning
+- Legacy unencrypted data loading
 
-**UI and Dependency Tests** — test_network_ui.py (4 tests):
-- test_streamlit_config: version and configuration check
-- test_network_script: start_ui_network.sh existence and content
-- test_ui_app: ui_app.py importability
-- test_dependencies: textblob, cryptography, nltk availability
+**UI Package Tests** — test_ui_modules.py (62 tests):
+- Theme CSS generation, dark/light mode variables
+- All 9+ Plotly chart factory functions
+- HTML layout component rendering, emotion avatar
+- Animation soundscapes and breathing circle
 
-**Security Tests** (within above):
-- Encrypted files contain no plaintext
-- Wrong password rejected
-- Account lockout activates after max attempts
-- Lockout expires correctly
-- File permissions set to 0o600
+**Research and Evaluation Tests** — test_research_evaluation.py, test_explainability.py, test_benchmark_emotion_models.py (45 tests):
+- GoEmotions/EmotionLines/DailyDialog JSONL loaders
+- Precision/recall/macro-F1/confusion matrix/ROC-AUC computation
+- XAI explanation structure, key indicator extraction, model source labelling
+- Keyword vs. transformer vs. hybrid classifier benchmark comparisons
 
 ### E.3 Running Tests
 
 ```bash
-# All tests
-python -m pytest test_wellness_buddy.py test_extended_features.py test_network_ui.py -v
+# Full regression (319 tests)
+python -m pytest test_wellness_buddy.py test_full_coverage.py test_extended_features.py \
+    test_auth_manager.py test_conversation_memory.py test_ui_modules.py \
+    test_research_upgrades.py test_emotion_transformer.py test_api_service.py \
+    test_prediction_agent.py test_research_evaluation.py test_explainability.py \
+    test_benchmark_emotion_models.py test_ui_launch.py test_network_ui.py tests/ -q
 
 # With coverage report
-python -m pytest --cov=. --cov-report=html test_wellness_buddy.py test_extended_features.py -v
+python -m pytest --cov=. --cov-report=html test_wellness_buddy.py test_full_coverage.py -v
 
 # Specific test function
 python -m pytest test_wellness_buddy.py::test_emotion_analysis -v
@@ -4310,8 +4349,10 @@ test_wellness_buddy.py::test_alert_system PASSED
 test_emotion_transformer.py::test_classify_keywords_only PASSED
 test_api_service.py::test_health_endpoint PASSED
 test_benchmark_emotion_models.py::test_keyword_baseline PASSED
+tests/test_pipeline.py::test_full_pipeline_run PASSED
+tests/test_evaluation.py::test_evaluate_classifier PASSED
 ...
-256 passed in ~12s
+319 passed in ~8s
 ```
 
 ---
