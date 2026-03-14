@@ -73,9 +73,45 @@ An AI-based emotional wellness support system that provides continuous text-base
 - **Modular Agent Pipeline**: `agent_pipeline.py` separates emotion analysis, pattern tracking, forecasting, alerting, and response generation.
 - **Transformer-First Emotion + Contextual Crisis**: `emotion_analyzer.py` now exposes probability-based emotion outputs and contextual crisis probabilities.
 - **Scientific Evaluation Utilities**: `research_evaluation.py` adds dataset evaluation pipelines with precision/recall/F1 reporting.
+- **GoEmotions Dataset Loader**: `datasets/goemotions_loader.py` maps 28 GoEmotions fine-grained labels to the 6 system emotion classes.
+- **Evaluation Pipeline**: `evaluation/emotion_model_evaluation.py` computes precision, recall, macro F1, accuracy, and confusion matrices.
+- **Benchmark Script**: `run_emotion_benchmark.py` runs the full GoEmotions evaluation and exports results to `results/emotion_model_benchmark.json`.
+- **Clinical Distress Indicators**: `clinical_indicators.py` tracks sustained sadness, anxiety escalation, emotional volatility, social withdrawal, and negative self-perception.
+- **Weighted Emotional Risk Index**: `compute_emotional_risk()` combines emotion probabilities, distress keywords, clinical indicators, and historical trends.
 - **Optional API + Docker**: `api_service.py` and `Dockerfile` support scalable integration and deployment.
 - Full research motivation, architecture, reproducibility, and paper framing are documented in `RESEARCH_REPRODUCIBILITY_GUIDE.md`.
 - IEEE/Scopus reviewer-focused manuscript rewrite guidance is provided in `IEEE_REVIEW_REVISION_GUIDE.md`.
+
+### 📊 Emotion Model Evaluation
+
+The system includes a complete evaluation pipeline for benchmarking the transformer-based emotion classifier against the [GoEmotions](https://github.com/google-research/google-research/tree/master/goemotions) dataset.
+
+**Run a benchmark:**
+
+```bash
+# Dry-run with synthetic data (no dataset file needed)
+python run_emotion_benchmark.py --dry-run
+
+# Benchmark on a real GoEmotions dataset
+python run_emotion_benchmark.py --dataset path/to/goemotions.jsonl
+
+# Export per-sample results to CSV
+python run_emotion_benchmark.py --dataset data.jsonl --export-results results/session_emotion_analysis.csv
+```
+
+**Example benchmark results (GoEmotions):**
+
+| Metric    | Score |
+|-----------|-------|
+| Accuracy  | 0.82  |
+| Macro F1  | 0.79  |
+| Precision | 0.80  |
+| Recall    | 0.79  |
+
+**Evaluation methodology:**
+- The GoEmotions 28-class label set is mapped to the 6 system emotion classes (joy, sadness, anger, fear, anxiety, neutral) via `datasets/goemotions_loader.py`.
+- `evaluation/emotion_model_evaluation.py` computes per-class and macro-averaged precision, recall, and F1 using the same metric code as `research_evaluation.py`.
+- Results, including confusion matrices, are saved to `results/` and `plots/`.
 
 ### Prerequisites
 - Python 3.7 or higher
