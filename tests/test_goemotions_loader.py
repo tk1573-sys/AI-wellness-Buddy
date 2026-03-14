@@ -9,6 +9,7 @@ Validates:
 - Invalid/missing rows handled gracefully
 """
 
+import csv
 import json
 import os
 import tempfile
@@ -132,7 +133,6 @@ def test_load_csv():
     """CSV file with text + label columns must load correctly."""
     fd, path = tempfile.mkstemp(suffix=".csv")
     with os.fdopen(fd, "w", newline="", encoding="utf-8") as f:
-        import csv
         writer = csv.writer(f)
         writer.writerow(["text", "labels"])
         writer.writerow(["I am happy", "joy"])
