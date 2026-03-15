@@ -30,10 +30,12 @@ from ui.charts import (
 from ui.layout import (
     render_hero_section, render_wellness_illustration_large,
     render_chat_header, render_user_avatar, render_risk_badge,
+    render_concern_badge,
     render_session_info_card, render_streak_card, render_waveform_section,
     render_session_summary_card, render_emotion_flag,
     render_emotional_avatar, render_wellness_sidebar_card,
-    EMO_ICONS, EMO_BUBBLE_CLASS, RISK_COLOUR, RISK_LEVEL_VALUES, SOUND_LABELS,
+    EMO_ICONS, EMO_BUBBLE_CLASS, CONCERN_ICONS,
+    RISK_COLOUR, RISK_LEVEL_VALUES, SOUND_LABELS,
 )
 from ui.animations import (
     ambient_sound_html, ambient_stop_html, TYPING_INDICATOR_HTML,
@@ -531,8 +533,19 @@ def render_chat_tab():
     _expl = _meta.get('explanation', '')
     _det_emotion = _meta.get('emotion', '')
     _xai = _meta.get('xai_explanation', {})
+    _concern = _meta.get('concern_level', '')
+    _emo_conf = _meta.get('emotion_confidence', 0.0)
     if _probs and _det_emotion:
         _conf = _xai.get('confidence', _probs.get(_det_emotion, 0))
+        # Inline concern + confidence badges above the expander
+        _concern_html = render_concern_badge(_concern) if _concern else ''
+        _conf_pct = f"{_emo_conf:.0%}" if _emo_conf else f"{_conf:.0%}"
+        st.markdown(
+            f"{_concern_html}"
+            f"&nbsp; `🎯 Confidence {_conf_pct}`"
+            f"&nbsp; `{EMO_ICONS.get(_det_emotion, '')} {_det_emotion.capitalize()}`",
+            unsafe_allow_html=True,
+        )
         with st.expander(
             f"🔬 Emotion Analysis — **{_det_emotion.capitalize()}**"
             f"  (confidence {_conf:.1%})",
@@ -547,6 +560,11 @@ def render_chat_tab():
             with info_col:
                 st.markdown(f"**Detected emotion:** {_det_emotion.capitalize()}")
                 st.markdown(f"**Confidence:** {_conf:.1%}")
+                if _concern:
+                    st.markdown(
+                        f"**Concern level:** {render_concern_badge(_concern)}",
+                        unsafe_allow_html=True,
+                    )
                 # XAI key indicators
                 indicators = _xai.get('key_indicators', [])
                 if indicators:

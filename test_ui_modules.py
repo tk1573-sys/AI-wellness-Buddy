@@ -452,3 +452,133 @@ class TestThemeNewComponents:
         assert 'illustration-panel-large' in css
         assert 'wellness-art-large' in css
         assert 'art-heart' in css
+
+
+# -----------------------------------------------------------------------
+# Premium dashboard CSS classes & concern badge
+# -----------------------------------------------------------------------
+
+class TestDashboardCSSClasses:
+    """Verify the .chat-user, .chat-assistant, .card, and .concern-* CSS."""
+
+    def test_chat_user_class_in_theme(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        assert '.chat-user' in css
+        assert '#E3F2FD' in css
+
+    def test_chat_assistant_class_in_theme(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        assert '.chat-assistant' in css
+        assert '#EAEAEA' in css
+
+    def test_card_class_in_theme(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        assert '.card' in css
+        assert 'border-radius: 14px' in css
+
+    def test_concern_badge_css_classes(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        for level in ['low', 'medium', 'high', 'critical']:
+            assert f'.concern-{level}' in css
+
+
+class TestConcernBadgeLayout:
+    """Tests for render_concern_badge in ui/layout.py."""
+
+    def test_render_concern_badge_low(self):
+        from ui.layout import render_concern_badge
+        html = render_concern_badge('low')
+        assert '🟢' in html
+        assert 'LOW' in html
+        assert 'concern-low' in html
+
+    def test_render_concern_badge_medium(self):
+        from ui.layout import render_concern_badge
+        html = render_concern_badge('medium')
+        assert '🟡' in html
+        assert 'MEDIUM' in html
+        assert 'concern-medium' in html
+
+    def test_render_concern_badge_high(self):
+        from ui.layout import render_concern_badge
+        html = render_concern_badge('high')
+        assert '🟠' in html
+        assert 'HIGH' in html
+        assert 'concern-high' in html
+
+    def test_render_concern_badge_critical(self):
+        from ui.layout import render_concern_badge
+        html = render_concern_badge('critical')
+        assert '🔴' in html
+        assert 'CRITICAL' in html
+        assert 'concern-critical' in html
+
+    def test_concern_icons_exported(self):
+        from ui.layout import CONCERN_ICONS
+        assert 'low' in CONCERN_ICONS
+        assert 'high' in CONCERN_ICONS
+        assert CONCERN_ICONS['high'] == '🟠'
+
+    def test_concern_badge_in_init_exports(self):
+        from ui import render_concern_badge
+        html = render_concern_badge('medium')
+        assert 'concern-badge' in html
+
+
+class TestConcernLevelComputation:
+    """Tests for EmotionAnalyzer._compute_concern_level and output fields."""
+
+    def test_classify_emotion_includes_concern_level(self):
+        from emotion_analyzer import EmotionAnalyzer
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion('I feel great today')
+        assert 'concern_level' in result
+        assert result['concern_level'] in ('low', 'medium', 'high', 'critical')
+
+    def test_classify_emotion_includes_emotion_confidence(self):
+        from emotion_analyzer import EmotionAnalyzer
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion('I feel great today')
+        assert 'emotion_confidence' in result
+        assert 0.0 <= result['emotion_confidence'] <= 1.0
+
+    def test_crisis_returns_critical(self):
+        from emotion_analyzer import EmotionAnalyzer
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion('I want to kill myself')
+        assert result['concern_level'] == 'critical'
+
+    def test_happy_returns_low(self):
+        from emotion_analyzer import EmotionAnalyzer
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion('I am so happy and excited')
+        assert result['concern_level'] == 'low'
+
+    def test_neutral_returns_low(self):
+        from emotion_analyzer import EmotionAnalyzer
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion('Just a normal day')
+        assert result['concern_level'] == 'low'
+
+    def test_compute_concern_level_static(self):
+        from emotion_analyzer import EmotionAnalyzer
+        # Crisis flag overrides everything
+        assert EmotionAnalyzer._compute_concern_level(
+            {'joy': 1.0}, True, [], 'low'
+        ) == 'critical'
+        # High severity
+        assert EmotionAnalyzer._compute_concern_level(
+            {'joy': 0.5, 'sadness': 0.5}, False, [], 'high'
+        ) == 'high'
+        # Medium severity
+        assert EmotionAnalyzer._compute_concern_level(
+            {'joy': 0.8, 'sadness': 0.2}, False, [], 'medium'
+        ) == 'medium'
+        # Low
+        assert EmotionAnalyzer._compute_concern_level(
+            {'joy': 0.9, 'neutral': 0.1}, False, [], 'low'
+        ) == 'low'

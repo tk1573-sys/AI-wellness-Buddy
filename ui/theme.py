@@ -1064,6 +1064,60 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     color: {text_primary};
     font-size: 0.93rem;
 }}
+
+/* =============================================
+   PREMIUM DASHBOARD — card / chat-bubble classes
+   ============================================= */
+
+.card {{
+    background: white;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.05);
+}}
+.chat-user {{
+    background: #E3F2FD;
+    padding: 14px;
+    border-radius: 16px;
+    margin-bottom: 10px;
+}}
+.chat-assistant {{
+    background: white;
+    padding: 14px;
+    border-radius: 16px;
+    border: 1px solid #EAEAEA;
+}}
+
+/* Concern level badge */
+.concern-badge {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+    animation: badgePop 0.45s cubic-bezier(0.22,1,0.36,1);
+}}
+.concern-low {{
+    background: rgba(76,175,80,0.12);
+    color: #388E3C;
+}}
+.concern-medium {{
+    background: rgba(255,193,7,0.14);
+    color: #F57F17;
+}}
+.concern-high {{
+    background: rgba(255,152,0,0.14);
+    color: #E65100;
+}}
+.concern-critical {{
+    background: rgba(239,83,80,0.14);
+    color: #C62828;
+}}
+
 @media (max-width: 980px) {{
     .hero-title {{ font-size: 2.1rem; }}
     .hero-subtitle {{ font-size: 0.88rem; }}

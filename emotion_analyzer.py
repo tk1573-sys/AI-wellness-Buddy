@@ -529,6 +529,33 @@ class EmotionAnalyzer:
         return f"Detected '{primary_emotion}' based on overall sentiment."
 
     # ------------------------------------------------------------------
+    # Concern level (for dashboard badges)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _compute_concern_level(emotion_probabilities, is_crisis,
+                               distress_keywords, severity):
+        """Return ``'low'``, ``'medium'``, ``'high'``, or ``'critical'``.
+
+        Computed from emotion probabilities, crisis flag, number of
+        distress keywords, and the coarse severity string.
+        """
+        if is_crisis:
+            return 'critical'
+
+        negative_mass = sum(
+            emotion_probabilities.get(e, 0.0)
+            for e in ('sadness', 'anger', 'fear', 'anxiety', 'crisis')
+        )
+        n_distress = len(distress_keywords) if distress_keywords else 0
+
+        if severity == 'high' or negative_mass >= 0.70 or n_distress >= 3:
+            return 'high'
+        if severity == 'medium' or negative_mass >= 0.40 or n_distress >= 1:
+            return 'medium'
+        return 'low'
+
+    # ------------------------------------------------------------------
     # Main classification entry point
     # ------------------------------------------------------------------
 
@@ -666,6 +693,12 @@ class EmotionAnalyzer:
         else:
             severity_score = 2.0
 
+        # Concern level and emotion confidence for the UI
+        concern_level = self._compute_concern_level(
+            emotion_probabilities, is_crisis, distress_keywords, severity,
+        )
+        emotion_confidence = max(emotion_probabilities.values()) if emotion_probabilities else 0.0
+
         return {
             # Coarse fields (backward-compatible)
             'emotion': emotion,
@@ -694,6 +727,9 @@ class EmotionAnalyzer:
             'severity_score': severity_score,
             'keyword_explanation': explanation,
             'xai_explanation': xai_explanation,
+            # Concern level & confidence for dashboard badges
+            'concern_level': concern_level,
+            'emotion_confidence': round(emotion_confidence, 4),
         }
 
 

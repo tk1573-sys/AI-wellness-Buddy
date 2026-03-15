@@ -27,6 +27,7 @@ from ui.layout import (                       # noqa: F401
     render_chat_header,
     render_user_avatar,
     render_risk_badge,
+    render_concern_badge,
     render_session_info_card,
     render_streak_card,
     render_waveform_section,

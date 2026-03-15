@@ -300,6 +300,8 @@ class WellnessBuddy:
         response_meta['explanation'] = emotion_data.get('explanation', '')
         response_meta['distress_keywords'] = emotion_data.get('distress_keywords', [])
         response_meta['xai_explanation'] = emotion_data.get('xai_explanation', {})
+        response_meta['concern_level'] = emotion_data.get('concern_level', 'low')
+        response_meta['emotion_confidence'] = emotion_data.get('emotion_confidence', 0.0)
         self._last_response_metadata = response_meta
 
         return response
