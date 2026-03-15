@@ -288,6 +288,7 @@ def test_persist_chat_history_saves_to_profile():
 
     st.session_state['buddy'] = mock_buddy
     st.session_state['user_id'] = "saver"
+    st.session_state['session_mgr'] = None  # use legacy fallback path
     st.session_state['chat_history'] = [
         {"role": "user", "content": "test message"},
     ]

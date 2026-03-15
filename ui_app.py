@@ -14,6 +14,7 @@ from data_store import DataStore
 from prediction_agent import PredictionAgent
 from voice_handler import VoiceHandler
 from auth_manager import AuthManager
+from session_manager import SessionManager
 import config
 import os
 
@@ -55,11 +56,15 @@ st.set_page_config(
 # -----------------------------------------------------------------------
 for key, default in [
     ('buddy', None),
+    ('session_mgr', None),           # SessionManager instance
+    ('session_id', None),            # unique id for current session
     ('messages', []),
-    ('chat_history', []),        # structured {"role","content"} history
-    ('last_response', None),     # anti-repeat tracking
+    ('chat_history', []),            # structured {"role","content"} history
+    ('emotion_history', []),         # per-session emotion snapshots
+    ('risk_history', []),            # per-session risk scores
+    ('last_response', None),         # anti-repeat tracking
     ('last_response_meta', {}),
-    ('last_user_input', None),   # dedup: skip reprocessing on rerun
+    ('last_user_input', None),       # dedup: skip reprocessing on rerun
     ('user_id', None),
     ('profile_loaded', False),
     ('show_load', False),
@@ -72,9 +77,9 @@ for key, default in [
     ('authenticated', False),
     ('current_user', None),
     ('failed_attempts', 0),
-    ('ui_theme', 'calm'),          # calm | clinical | modern
+    ('ui_theme', 'calm'),            # calm | clinical | modern
     ('dark_mode', False),
-    ('ambient_sound', 'deep_focus'),  # deep_focus | calm_waves | soft_rain
+    ('ambient_sound', 'deep_focus'), # deep_focus | calm_waves | soft_rain
     ('research_logging_enabled', False),
     ('background_theme', 'calm_gradient'),
 ]:
@@ -131,6 +136,10 @@ def init_buddy():
         st.session_state.buddy.data_store = DataStore()
     if st.session_state.voice_handler is None:
         st.session_state.voice_handler = VoiceHandler()
+    if st.session_state.get('session_mgr') is None:
+        st.session_state.session_mgr = SessionManager(
+            st.session_state.buddy.data_store,
+        )
 
 
 def load_profile(username):
@@ -139,17 +148,28 @@ def load_profile(username):
     st.session_state.user_id = username
     st.session_state.current_user = username
     st.session_state.buddy._load_existing_profile(username)
-    # Restore persisted chat history into session state
-    profile = st.session_state.buddy.user_profile
-    if profile:
-        saved_history = profile.load_chat_history()
-        if saved_history:
-            st.session_state.chat_history = saved_history
-            # Keep legacy messages list in sync
-            st.session_state.messages = [
-                {"role": m["role"], "content": m["content"]}
-                for m in saved_history
-            ]
+
+    # Restore persisted session (chat + emotion + risk history)
+    mgr = st.session_state.session_mgr
+    session = mgr.load_session(username)
+    if session is None:
+        session = mgr.create_session(username)
+        # Seed from legacy profile chat_history if present
+        profile = st.session_state.buddy.user_profile
+        if profile:
+            legacy = profile.load_chat_history()
+            if legacy:
+                session["chat_history"] = legacy
+                mgr.save_session(username, chat_history=legacy)
+    st.session_state.session_id = session["session_id"]
+    st.session_state.chat_history = session["chat_history"]
+    st.session_state.emotion_history = session["emotion_history"]
+    st.session_state.risk_history = session["risk_history"]
+    # Keep legacy messages list in sync
+    st.session_state.messages = [
+        {"role": m["role"], "content": m["content"]}
+        for m in session["chat_history"]
+    ]
     st.session_state.profile_loaded = True
     st.session_state.authenticated = True
     st.rerun()
@@ -615,6 +635,7 @@ def render_chat_tab():
         st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
         # Tag the user message with the detected emotion for badge display
         _tag_last_user_emotion(st.session_state.last_response_meta)
+        _track_session_metadata(st.session_state.last_response_meta)
         if st.session_state.last_response_meta.get('calm_mode_suggested'):
             st.session_state.calm_music_enabled = True
         st.session_state.last_user_input = voice_transcript
@@ -643,6 +664,7 @@ def render_chat_tab():
             st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
             # Tag the user message with the detected emotion for badge display
             _tag_last_user_emotion(st.session_state.last_response_meta)
+            _track_session_metadata(st.session_state.last_response_meta)
             if st.session_state.last_response_meta.get('calm_mode_suggested'):
                 st.session_state.calm_music_enabled = True
             st.session_state.last_user_input = prompt
@@ -682,17 +704,54 @@ def _tag_last_user_emotion(meta: dict):
             break
 
 
-def _persist_chat_history():
-    """Save current chat_history to the user profile on disk.
+def _track_session_metadata(meta: dict):
+    """Append emotion and risk snapshots from *meta* to session history.
 
-    Errors are silently suppressed so that a disk-write failure does not
-    interrupt the ongoing conversation.
+    Called after each assistant response so that longitudinal analysis has
+    a record of every interaction in the current session.
+    """
+    now = datetime.now().isoformat()
+    emo = meta.get('emotion')
+    if emo:
+        st.session_state.emotion_history.append({
+            'timestamp': now,
+            'emotion': emo,
+            'confidence': meta.get('emotion_confidence', 0.0),
+            'concern_level': meta.get('concern_level', 'low'),
+        })
+    risk_score = meta.get('risk_score')
+    risk_level = meta.get('risk_level')
+    if risk_score is not None or risk_level is not None:
+        st.session_state.risk_history.append({
+            'timestamp': now,
+            'risk_score': float(risk_score) if risk_score is not None else 0.0,
+            'risk_level': risk_level or 'low',
+        })
+
+
+def _persist_chat_history():
+    """Save current session state to the user profile on disk.
+
+    Persists chat_history, emotion_history, and risk_history via
+    :class:`SessionManager`.  Errors are silently suppressed so that a
+    disk-write failure does not interrupt the ongoing conversation.
     """
     buddy = st.session_state.get('buddy')
-    if buddy and buddy.user_profile and st.session_state.get('user_id'):
+    mgr = st.session_state.get('session_mgr')
+    user_id = st.session_state.get('user_id')
+    if buddy and buddy.user_profile and user_id:
         try:
-            buddy.user_profile.save_chat_history(st.session_state.chat_history)
-            buddy._save_profile()
+            if mgr:
+                mgr.save_session(
+                    user_id,
+                    chat_history=st.session_state.chat_history,
+                    emotion_history=st.session_state.get('emotion_history', []),
+                    risk_history=st.session_state.get('risk_history', []),
+                )
+            else:
+                # Fallback: legacy path (no session manager yet)
+                buddy.user_profile.save_chat_history(st.session_state.chat_history)
+                buddy._save_profile()
         except Exception:
             pass  # best-effort; chat continues in session_state
 
