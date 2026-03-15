@@ -539,7 +539,7 @@ def render_chat_tab():
         _conf = _xai.get('confidence', _probs.get(_det_emotion, 0))
         # Inline concern + confidence badges above the expander
         _concern_html = render_concern_badge(_concern) if _concern else ''
-        _conf_pct = f"{_emo_conf:.0%}" if _emo_conf is not None and 'emotion_confidence' in _meta else f"{_conf:.0%}"
+        _conf_pct = f"{_emo_conf:.0%}" if 'emotion_confidence' in _meta else f"{_conf:.0%}"
         st.markdown(
             f"{_concern_html}"
             f"&nbsp; `🎯 Confidence {_conf_pct}`"

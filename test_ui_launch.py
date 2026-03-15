@@ -312,7 +312,7 @@ def test_no_deprecated_use_container_width():
     """
     import pathlib
     # Only check the production UI source files, not test or doc files
-    _DEPRECATED = 'use_container_' + 'width'   # split to avoid self-match
+    _DEPRECATED = 'use_container_width'
     repo = pathlib.Path(__file__).resolve().parent
     targets = [repo / 'ui_app.py'] + list((repo / 'ui').rglob('*.py'))
     violations = []
