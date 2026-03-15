@@ -41,7 +41,7 @@ def responder():
 class TestEmpathyPhrases:
     """Verify that responses include phrases from the empathy pools."""
 
-    @pytest.mark.parametrize("emotion", ["sadness", "anxiety", "anger", "fear", "stress"])
+    @pytest.mark.parametrize("emotion", ["sadness", "anxiety", "anger", "fear", "stress", "joy", "neutral"])
     def test_contains_empathy_phrase(self, responder, emotion):
         resp = responder.generate_response("I feel bad", emotion, "low", 0.5)
         pool = EMPATHY_PHRASES[emotion]
