@@ -32,6 +32,7 @@ class UserProfile:
             'mood_streak': 0,        # Consecutive positive-mood sessions
             'wellness_badges': [],   # Earned wellness badges
             'session_count': 0,
+            'chat_history': [],          # Persisted chat messages across sessions
             # Security fields
             'password_hash': None,  # Hashed password for profile protection
             'salt': None,  # Salt for password hashing
@@ -46,6 +47,18 @@ class UserProfile:
         if data:
             self.profile_data = data
             self.user_id = data.get('user_id')
+
+    # ------------------------------------------------------------------
+    # Chat history persistence
+    # ------------------------------------------------------------------
+
+    def load_chat_history(self):
+        """Return persisted chat history list (may be empty for new profiles)."""
+        return list(self.profile_data.get('chat_history', []))
+
+    def save_chat_history(self, chat_history):
+        """Replace the stored chat history with *chat_history*."""
+        self.profile_data['chat_history'] = list(chat_history)
 
     # ------------------------------------------------------------------
     # Name / age helpers (backward-compatible with test_full_coverage)

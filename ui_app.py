@@ -137,6 +137,17 @@ def load_profile(username):
     st.session_state.user_id = username
     st.session_state.current_user = username
     st.session_state.buddy._load_existing_profile(username)
+    # Restore persisted chat history into session state
+    profile = st.session_state.buddy.user_profile
+    if profile:
+        saved_history = profile.load_chat_history()
+        if saved_history:
+            st.session_state.chat_history = saved_history
+            # Keep legacy messages list in sync
+            st.session_state.messages = [
+                {"role": m["role"], "content": m["content"]}
+                for m in saved_history
+            ]
     st.session_state.profile_loaded = True
     st.session_state.authenticated = True
     st.rerun()
@@ -627,12 +638,17 @@ def _add_chat_message(role, content, emotion=None):
 
     When *emotion* is provided it is stored alongside the message so the
     Chat tab can display an emotion badge next to the user's text.
+
+    The updated chat history is also persisted to the user profile so it
+    survives page reloads and re-logins.
     """
     entry = {"role": role, "content": content}
     if emotion:
         entry["emotion"] = emotion
     st.session_state.chat_history.append(entry)
     st.session_state.messages.append({"role": role, "content": content})
+    # Persist to user profile storage
+    _persist_chat_history()
 
 
 def _tag_last_user_emotion(meta: dict):
@@ -646,6 +662,14 @@ def _tag_last_user_emotion(meta: dict):
         if msg["role"] == "user":
             msg["emotion"] = emo
             break
+
+
+def _persist_chat_history():
+    """Save current chat_history to the user profile on disk."""
+    buddy = st.session_state.get('buddy')
+    if buddy and buddy.user_profile and st.session_state.get('user_id'):
+        buddy.user_profile.save_chat_history(st.session_state.chat_history)
+        buddy._save_profile()
 
 
 # -----------------------------------------------------------------------
