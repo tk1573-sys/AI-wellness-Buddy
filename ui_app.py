@@ -57,6 +57,7 @@ for key, default in [
     ('chat_history', []),        # structured {"role","content"} history
     ('last_response', None),     # anti-repeat tracking
     ('last_response_meta', {}),
+    ('last_user_input', None),   # dedup: skip reprocessing on rerun
     ('user_id', None),
     ('profile_loaded', False),
     ('show_load', False),
@@ -563,7 +564,7 @@ def render_chat_tab():
     feedback_col, mic_col = st.columns([11, 1])
     with mic_col:
         voice_transcript = _handle_voice_input()
-    if voice_transcript:
+    if voice_transcript and voice_transcript != st.session_state.last_user_input:
         with feedback_col:
             st.caption(f"🎤 *{voice_transcript}*")
         _add_chat_message("user", voice_transcript)
@@ -587,6 +588,7 @@ def render_chat_tab():
         _tag_last_user_emotion(st.session_state.last_response_meta)
         if st.session_state.last_response_meta.get('calm_mode_suggested'):
             st.session_state.calm_music_enabled = True
+        st.session_state.last_user_input = voice_transcript
         _play_tts(response)
         st.rerun()
 
@@ -597,25 +599,27 @@ def render_chat_tab():
     }.get(lang_pref, 'Share how you\'re feeling…')
 
     if prompt := st.chat_input(placeholder):
-        _add_chat_message("user", prompt)
-        response = st.session_state.buddy.respond(
-            prompt,
-            context=st.session_state.chat_history,
-            options={
-                'calm_mode_active': st.session_state.get('calm_music_enabled', False),
-                'research_logging': st.session_state.get('research_logging_enabled', False),
-            },
-        )
-        _add_chat_message("assistant", response)
-        st.session_state.last_response = response
-        st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
-        # Tag the user message with the detected emotion for badge display
-        _tag_last_user_emotion(st.session_state.last_response_meta)
-        if st.session_state.last_response_meta.get('calm_mode_suggested'):
-            st.session_state.calm_music_enabled = True
-        if st.session_state.get('tts_enabled', False):
-            _play_tts(response)
-        st.rerun()
+        if prompt != st.session_state.last_user_input:
+            _add_chat_message("user", prompt)
+            response = st.session_state.buddy.respond(
+                prompt,
+                context=st.session_state.chat_history,
+                options={
+                    'calm_mode_active': st.session_state.get('calm_music_enabled', False),
+                    'research_logging': st.session_state.get('research_logging_enabled', False),
+                },
+            )
+            _add_chat_message("assistant", response)
+            st.session_state.last_response = response
+            st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
+            # Tag the user message with the detected emotion for badge display
+            _tag_last_user_emotion(st.session_state.last_response_meta)
+            if st.session_state.last_response_meta.get('calm_mode_suggested'):
+                st.session_state.calm_music_enabled = True
+            st.session_state.last_user_input = prompt
+            if st.session_state.get('tts_enabled', False):
+                _play_tts(response)
+            st.rerun()
 
 
 def _add_chat_message(role, content, emotion=None):
