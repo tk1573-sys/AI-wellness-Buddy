@@ -665,11 +665,18 @@ def _tag_last_user_emotion(meta: dict):
 
 
 def _persist_chat_history():
-    """Save current chat_history to the user profile on disk."""
+    """Save current chat_history to the user profile on disk.
+
+    Errors are silently suppressed so that a disk-write failure does not
+    interrupt the ongoing conversation.
+    """
     buddy = st.session_state.get('buddy')
     if buddy and buddy.user_profile and st.session_state.get('user_id'):
-        buddy.user_profile.save_chat_history(st.session_state.chat_history)
-        buddy._save_profile()
+        try:
+            buddy.user_profile.save_chat_history(st.session_state.chat_history)
+            buddy._save_profile()
+        except Exception:
+            pass  # best-effort; chat continues in session_state
 
 
 # -----------------------------------------------------------------------
