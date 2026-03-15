@@ -182,11 +182,11 @@ def show_profile_setup():
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Sign In", use_container_width=True):
+        if st.button("Sign In", width="stretch"):
             st.session_state.show_load = True
             st.session_state.show_create = False
     with col2:
-        if st.button("Create Account", use_container_width=True):
+        if st.button("Create Account", width="stretch"):
             st.session_state.show_create = True
             st.session_state.show_load = False
 
@@ -555,7 +555,7 @@ def render_chat_tab():
             with chart_col:
                 st.plotly_chart(
                     create_emotion_probability_bar(_probs),
-                    use_container_width=True,
+                    width="stretch",
                 )
             with info_col:
                 st.markdown(f"**Detected emotion:** {_det_emotion.capitalize()}")
@@ -716,12 +716,12 @@ def render_trends_tab():
         st.markdown("#### Current Session — Sentiment Over Messages")
         col1, col2 = st.columns([2, 1])
         with col1:
-            st.plotly_chart(create_sentiment_chart(sentiments), use_container_width=True)
+            st.plotly_chart(create_sentiment_chart(sentiments), width="stretch")
         with col2:
             if summary:
                 ma = summary.get('moving_average', [])
                 if len(ma) >= 2:
-                    st.plotly_chart(create_moving_average_chart(ma), use_container_width=True)
+                    st.plotly_chart(create_moving_average_chart(ma), width="stretch")
                     st.caption("3-message moving average of sentiment")
     else:
         st.info("Start chatting to see your sentiment trend.")
@@ -742,7 +742,7 @@ def render_trends_tab():
             with col_b:
                 st.plotly_chart(
                     create_emotion_donut(emotions, counts, colors),
-                    use_container_width=True,
+                    width="stretch",
                 )
 
     # ---- Emotion heatmap (intensity over conversation time) ----
@@ -769,7 +769,7 @@ def render_trends_tab():
                 emotion_timeline.append(seg)
             st.plotly_chart(
                 create_emotion_heatmap(emotion_timeline),
-                use_container_width=True,
+                width="stretch",
             )
 
     # ---- Historical 30-day sentiment (Plotly interactive timeline) ----
@@ -787,7 +787,7 @@ def render_trends_tab():
             forecast = predictor.predict_next_sentiment(hist_data)
             st.plotly_chart(
                 create_history_chart(hist_data, forecast),
-                use_container_width=True,
+                width="stretch",
             )
 
             if forecast:
@@ -820,7 +820,7 @@ def render_trends_tab():
             emo_cols = [EMO_COLORS.get(e, '#9B8CFF') for e in emo_labels]
             st.plotly_chart(
                 create_emotion_donut(emo_labels, emo_vals, emo_cols),
-                use_container_width=True,
+                width="stretch",
             )
 
 
@@ -841,10 +841,10 @@ def render_emotional_journey_tab():
 
     line_col, gauge_col = st.columns([2, 1])
     with line_col:
-        st.plotly_chart(create_emotion_journey_line(timeline), use_container_width=True)
+        st.plotly_chart(create_emotion_journey_line(timeline), width="stretch")
     with gauge_col:
         latest_risk = float(timeline[-1].get('risk_score', 0.0))
-        st.plotly_chart(create_stress_intensity_gauge(latest_risk), use_container_width=True)
+        st.plotly_chart(create_stress_intensity_gauge(latest_risk), width="stretch")
 
     heatmap_payload = []
     for point in timeline:
@@ -859,7 +859,7 @@ def render_emotional_journey_tab():
                 ),
             )
         heatmap_payload.append(row)
-    st.plotly_chart(create_emotion_heatmap(heatmap_payload), use_container_width=True)
+    st.plotly_chart(create_emotion_heatmap(heatmap_payload), width="stretch")
 
     emotion_counts = {}
     for point in timeline:
@@ -897,7 +897,7 @@ def render_risk_tab():
     st.markdown(f"### Current Risk Level: {icon} {risk_level.upper()}")
 
     # Plotly semi-circular animated risk dial
-    st.plotly_chart(create_risk_gauge(risk_score, risk_level), use_container_width=True)
+    st.plotly_chart(create_risk_gauge(risk_score, risk_level), width="stretch")
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Risk Score", f"{risk_score:.2f}")
@@ -938,7 +938,7 @@ def render_risk_tab():
 
     if risk_hist:
         st.markdown("#### 30-Day Risk Level History")
-        st.plotly_chart(create_risk_history_chart(risk_hist), use_container_width=True)
+        st.plotly_chart(create_risk_history_chart(risk_hist), width="stretch")
 
         # Risk escalation forecast
         predictor = PredictionAgent()
@@ -1004,7 +1004,7 @@ def render_weekly_report_tab():
 
         if sentiments:
             st.markdown("#### 7-Day Mood Chart")
-            st.plotly_chart(create_weekly_chart(sentiments), use_container_width=True)
+            st.plotly_chart(create_weekly_chart(sentiments), width="stretch")
 
             # Forecasted mood trend
             if len(sentiments) >= 3:
@@ -1014,7 +1014,7 @@ def render_weekly_report_tab():
                     st.markdown("#### Forecasted Mood Trend")
                     st.plotly_chart(
                         create_history_chart(sentiments, forecast),
-                        use_container_width=True,
+                        width="stretch",
                     )
                     st.info(
                         f"📡 **Forecast** ({forecast['confidence']} confidence): "
@@ -1032,7 +1032,7 @@ def render_weekly_report_tab():
             emo_cols = [EMO_COLORS.get(e, '#9B8CFF') for e in emo_labels]
             st.plotly_chart(
                 create_emotion_donut(emo_labels, emo_vals, emo_cols),
-                use_container_width=True,
+                width="stretch",
             )
 
         col1, col2, col3 = st.columns(3)
@@ -1203,7 +1203,7 @@ def show_chat_interface():
         # Mini sentiment sparkline in sidebar
         sentiments = list(st.session_state.buddy.pattern_tracker.sentiment_history)
         if len(sentiments) >= 2:
-            st.plotly_chart(create_sparkline(sentiments), use_container_width=True)
+            st.plotly_chart(create_sparkline(sentiments), width="stretch")
             st.caption("Session sentiment")
 
         st.markdown("---")
@@ -1310,20 +1310,20 @@ def show_chat_interface():
             unsafe_allow_html=True,
         )
 
-        if st.button("📞 Help & Resources", use_container_width=True):
+        if st.button("📞 Help & Resources", width="stretch"):
             response = st.session_state.buddy._show_resources()
             st.session_state.messages.append({"role": "assistant", "content": response})
 
-        if st.button("📊 Emotional Status", use_container_width=True):
+        if st.button("📊 Emotional Status", width="stretch"):
             response = st.session_state.buddy._show_emotional_status()
             st.session_state.messages.append({"role": "assistant", "content": response})
 
-        if st.button("⚙️ Manage Profile", use_container_width=True):
+        if st.button("⚙️ Manage Profile", width="stretch"):
             st.session_state.show_profile_menu = True
 
         st.markdown("---")
 
-        if st.button("🚪 End Session", use_container_width=True):
+        if st.button("🚪 End Session", width="stretch"):
             # Gather session stats for summary card
             buddy = st.session_state.buddy
             _sum = buddy.pattern_tracker.get_pattern_summary()

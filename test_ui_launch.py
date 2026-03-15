@@ -299,3 +299,30 @@ def test_persist_chat_history_saves_to_profile():
 
     assert profile.load_chat_history() == [{"role": "user", "content": "test message"}]
     mock_buddy._save_profile.assert_called_once()
+
+
+# -----------------------------------------------------------------------
+# Streamlit deprecation checks
+# -----------------------------------------------------------------------
+
+def test_no_deprecated_use_container_width():
+    """ui_app.py and ui/ must not use the deprecated use_container_width arg.
+
+    Streamlit >= 1.54 replaces the old parameter with width='stretch'/'content'.
+    """
+    import pathlib
+    # Only check the production UI source files, not test or doc files
+    _DEPRECATED = 'use_container_' + 'width'   # split to avoid self-match
+    repo = pathlib.Path(__file__).resolve().parent
+    targets = [repo / 'ui_app.py'] + list((repo / 'ui').rglob('*.py'))
+    violations = []
+    for py_file in targets:
+        if not py_file.exists():
+            continue
+        text = py_file.read_text(encoding='utf-8', errors='ignore')
+        for lineno, line in enumerate(text.splitlines(), 1):
+            if _DEPRECATED in line:
+                violations.append(f"{py_file.name}:{lineno}: {line.strip()}")
+    assert violations == [], (
+        "Deprecated parameter found:\n" + "\n".join(violations)
+    )

@@ -2,7 +2,7 @@
 Plotly chart factories for AI Wellness Buddy.
 
 Each function returns a ``plotly.graph_objects.Figure`` ready to be
-rendered with ``st.plotly_chart(fig, use_container_width=True)``.
+rendered with ``st.plotly_chart(fig, width="stretch")``.
 
 A consistent calming colour palette and Inter font are used across
 all charts for a research-grade presentation.
