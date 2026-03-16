@@ -9,6 +9,7 @@ import random
 from collections import deque
 from datetime import datetime
 import config
+from empathetic_responder import EmpatheticResponder
 _logger = logging.getLogger(__name__)
 
 
@@ -402,6 +403,7 @@ class ConversationHandler:
         self._last_response_metadata = {}
         self._research_logging_enabled = False
         self._session_log = []
+        self._empathetic_responder = EmpatheticResponder()
 
     def add_message(self, user_message, emotion_data):
         """Add a message to conversation history"""
@@ -750,6 +752,11 @@ class ConversationHandler:
             elif coarse_emotion == 'neutral':
                 normalized_emotion = 'neutral'
 
+        # Capture last user message for empathetic responder
+        _last_user_msg = ''
+        if self.conversation_history:
+            _last_user_msg = self.conversation_history[-1].get('user_message', '')
+
         # Crisis response remains explicit and immediate
         if primary_emotion == 'crisis':
             crisis_pool = _RESPONSES['crisis'].get(style, _RESPONSES['crisis']['balanced'])
@@ -763,15 +770,37 @@ class ConversationHandler:
         else:
             consec = self._consecutive_emotion_count(primary_emotion) if primary_emotion else 1
             stage = self._escalation_stage(consec)
-            response = self._build_response_segments(
-                normalized_emotion or 'neutral',
-                detected_topic,
-                lang_pref,
-                stage,
-                conversation_style=conversation_style,
+            # Use empathetic responder for warm, human-like replies
+            concern_level = emotion_data.get('concern_level', 'low')
+            emotion_confidence = emotion_data.get('emotion_confidence', 0.0)
+            chat_context = user_context.get('context') if user_context else None
+            empathetic_base = self._empathetic_responder.generate_response(
+                user_text=_last_user_msg,
+                emotion=normalized_emotion or 'neutral',
+                concern_level=concern_level,
+                emotion_confidence=emotion_confidence,
+                history=chat_context,
+            )
+            # Append topic-specific adaptive suggestion when a topic is detected
+            topic_suggestion = self._get_adaptive_suggestion(
+                detected_topic, normalized_emotion or 'neutral', stage,
                 calm_mode_active=calm_mode_active,
             )
-            template_label = f"modular/{normalized_emotion or 'neutral'}/stage-{stage}"
+            if topic_suggestion and lang_pref != 'tamil':
+                empathetic_base = f"{empathetic_base} {topic_suggestion}"
+            # For Tamil, fall back to modular segments (Tamil phrase pools)
+            if lang_pref == 'tamil':
+                response = self._build_response_segments(
+                    normalized_emotion or 'neutral',
+                    detected_topic,
+                    lang_pref,
+                    stage,
+                    conversation_style=conversation_style,
+                    calm_mode_active=calm_mode_active,
+                )
+            else:
+                response = empathetic_base
+            template_label = f"empathetic/{normalized_emotion or 'neutral'}/stage-{stage}"
             if detected_topic:
                 template_label += f"/{detected_topic}"
             if detected_topic == 'work_stress':
@@ -936,6 +965,14 @@ class ConversationHandler:
         )
 
         def _regen():
+            if lang_pref != 'tamil':
+                return self._empathetic_responder.generate_response(
+                    user_text=_last_user_msg,
+                    emotion=normalized_emotion or 'neutral',
+                    concern_level=emotion_data.get('concern_level', 'low'),
+                    emotion_confidence=emotion_data.get('emotion_confidence', 0.0),
+                    history=user_context.get('context') if user_context else None,
+                )
             refreshed = self._build_response_segments(
                 normalized_emotion or 'neutral',
                 detected_topic,

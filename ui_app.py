@@ -14,6 +14,7 @@ from data_store import DataStore
 from prediction_agent import PredictionAgent
 from voice_handler import VoiceHandler
 from auth_manager import AuthManager
+from session_manager import SessionManager
 import config
 import os
 
@@ -30,10 +31,12 @@ from ui.charts import (
 from ui.layout import (
     render_hero_section, render_wellness_illustration_large,
     render_chat_header, render_user_avatar, render_risk_badge,
+    render_concern_badge,
     render_session_info_card, render_streak_card, render_waveform_section,
     render_session_summary_card, render_emotion_flag,
     render_emotional_avatar, render_wellness_sidebar_card,
-    EMO_ICONS, EMO_BUBBLE_CLASS, RISK_COLOUR, RISK_LEVEL_VALUES, SOUND_LABELS,
+    EMO_ICONS, EMO_BUBBLE_CLASS, CONCERN_ICONS,
+    RISK_COLOUR, RISK_LEVEL_VALUES, SOUND_LABELS,
 )
 from ui.animations import (
     ambient_sound_html, ambient_stop_html, TYPING_INDICATOR_HTML,
@@ -53,10 +56,15 @@ st.set_page_config(
 # -----------------------------------------------------------------------
 for key, default in [
     ('buddy', None),
+    ('session_mgr', None),           # SessionManager instance
+    ('session_id', None),            # unique id for current session
     ('messages', []),
-    ('chat_history', []),        # structured {"role","content"} history
-    ('last_response', None),     # anti-repeat tracking
+    ('chat_history', []),            # structured {"role","content"} history
+    ('emotion_history', []),         # per-session emotion snapshots
+    ('risk_history', []),            # per-session risk scores
+    ('last_response', None),         # anti-repeat tracking
     ('last_response_meta', {}),
+    ('last_user_input', None),       # dedup: skip reprocessing on rerun
     ('user_id', None),
     ('profile_loaded', False),
     ('show_load', False),
@@ -69,9 +77,9 @@ for key, default in [
     ('authenticated', False),
     ('current_user', None),
     ('failed_attempts', 0),
-    ('ui_theme', 'calm'),          # calm | clinical | modern
+    ('ui_theme', 'calm'),            # calm | clinical | modern
     ('dark_mode', False),
-    ('ambient_sound', 'deep_focus'),  # deep_focus | calm_waves | soft_rain
+    ('ambient_sound', 'deep_focus'), # deep_focus | calm_waves | soft_rain
     ('research_logging_enabled', False),
     ('background_theme', 'calm_gradient'),
 ]:
@@ -137,6 +145,10 @@ def init_buddy():
         st.session_state.buddy.data_store = DataStore()
     if st.session_state.voice_handler is None:
         st.session_state.voice_handler = VoiceHandler()
+    if st.session_state.get('session_mgr') is None:
+        st.session_state.session_mgr = SessionManager(
+            st.session_state.buddy.data_store,
+        )
 
 
 def load_profile(username):
@@ -145,6 +157,28 @@ def load_profile(username):
     st.session_state.user_id = username
     st.session_state.current_user = username
     st.session_state.buddy._load_existing_profile(username)
+
+    # Restore persisted session (chat + emotion + risk history)
+    mgr = st.session_state.session_mgr
+    session = mgr.load_session(username)
+    if session is None:
+        session = mgr.create_session(username)
+        # Seed from legacy profile chat_history if present
+        profile = st.session_state.buddy.user_profile
+        if profile:
+            legacy = profile.load_chat_history()
+            if legacy:
+                session["chat_history"] = legacy
+                mgr.save_session(username, chat_history=legacy)
+    st.session_state.session_id = session["session_id"]
+    st.session_state.chat_history = session["chat_history"]
+    st.session_state.emotion_history = session["emotion_history"]
+    st.session_state.risk_history = session["risk_history"]
+    # Keep legacy messages list in sync
+    st.session_state.messages = [
+        {"role": m["role"], "content": m["content"]}
+        for m in session["chat_history"]
+    ]
     st.session_state.profile_loaded = True
     st.session_state.authenticated = True
     st.rerun()
@@ -177,11 +211,11 @@ def show_profile_setup():
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("Sign In", use_container_width=True):
+        if st.button("Sign In", width="stretch"):
             st.session_state.show_load = True
             st.session_state.show_create = False
     with col2:
-        if st.button("Create Account", use_container_width=True):
+        if st.button("Create Account", width="stretch"):
             st.session_state.show_create = True
             st.session_state.show_load = False
 
@@ -545,6 +579,15 @@ def render_chat_tab():
     _emo_conf = _meta.get('emotion_confidence', 0.0)
     if _probs and _det_emotion:
         _conf = _xai.get('confidence', _probs.get(_det_emotion, 0))
+        # Inline concern + confidence badges above the expander
+        _concern_html = render_concern_badge(_concern) if _concern else ''
+        _conf_pct = f"{_emo_conf:.0%}" if 'emotion_confidence' in _meta else f"{_conf:.0%}"
+        st.markdown(
+            f"{_concern_html}"
+            f"&nbsp; `🎯 Confidence {_conf_pct}`"
+            f"&nbsp; `{EMO_ICONS.get(_det_emotion, '')} {_det_emotion.capitalize()}`",
+            unsafe_allow_html=True,
+        )
         _concern_display = f"  |  Concern: **{_concern.capitalize()}**" if _concern else ""
         with st.expander(
             f"🔬 Emotion Analysis — **{_det_emotion.capitalize()}**"
@@ -555,12 +598,16 @@ def render_chat_tab():
             with chart_col:
                 st.plotly_chart(
                     create_emotion_probability_bar(_probs),
-                    use_container_width=True,
+                    width="stretch",
                 )
             with info_col:
                 st.markdown(f"**Detected emotion:** {_det_emotion.capitalize()}")
                 st.markdown(f"**Confidence:** {_conf:.1%}")
                 if _concern:
+                    st.markdown(
+                        f"**Concern level:** {render_concern_badge(_concern)}",
+                        unsafe_allow_html=True,
+                    )
                     st.markdown(f"**Concern level:** {_CONCERN_EMOJI.get(_concern, '⬜')} {_concern.capitalize()}")
                 # XAI key indicators
                 indicators = _xai.get('key_indicators', [])
@@ -590,7 +637,7 @@ def render_chat_tab():
     feedback_col, mic_col = st.columns([11, 1])
     with mic_col:
         voice_transcript = _handle_voice_input()
-    if voice_transcript:
+    if voice_transcript and voice_transcript != st.session_state.last_user_input:
         with feedback_col:
             st.caption(f"🎤 *{voice_transcript}*")
         _add_chat_message("user", voice_transcript)
@@ -612,8 +659,10 @@ def render_chat_tab():
         st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
         # Tag the user message with the detected emotion for badge display
         _tag_last_user_emotion(st.session_state.last_response_meta)
+        _track_session_metadata(st.session_state.last_response_meta)
         if st.session_state.last_response_meta.get('calm_mode_suggested'):
             st.session_state.calm_music_enabled = True
+        st.session_state.last_user_input = voice_transcript
         _play_tts(response)
         st.rerun()
 
@@ -624,25 +673,28 @@ def render_chat_tab():
     }.get(lang_pref, 'Share how you\'re feeling…')
 
     if prompt := st.chat_input(placeholder):
-        _add_chat_message("user", prompt)
-        response = st.session_state.buddy.respond(
-            prompt,
-            context=st.session_state.chat_history,
-            options={
-                'calm_mode_active': st.session_state.get('calm_music_enabled', False),
-                'research_logging': st.session_state.get('research_logging_enabled', False),
-            },
-        )
-        _add_chat_message("assistant", response)
-        st.session_state.last_response = response
-        st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
-        # Tag the user message with the detected emotion for badge display
-        _tag_last_user_emotion(st.session_state.last_response_meta)
-        if st.session_state.last_response_meta.get('calm_mode_suggested'):
-            st.session_state.calm_music_enabled = True
-        if st.session_state.get('tts_enabled', False):
-            _play_tts(response)
-        st.rerun()
+        if prompt != st.session_state.last_user_input:
+            _add_chat_message("user", prompt)
+            response = st.session_state.buddy.respond(
+                prompt,
+                context=st.session_state.chat_history,
+                options={
+                    'calm_mode_active': st.session_state.get('calm_music_enabled', False),
+                    'research_logging': st.session_state.get('research_logging_enabled', False),
+                },
+            )
+            _add_chat_message("assistant", response)
+            st.session_state.last_response = response
+            st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
+            # Tag the user message with the detected emotion for badge display
+            _tag_last_user_emotion(st.session_state.last_response_meta)
+            _track_session_metadata(st.session_state.last_response_meta)
+            if st.session_state.last_response_meta.get('calm_mode_suggested'):
+                st.session_state.calm_music_enabled = True
+            st.session_state.last_user_input = prompt
+            if st.session_state.get('tts_enabled', False):
+                _play_tts(response)
+            st.rerun()
 
 
 def _add_chat_message(role, content, emotion=None):
@@ -650,12 +702,17 @@ def _add_chat_message(role, content, emotion=None):
 
     When *emotion* is provided it is stored alongside the message so the
     Chat tab can display an emotion badge next to the user's text.
+
+    The updated chat history is also persisted to the user profile so it
+    survives page reloads and re-logins.
     """
     entry = {"role": role, "content": content}
     if emotion:
         entry["emotion"] = emotion
     st.session_state.chat_history.append(entry)
     st.session_state.messages.append({"role": role, "content": content})
+    # Persist to user profile storage
+    _persist_chat_history()
 
 
 def _tag_last_user_emotion(meta: dict):
@@ -673,6 +730,58 @@ def _tag_last_user_emotion(meta: dict):
             msg["confidence"] = confidence
             msg["concern_level"] = concern
             break
+
+
+def _track_session_metadata(meta: dict):
+    """Append emotion and risk snapshots from *meta* to session history.
+
+    Called after each assistant response so that longitudinal analysis has
+    a record of every interaction in the current session.
+    """
+    now = datetime.now().isoformat()
+    emo = meta.get('emotion')
+    if emo:
+        st.session_state.emotion_history.append({
+            'timestamp': now,
+            'emotion': emo,
+            'confidence': meta.get('emotion_confidence', 0.0),
+            'concern_level': meta.get('concern_level', 'low'),
+        })
+    risk_score = meta.get('risk_score')
+    risk_level = meta.get('risk_level')
+    if risk_score is not None or risk_level is not None:
+        st.session_state.risk_history.append({
+            'timestamp': now,
+            'risk_score': float(risk_score) if risk_score is not None else 0.0,
+            'risk_level': risk_level or 'low',
+        })
+
+
+def _persist_chat_history():
+    """Save current session state to the user profile on disk.
+
+    Persists chat_history, emotion_history, and risk_history via
+    :class:`SessionManager`.  Errors are silently suppressed so that a
+    disk-write failure does not interrupt the ongoing conversation.
+    """
+    buddy = st.session_state.get('buddy')
+    mgr = st.session_state.get('session_mgr')
+    user_id = st.session_state.get('user_id')
+    if buddy and buddy.user_profile and user_id:
+        try:
+            if mgr:
+                mgr.save_session(
+                    user_id,
+                    chat_history=st.session_state.chat_history,
+                    emotion_history=st.session_state.get('emotion_history', []),
+                    risk_history=st.session_state.get('risk_history', []),
+                )
+            else:
+                # Fallback: legacy path (no session manager yet)
+                buddy.user_profile.save_chat_history(st.session_state.chat_history)
+                buddy._save_profile()
+        except Exception:
+            pass  # best-effort; chat continues in session_state
 
 
 # -----------------------------------------------------------------------
@@ -694,12 +803,12 @@ def render_trends_tab():
         st.markdown("#### Current Session — Sentiment Over Messages")
         col1, col2 = st.columns([2, 1])
         with col1:
-            st.plotly_chart(create_sentiment_chart(sentiments), use_container_width=True)
+            st.plotly_chart(create_sentiment_chart(sentiments), width="stretch")
         with col2:
             if summary:
                 ma = summary.get('moving_average', [])
                 if len(ma) >= 2:
-                    st.plotly_chart(create_moving_average_chart(ma), use_container_width=True)
+                    st.plotly_chart(create_moving_average_chart(ma), width="stretch")
                     st.caption("3-message moving average of sentiment")
     else:
         st.info("Start chatting to see your sentiment trend.")
@@ -720,7 +829,7 @@ def render_trends_tab():
             with col_b:
                 st.plotly_chart(
                     create_emotion_donut(emotions, counts, colors),
-                    use_container_width=True,
+                    width="stretch",
                 )
 
     # ---- Emotion heatmap (intensity over conversation time) ----
@@ -747,7 +856,7 @@ def render_trends_tab():
                 emotion_timeline.append(seg)
             st.plotly_chart(
                 create_emotion_heatmap(emotion_timeline),
-                use_container_width=True,
+                width="stretch",
             )
 
     # ---- Historical 30-day sentiment (Plotly interactive timeline) ----
@@ -765,7 +874,7 @@ def render_trends_tab():
             forecast = predictor.predict_next_sentiment(hist_data)
             st.plotly_chart(
                 create_history_chart(hist_data, forecast),
-                use_container_width=True,
+                width="stretch",
             )
 
             if forecast:
@@ -798,7 +907,7 @@ def render_trends_tab():
             emo_cols = [EMO_COLORS.get(e, '#9B8CFF') for e in emo_labels]
             st.plotly_chart(
                 create_emotion_donut(emo_labels, emo_vals, emo_cols),
-                use_container_width=True,
+                width="stretch",
             )
 
 
@@ -819,10 +928,10 @@ def render_emotional_journey_tab():
 
     line_col, gauge_col = st.columns([2, 1])
     with line_col:
-        st.plotly_chart(create_emotion_journey_line(timeline), use_container_width=True)
+        st.plotly_chart(create_emotion_journey_line(timeline), width="stretch")
     with gauge_col:
         latest_risk = float(timeline[-1].get('risk_score', 0.0))
-        st.plotly_chart(create_stress_intensity_gauge(latest_risk), use_container_width=True)
+        st.plotly_chart(create_stress_intensity_gauge(latest_risk), width="stretch")
 
     heatmap_payload = []
     for point in timeline:
@@ -837,7 +946,7 @@ def render_emotional_journey_tab():
                 ),
             )
         heatmap_payload.append(row)
-    st.plotly_chart(create_emotion_heatmap(heatmap_payload), use_container_width=True)
+    st.plotly_chart(create_emotion_heatmap(heatmap_payload), width="stretch")
 
     emotion_counts = {}
     for point in timeline:
@@ -875,7 +984,7 @@ def render_risk_tab():
     st.markdown(f"### Current Risk Level: {icon} {risk_level.upper()}")
 
     # Plotly semi-circular animated risk dial
-    st.plotly_chart(create_risk_gauge(risk_score, risk_level), use_container_width=True)
+    st.plotly_chart(create_risk_gauge(risk_score, risk_level), width="stretch")
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Risk Score", f"{risk_score:.2f}")
@@ -916,7 +1025,7 @@ def render_risk_tab():
 
     if risk_hist:
         st.markdown("#### 30-Day Risk Level History")
-        st.plotly_chart(create_risk_history_chart(risk_hist), use_container_width=True)
+        st.plotly_chart(create_risk_history_chart(risk_hist), width="stretch")
 
         # Risk escalation forecast
         predictor = PredictionAgent()
@@ -982,7 +1091,7 @@ def render_weekly_report_tab():
 
         if sentiments:
             st.markdown("#### 7-Day Mood Chart")
-            st.plotly_chart(create_weekly_chart(sentiments), use_container_width=True)
+            st.plotly_chart(create_weekly_chart(sentiments), width="stretch")
 
             # Forecasted mood trend
             if len(sentiments) >= 3:
@@ -992,7 +1101,7 @@ def render_weekly_report_tab():
                     st.markdown("#### Forecasted Mood Trend")
                     st.plotly_chart(
                         create_history_chart(sentiments, forecast),
-                        use_container_width=True,
+                        width="stretch",
                     )
                     st.info(
                         f"📡 **Forecast** ({forecast['confidence']} confidence): "
@@ -1010,7 +1119,7 @@ def render_weekly_report_tab():
             emo_cols = [EMO_COLORS.get(e, '#9B8CFF') for e in emo_labels]
             st.plotly_chart(
                 create_emotion_donut(emo_labels, emo_vals, emo_cols),
-                use_container_width=True,
+                width="stretch",
             )
 
         col1, col2, col3 = st.columns(3)
@@ -1181,7 +1290,7 @@ def show_chat_interface():
         # Mini sentiment sparkline in sidebar
         sentiments = list(st.session_state.buddy.pattern_tracker.sentiment_history)
         if len(sentiments) >= 2:
-            st.plotly_chart(create_sparkline(sentiments), use_container_width=True)
+            st.plotly_chart(create_sparkline(sentiments), width="stretch")
             st.caption("Session sentiment")
 
         st.markdown("---")
@@ -1288,20 +1397,20 @@ def show_chat_interface():
             unsafe_allow_html=True,
         )
 
-        if st.button("📞 Help & Resources", use_container_width=True):
+        if st.button("📞 Help & Resources", width="stretch"):
             response = st.session_state.buddy._show_resources()
             st.session_state.messages.append({"role": "assistant", "content": response})
 
-        if st.button("📊 Emotional Status", use_container_width=True):
+        if st.button("📊 Emotional Status", width="stretch"):
             response = st.session_state.buddy._show_emotional_status()
             st.session_state.messages.append({"role": "assistant", "content": response})
 
-        if st.button("⚙️ Manage Profile", use_container_width=True):
+        if st.button("⚙️ Manage Profile", width="stretch"):
             st.session_state.show_profile_menu = True
 
         st.markdown("---")
 
-        if st.button("🚪 End Session", use_container_width=True):
+        if st.button("🚪 End Session", width="stretch"):
             # Gather session stats for summary card
             buddy = st.session_state.buddy
             _sum = buddy.pattern_tracker.get_pattern_summary()

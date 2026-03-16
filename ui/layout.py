@@ -44,6 +44,14 @@ SOUND_LABELS = {
 
 LANG_ICONS = {'english': '🇬🇧', 'tamil': '🇮🇳', 'bilingual': '🇮🇳🇬🇧'}
 
+# Concern level badge icons
+CONCERN_ICONS = {
+    'low':      '🟢',
+    'medium':   '🟡',
+    'high':     '🟠',
+    'critical': '🔴',
+}
+
 # Badge styling keyed by risk level → (icon, colour, bg, shadow)
 _BADGE_STYLE = {
     'low':      ('🟢', '#5B8CFF', 'rgba(91,140,255,0.10)', 'rgba(91,140,255,0.25)'),
@@ -164,6 +172,19 @@ def render_risk_badge(risk_level: str = 'low') -> str:
         f'transition:all 0.3s ease;">'
         f'<span style="font-size:1.15rem;font-weight:600;">{r_icon} Risk: '
         f'<strong style="color:{r_color};">{risk_level.upper()}</strong></span></div>'
+    )
+
+
+def render_concern_badge(concern_level: str = 'low') -> str:
+    """Return an inline HTML badge for the concern level.
+
+    Renders as e.g. ``🟢 LOW`` or ``🔴 CRITICAL`` with themed colour.
+    """
+    icon = CONCERN_ICONS.get(concern_level, '🟢')
+    css_class = f'concern-{concern_level}'
+    return (
+        f'<span class="concern-badge {css_class}">'
+        f'{icon} {concern_level.upper()}</span>'
     )
 
 
