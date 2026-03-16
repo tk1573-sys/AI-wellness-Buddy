@@ -178,4 +178,9 @@ def generate_explanation(
         "key_indicators": indicators,
         "sentiment_contribution": sentiment,
         "model_source": get_model_source(transformer_available),
+        "fused_score": {
+            "transformer_weight": 0.75 if transformer_available else 0.0,
+            "keyword_weight": 0.25 if transformer_available else 1.0,
+            "final_confidence": round(confidence, 4),
+        },
     }

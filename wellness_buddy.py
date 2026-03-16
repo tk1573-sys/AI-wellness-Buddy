@@ -15,8 +15,10 @@ from language_handler import LanguageHandler
 from clinical_indicators import (
     compute_clinical_indicators,
     compute_emotional_risk,
+    compute_cdi,
     DISCLAIMER as CLINICAL_DISCLAIMER,
 )
+from intervention_engine import InterventionEngine
 import config
 
 
@@ -30,6 +32,7 @@ class WellnessBuddy:
         self.conversation_handler = ConversationHandler()
         self.prediction_agent = PredictionAgent()
         self.lang_handler = LanguageHandler()
+        self.intervention_engine = InterventionEngine()
         self.user_profile = None
         self.data_store = DataStore(data_dir)
         self.session_active = False
@@ -315,8 +318,16 @@ class WellnessBuddy:
         emotional_risk = compute_emotional_risk(
             emotion_data, clinical, pattern_summary,
         )
+        cdi = compute_cdi(emotion_data, clinical, pattern_summary)
+        interventions = self.intervention_engine.recommend(
+            emotional_risk['risk_level'],
+            emotion_data.get('primary_emotion', 'neutral'),
+            clinical,
+        )
         response_meta['clinical_indicators'] = clinical
         response_meta['emotional_risk'] = emotional_risk
+        response_meta['cdi'] = cdi
+        response_meta['interventions'] = interventions
         response_meta['disclaimer'] = CLINICAL_DISCLAIMER
 
         self._last_response_metadata = response_meta

@@ -7,7 +7,8 @@ Pipeline stages:
 3) Forecasting agent
 4) Alert decision agent
 5) Response generation agent
-6) Clinical indicators (computed post-pipeline for research output)
+6) Intervention decision agent
+7) Clinical indicators (computed post-pipeline for research output)
 """
 
 from emotion_analyzer import EmotionAnalyzer
@@ -18,8 +19,10 @@ from conversation_handler import ConversationHandler
 from clinical_indicators import (
     compute_clinical_indicators,
     compute_emotional_risk,
+    compute_cdi,
     DISCLAIMER as CLINICAL_DISCLAIMER,
 )
+from intervention_engine import InterventionEngine
 
 
 class EmotionAnalysisAgent:
@@ -77,6 +80,16 @@ class ResponseGenerationAgent:
         return self.conversation_handler.generate_response(emotion_data, user_context=context)
 
 
+class InterventionAgent:
+    """Decide which coping interventions to recommend."""
+
+    def __init__(self, engine=None):
+        self.engine = engine or InterventionEngine()
+
+    def run(self, risk_level, primary_emotion, clinical_indicators=None):
+        return self.engine.recommend(risk_level, primary_emotion, clinical_indicators)
+
+
 class WellnessAgentPipeline:
     """
     Orchestrates the full multi-agent processing pipeline.
@@ -92,6 +105,7 @@ class WellnessAgentPipeline:
         self.forecast_agent = ForecastingAgent()
         self.alert_agent = AlertDecisionAgent()
         self.response_agent = ResponseGenerationAgent()
+        self.intervention_agent = InterventionAgent()
 
     def process_turn(self, user_message, user_profile=None, context=None):
         emotion_data = self.emotion_agent.run(user_message)
@@ -109,12 +123,24 @@ class WellnessAgentPipeline:
             emotion_data, clinical, pattern_summary,
         )
 
+        # Clinical Distress Index (CDI)
+        cdi = compute_cdi(emotion_data, clinical, pattern_summary)
+
+        # Intervention recommendation
+        interventions = self.intervention_agent.run(
+            emotional_risk['risk_level'],
+            emotion_data.get('primary_emotion', 'neutral'),
+            clinical,
+        )
+
         return {
             'emotion': emotion_data,
             'concern_level': emotion_data.get('concern_level', 'low'),
             'clinical_indicators': clinical,
             'risk_score': emotional_risk['risk_score'],
             'risk_level': emotional_risk['risk_level'],
+            'cdi': cdi,
+            'interventions': interventions,
             'patterns': pattern_summary,
             'forecasting': forecasting,
             'alert': alert,

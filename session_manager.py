@@ -48,6 +48,7 @@ class SessionManager:
             "chat_history": [],
             "emotion_history": [],
             "risk_history": [],
+            "coping_tools_used": [],
         }
         self._persist(user_id, session)
         return session
@@ -73,6 +74,7 @@ class SessionManager:
             "chat_history": list(session.get("chat_history", [])),
             "emotion_history": list(session.get("emotion_history", [])),
             "risk_history": list(session.get("risk_history", [])),
+            "coping_tools_used": list(session.get("coping_tools_used", [])),
         }
 
     def save_session(
@@ -83,6 +85,7 @@ class SessionManager:
         chat_history: Optional[List] = None,
         emotion_history: Optional[List] = None,
         risk_history: Optional[List] = None,
+        coping_tools_used: Optional[List] = None,
     ) -> Dict:
         """Persist the current session state for *user_id*.
 
@@ -106,6 +109,8 @@ class SessionManager:
             session["emotion_history"] = list(emotion_history)
         if risk_history is not None:
             session["risk_history"] = list(risk_history)
+        if coping_tools_used is not None:
+            session["coping_tools_used"] = list(coping_tools_used)
 
         self._persist(user_id, session)
         return dict(session)

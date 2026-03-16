@@ -161,8 +161,9 @@ class EmotionAnalyzer:
     """Analyzes emotional content in text messages"""
 
     # Blend weights for merging transformer and heuristic probabilities
-    _TRANSFORMER_WEIGHT = 0.7
-    _HEURISTIC_WEIGHT = 0.3
+    # Research-grade fusion: 0.75 transformer + 0.25 keyword (calibrated)
+    _TRANSFORMER_WEIGHT = 0.75
+    _HEURISTIC_WEIGHT = 0.25
 
     def __init__(self):
         # --- Legacy coarse keywords (backward-compat) ---
