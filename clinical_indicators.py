@@ -23,6 +23,7 @@ Public API
 ----------
 - ``compute_clinical_indicators(emotion_history)``
 - ``compute_emotional_risk(emotion_data, clinical_indicators, pattern_summary)``
+- ``detect_escalation(emotion_history, window)``
 - ``DISCLAIMER``
 """
 
@@ -303,3 +304,48 @@ def compute_cdi(
         },
         "disclaimer": DISCLAIMER,
     }
+
+
+# ── Emotional Escalation Detection ───────────────────────────────────────
+
+_NEGATIVE_EMOTIONS = frozenset(["sadness", "anxiety", "fear", "anger", "stress", "crisis"])
+_ESCALATION_WINDOW = 4
+
+
+def detect_escalation(
+    emotion_history: list[dict],
+    window: int = _ESCALATION_WINDOW,
+) -> dict[str, Any]:
+    """Detect emotional distress escalation in recent messages.
+
+    If the last *window* messages consist exclusively of negative emotions
+    (sadness, anxiety, fear, anger, stress, crisis), a warning is raised.
+
+    Parameters
+    ----------
+    emotion_history:
+        List of emotion snapshot dicts, each with an ``'emotion'`` key.
+    window:
+        Number of recent messages to inspect (default 4).
+
+    Returns
+    -------
+    dict with ``'escalation_detected'`` (bool) and ``'warning'`` (str or None).
+    """
+    if len(emotion_history) < window:
+        return {"escalation_detected": False, "warning": None}
+
+    recent = emotion_history[-window:]
+    all_negative = all(
+        (entry.get("emotion") or "neutral").lower() in _NEGATIVE_EMOTIONS
+        for entry in recent
+    )
+    if all_negative:
+        return {
+            "escalation_detected": True,
+            "warning": (
+                "\u26a0 Emotional distress appears to be escalating. "
+                "Please consider reaching out to someone you trust."
+            ),
+        }
+    return {"escalation_detected": False, "warning": None}

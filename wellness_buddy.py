@@ -16,6 +16,7 @@ from clinical_indicators import (
     compute_clinical_indicators,
     compute_emotional_risk,
     compute_cdi,
+    detect_escalation,
     DISCLAIMER as CLINICAL_DISCLAIMER,
 )
 from intervention_engine import InterventionEngine
@@ -328,6 +329,9 @@ class WellnessBuddy:
         response_meta['emotional_risk'] = emotional_risk
         response_meta['cdi'] = cdi
         response_meta['interventions'] = interventions
+        response_meta['escalation'] = detect_escalation(
+            list(self.pattern_tracker.emotion_history)
+        )
         response_meta['disclaimer'] = CLINICAL_DISCLAIMER
 
         self._last_response_metadata = response_meta

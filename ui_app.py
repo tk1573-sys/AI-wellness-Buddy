@@ -25,7 +25,7 @@ from ui.charts import (
     create_history_chart, create_weekly_chart, create_sparkline,
     create_moving_average_chart, create_risk_history_chart, create_emotion_heatmap,
     create_emotion_journey_line, create_stress_intensity_gauge,
-    create_emotion_probability_bar,
+    create_emotion_probability_bar, create_cdi_gauge,
     EMO_COLORS, _HEATMAP_EMOTIONS,
 )
 from ui.layout import (
@@ -647,6 +647,19 @@ def render_chat_tab():
             "You are not alone. Help is available right now. 💙"
         )
 
+    # ---- Escalation warning ----
+    _escalation = _meta.get('escalation', {})
+    if _escalation.get('escalation_detected'):
+        st.warning(_escalation.get('warning', ''))
+
+    # ---- Intervention recommendations ----
+    _interventions = _meta.get('interventions', {})
+    _intervention_level = _interventions.get('level', '')
+    if _intervention_level in ('moderate', 'high', 'critical'):
+        _inter_msg = _interventions.get('supportive_message', '')
+        if _inter_msg:
+            st.info(f"💡 {_inter_msg}")
+
     # ---- Breathing exercise opt-in (user-consent based) ----
     _breathing_suggested = _meta.get('breathing_suggested', False)
     if _breathing_suggested and _det_emotion != 'crisis':
@@ -1017,6 +1030,14 @@ def render_risk_tab():
 
     # Plotly semi-circular animated risk dial
     st.plotly_chart(create_risk_gauge(risk_score, risk_level), width="stretch")
+
+    # Clinical Distress Index (CDI) gauge
+    _last_meta = st.session_state.get('last_response_meta') or {}
+    _cdi = _last_meta.get('cdi', {})
+    _cdi_score = _cdi.get('cdi_score', 0.0)
+    _cdi_level = _cdi.get('cdi_level', 'low')
+    if _cdi_score > 0:
+        st.plotly_chart(create_cdi_gauge(_cdi_score, _cdi_level), width="stretch")
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Risk Score", f"{risk_score:.2f}")

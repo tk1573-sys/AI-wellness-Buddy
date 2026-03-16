@@ -270,6 +270,9 @@ class EmpatheticResponder:
     4. **Optional suggestion** — a gentle, non-directive nudge.
     """
 
+    # Maximum number of supportive template phrases per single response.
+    _MAX_SUPPORTIVE_TEMPLATES = 2
+
     def __init__(self):
         self._recent_phrases: deque = deque(maxlen=30)
         # Track last 3 full responses to prevent repetition across messages
@@ -315,14 +318,24 @@ class EmpatheticResponder:
         # Layer 1 — Emotional acknowledgment (always included)
         empathy = self._pick(EMPATHY_PHRASES.get(emotion, EMPATHY_PHRASES["neutral"]))
 
-        # Layer 2 — Supportive statement (always included, scaled by concern)
+        # Layer 2 — Validation (affirm the user's experience)
+        validation = self._pick(
+            VALIDATION_PHRASES.get(emotion, VALIDATION_PHRASES["neutral"])
+        )
+
+        # Layer 3 — Supportive statement (scaled by concern)
         support = self._pick(SUPPORT_PHRASES[concern_level])
 
-        parts: list[str] = [empathy, support]
+        # Build parts — cap supportive template phrases at _MAX_SUPPORTIVE_TEMPLATES
+        parts: list[str] = [empathy, validation]
+        supportive_count = 1  # 'support' counts as one template
+        parts.append(support)
 
         # For high/critical concern, add a deepener to show extra care
         if concern_level in ("high", "critical"):
-            parts.append(self._pick(HIGH_CONCERN_DEEPENERS))
+            if supportive_count < self._MAX_SUPPORTIVE_TEMPLATES:
+                parts.append(self._pick(HIGH_CONCERN_DEEPENERS))
+                supportive_count += 1
 
         # Context memory (reference history when available)
         elif history and len(history) >= 4 and emotion not in ("joy", "neutral"):
