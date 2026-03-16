@@ -529,30 +529,50 @@ class EmotionAnalyzer:
         return f"Detected '{primary_emotion}' based on overall sentiment."
 
     # ------------------------------------------------------------------
-    # Concern level (for dashboard badges)
+    # Concern level classification
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _compute_concern_level(emotion_probabilities, is_crisis,
-                               distress_keywords, severity):
-        """Return ``'low'``, ``'medium'``, ``'high'``, or ``'critical'``.
+    # Negative emotions whose probability contributes to concern
+    _CONCERN_EMOTIONS = ('sadness', 'fear', 'anxiety', 'anger')
 
-        Computed from emotion probabilities, crisis flag, number of
-        distress keywords, and the coarse severity string.
+    @staticmethod
+    def _compute_concern_level(primary_emotion, emotion_probabilities,
+                               is_crisis, distress_keywords, severity):
+        """Classify emotional concern into Low / Medium / High / Critical.
+
+        The level is derived from the dominant emotion, its probability,
+        the presence of crisis/distress indicators, and the coarse severity.
+
+        Returns
+        -------
+        str
+            One of ``'low'``, ``'medium'``, ``'high'``, ``'critical'``.
         """
         if is_crisis:
             return 'critical'
 
-        negative_mass = sum(
+        neg_prob = sum(
             emotion_probabilities.get(e, 0.0)
-            for e in ('sadness', 'anger', 'fear', 'anxiety', 'crisis')
+            for e in EmotionAnalyzer._CONCERN_EMOTIONS
         )
-        n_distress = len(distress_keywords) if distress_keywords else 0
+        primary_prob = emotion_probabilities.get(primary_emotion, 0.0)
 
-        if severity == 'high' or negative_mass >= 0.70 or n_distress >= 3:
+        # High negative probability with distress keywords → high
+        if primary_emotion in ('sadness', 'fear', 'anxiety') and primary_prob > 0.6:
+            if distress_keywords:
+                return 'high'
+            return 'high' if neg_prob > 0.7 else 'medium'
+
+        if severity == 'high' or neg_prob > 0.6:
             return 'high'
-        if severity == 'medium' or negative_mass >= 0.40 or n_distress >= 1:
+
+        if primary_emotion in ('sadness', 'fear', 'anxiety', 'anger'):
+            if primary_prob > 0.4 or neg_prob > 0.4:
+                return 'medium'
+
+        if severity == 'medium':
             return 'medium'
+
         return 'low'
 
     # ------------------------------------------------------------------
@@ -698,6 +718,14 @@ class EmotionAnalyzer:
             emotion_probabilities, is_crisis, distress_keywords, severity,
         )
         emotion_confidence = max(emotion_probabilities.values()) if emotion_probabilities else 0.0
+        # Concern level classification (low / medium / high / critical)
+        concern_level = self._compute_concern_level(
+            primary_emotion, emotion_probabilities, is_crisis,
+            distress_keywords, severity,
+        )
+
+        # Confidence of the primary emotion (max probability)
+        emotion_confidence = emotion_probabilities.get(primary_emotion, 0.0)
 
         return {
             # Coarse fields (backward-compatible)
@@ -719,6 +747,9 @@ class EmotionAnalyzer:
             'suicidal_ideation_probability': contextual_crisis.get('suicidal_ideation_probability', 1.0 if is_crisis else 0.0),
             'severe_distress_probability': contextual_crisis.get('severe_distress_probability', 1.0 if is_crisis else 0.0),
             'crisis_keywords': crisis_keywords_found,
+            # Concern level
+            'concern_level': concern_level,
+            'emotion_confidence': round(emotion_confidence, 4),
             # Language / script metadata
             'detected_script': detected_script,
             # Backward-compatibility aliases (for test_full_coverage and external callers)

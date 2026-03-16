@@ -51,3 +51,9 @@ htmlcov/
 evaluation_results.json
 confusion_matrix_*.png
 confusion_matrix_*.html
+
+# Benchmark results & plots (keep the directories, ignore generated files)
+results/*.json
+results/*.csv
+plots/*.png
+plots/*.html
