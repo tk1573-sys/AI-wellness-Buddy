@@ -238,6 +238,9 @@ HISTORY_AWARE_PHRASES = [
 # Humanisation post-processing helpers
 # ---------------------------------------------------------------------------
 
+# Max attempts to regenerate a response when it collides with recent memory
+_MAX_RESPONSE_REGEN_ATTEMPTS = 4
+
 _ROBOTIC_PHRASES = [
     "I have detected",
     "I can see that the emotional state is",
@@ -331,7 +334,7 @@ class EmpatheticResponder:
         response = self._humanise(response)
 
         # --- Avoid repeating the same response in the last 3 messages ---
-        max_regen = 4
+        max_regen = _MAX_RESPONSE_REGEN_ATTEMPTS
         while response in self._recent_responses and max_regen > 0:
             parts_retry: list[str] = [
                 self._pick(EMPATHY_PHRASES.get(emotion, EMPATHY_PHRASES["neutral"])),

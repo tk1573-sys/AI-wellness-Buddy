@@ -106,6 +106,7 @@ _JOURNEY_TAB_HEATMAP_MAX_INTENSITY = 1.0
 _JOURNEY_TAB_HEATMAP_RISK_BOOST = 0.2
 _BACKGROUND_SCENES = ["calm_gradient", "night_sky", "aurora", "ocean"]
 _UI_THEMES = ["calm", "modern", "clinical"]
+_BREATHING_WIDGET_HEIGHT = 280
 
 # Concern level badge colours and emoji icons
 _CONCERN_BADGE_COLORS = {
@@ -656,7 +657,7 @@ def render_chat_tab():
             st.session_state.breathing_active = True
 
     if st.session_state.get('breathing_active', False):
-        components.html(breathing_exercise_html(), height=280)
+        components.html(breathing_exercise_html(), height=_BREATHING_WIDGET_HEIGHT)
         _vol = st.session_state.get('_calm_volume', 0.03)
         _sound = st.session_state.get('ambient_sound', 'deep_focus')
         st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
