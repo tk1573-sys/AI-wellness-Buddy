@@ -57,3 +57,6 @@ results/*.json
 results/*.csv
 plots/*.png
 plots/*.html
+
+# Session data logs
+*_session_data.json

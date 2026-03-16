@@ -122,6 +122,39 @@ _CONCERN_EMOJI = {
 # Helpers
 # -----------------------------------------------------------------------
 
+def _generate_calming_tone(duration_s: float = 12.0, freq_hz: float = 174.0) -> bytes:
+    """Generate a soft calming sine-wave tone as WAV bytes for st.audio().
+
+    Uses a low Solfeggio frequency (174 Hz) with gentle fade-in/out.
+    Returns raw WAV data suitable for ``st.audio()``.
+    """
+    import io
+    import struct
+    import wave
+    try:
+        import numpy as np
+    except ImportError:
+        return b""
+    sample_rate = 22050
+    n_samples = int(sample_rate * duration_s)
+    t = np.linspace(0, duration_s, n_samples, endpoint=False)
+    # Generate gentle sine wave with volume envelope (fade in/out)
+    amplitude = 0.15
+    envelope = np.ones(n_samples)
+    fade_len = int(sample_rate * 1.5)
+    envelope[:fade_len] = np.linspace(0, 1, fade_len)
+    envelope[-fade_len:] = np.linspace(1, 0, fade_len)
+    samples = (amplitude * envelope * np.sin(2 * np.pi * freq_hz * t))
+    int_samples = np.int16(samples * 32767)
+    buf = io.BytesIO()
+    with wave.open(buf, 'wb') as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(int_samples.tobytes())
+    return buf.getvalue()
+
+
 def _coarse_to_fine_emotion(label: str) -> str:
     """Map coarse/legacy emotion labels to fine-grained display labels."""
     if label in ('positive',):
@@ -674,6 +707,10 @@ def render_chat_tab():
         _vol = st.session_state.get('_calm_volume', 0.03)
         _sound = st.session_state.get('ambient_sound', 'deep_focus')
         st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
+        # Calming audio fallback for browsers that block Web Audio autoplay
+        _tone = _generate_calming_tone()
+        if _tone:
+            st.audio(_tone, format="audio/wav")
         if st.button("✖ Stop Breathing Exercise", key="stop_breathing"):
             st.session_state.breathing_active = False
             st.markdown(ambient_stop_html(), unsafe_allow_html=True)

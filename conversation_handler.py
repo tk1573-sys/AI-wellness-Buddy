@@ -953,6 +953,18 @@ class ConversationHandler:
             if not suggestion_type:
                 suggestion_type = 'anxiety_grounding'
 
+        # Offer grounding for high concern non-anxiety emotions that missed
+        # the breathing path above (completes the coping-tool step).
+        if (
+            not breathing_suggested
+            and concern_level in ('high', 'critical')
+            and primary_emotion in ('sadness', 'fear')
+            and lang_pref != 'tamil'
+        ):
+            response += "\n\n" + self._choose_unique(_ANXIETY_GROUNDING)
+            if not suggestion_type:
+                suggestion_type = 'grounding_exercise'
+
         # For crisis: skip breathing UI suggestion entirely
         if primary_emotion == 'crisis':
             breathing_suggested = False

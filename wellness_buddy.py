@@ -4,6 +4,7 @@ Main application that integrates all components for emotional support
 """
 
 import sys
+from datetime import datetime
 from emotion_analyzer import EmotionAnalyzer
 from pattern_tracker import PatternTracker
 from alert_system import AlertSystem
@@ -335,6 +336,18 @@ class WellnessBuddy:
         response_meta['disclaimer'] = CLINICAL_DISCLAIMER
 
         self._last_response_metadata = response_meta
+
+        # Persist session data for research analysis
+        try:
+            self.data_store.save_session_log(self.user_id or 'anonymous', {
+                'timestamp': response_meta.get('timestamp', datetime.now().isoformat()),
+                'message': user_message,
+                'emotion': response_meta.get('emotion', 'neutral'),
+                'confidence': response_meta.get('emotion_confidence', 0.0),
+                'risk_level': response_meta.get('risk_level', 'low'),
+            })
+        except Exception:
+            pass  # Never interrupt conversation for a logging failure
 
         return response
     
