@@ -24,6 +24,40 @@ Design principles
 from __future__ import annotations
 
 
+# ---------------------------------------------------------------------------
+# Cached pipeline loader – uses @st.cache_resource when Streamlit is
+# available so that the heavy HuggingFace model is downloaded and
+# initialised only once per process, surviving Streamlit script reruns.
+# In non-Streamlit contexts (tests, CLI) the plain function is used and
+# the caller's own lazy-loading guard (_load_attempted) still prevents
+# redundant loads.
+# ---------------------------------------------------------------------------
+
+def _load_emotion_pipeline_impl(model_name: str):
+    """Load the HuggingFace emotion pipeline (uncached helper)."""
+    from transformers import pipeline as _hf_pipeline
+    return _hf_pipeline(
+        "text-classification",
+        model=model_name,
+        top_k=None,
+        device=-1,
+    )
+
+
+try:
+    import streamlit as _st
+
+    @_st.cache_resource
+    def load_emotion_pipeline(model_name: str = "j-hartmann/emotion-english-distilroberta-base"):
+        """Streamlit-cached emotion pipeline loader."""
+        return _load_emotion_pipeline_impl(model_name)
+except Exception:
+    # Streamlit not installed or not in a Streamlit runtime
+    def load_emotion_pipeline(model_name: str = "j-hartmann/emotion-english-distilroberta-base"):  # type: ignore[misc]
+        """Fallback (non-cached) emotion pipeline loader."""
+        return _load_emotion_pipeline_impl(model_name)
+
+
 class EmotionTransformer:
     """Transformer-based emotion classifier with rule-based keyword fallback.
 
@@ -121,19 +155,17 @@ class EmotionTransformer:
     # ------------------------------------------------------------------
 
     def _try_load(self) -> None:
-        """Attempt to load the HuggingFace pipeline (once)."""
+        """Attempt to load the HuggingFace pipeline (once).
+
+        Uses the module-level :func:`load_emotion_pipeline` which is
+        decorated with ``@st.cache_resource`` when Streamlit is available,
+        ensuring the heavy model is loaded only once per process.
+        """
         if self._load_attempted:
             return
         self._load_attempted = True
         try:
-            from transformers import pipeline as _hf_pipeline  # noqa: F401
-
-            self._pipeline = _hf_pipeline(
-                "text-classification",
-                model=self._model_name,
-                top_k=None,
-                device=-1,           # CPU only
-            )
+            self._pipeline = load_emotion_pipeline(self._model_name)
             self._available = True
         except Exception:
             # ImportError, OSError (model not cached), RuntimeError, …

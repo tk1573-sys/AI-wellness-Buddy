@@ -238,6 +238,9 @@ HISTORY_AWARE_PHRASES = [
 # Humanisation post-processing helpers
 # ---------------------------------------------------------------------------
 
+# Max attempts to regenerate a response when it collides with recent memory
+_MAX_RESPONSE_REGEN_ATTEMPTS = 4
+
 _ROBOTIC_PHRASES = [
     "I have detected",
     "I can see that the emotional state is",
@@ -267,8 +270,13 @@ class EmpatheticResponder:
     4. **Optional suggestion** — a gentle, non-directive nudge.
     """
 
+    # Maximum number of supportive template phrases per single response.
+    _MAX_SUPPORTIVE_TEMPLATES = 2
+
     def __init__(self):
         self._recent_phrases: deque = deque(maxlen=30)
+        # Track last 3 full responses to prevent repetition across messages
+        self._recent_responses: deque = deque(maxlen=3)
 
     # ------------------------------------------------------------------
     # Public API
@@ -307,36 +315,51 @@ class EmpatheticResponder:
         emotion = self._normalise_emotion(emotion)
         concern_level = concern_level if concern_level in SUPPORT_PHRASES else "low"
 
-        parts: list[str] = []
+        # Layer 1 — Emotional acknowledgment (always included)
+        empathy = self._pick(EMPATHY_PHRASES.get(emotion, EMPATHY_PHRASES["neutral"]))
 
-        # Layer 1 — Emotional acknowledgment
-        parts.append(self._pick(EMPATHY_PHRASES.get(emotion, EMPATHY_PHRASES["neutral"])))
-
-        # Layer 2 — Validation
-        parts.append(self._pick(VALIDATION_PHRASES.get(emotion, VALIDATION_PHRASES["neutral"])))
+        # Layer 2 — Validation (affirm the user's experience)
+        validation = self._pick(
+            VALIDATION_PHRASES.get(emotion, VALIDATION_PHRASES["neutral"])
+        )
 
         # Layer 3 — Supportive statement (scaled by concern)
-        parts.append(self._pick(SUPPORT_PHRASES[concern_level]))
+        support = self._pick(SUPPORT_PHRASES[concern_level])
 
-        # Layer 3b — Extra deepener for high/critical concern
+        # Build parts — cap supportive template phrases at _MAX_SUPPORTIVE_TEMPLATES
+        parts: list[str] = [empathy, validation]
+        supportive_count = 1  # 'support' counts as one template
+        parts.append(support)
+
+        # For high/critical concern, add a deepener to show extra care
         if concern_level in ("high", "critical"):
-            parts.append(self._pick(HIGH_CONCERN_DEEPENERS))
+            if supportive_count < self._MAX_SUPPORTIVE_TEMPLATES:
+                parts.append(self._pick(HIGH_CONCERN_DEEPENERS))
+                supportive_count += 1
 
-        # Layer 4 — Optional gentle suggestion
-        if emotion != "joy":
-            suggestion = self._pick(
-                GENTLE_SUGGESTIONS.get(emotion, GENTLE_SUGGESTIONS["neutral"])
-            )
-            parts.append(suggestion)
-
-        # Layer 5 — Context memory (reference history when available)
-        if history and len(history) >= 4 and emotion not in ("joy", "neutral"):
+        # Context memory (reference history when available).
+        # Mutually exclusive with deepener: high concern already adds
+        # a deepener above, so history-aware phrases are reserved for
+        # lower concern levels to avoid over-lengthy responses.
+        elif history and len(history) >= 4 and emotion not in ("joy", "neutral"):
             parts.append(self._pick(HISTORY_AWARE_PHRASES))
 
         response = " ".join(parts)
 
         # Humanisation pass
         response = self._humanise(response)
+
+        # --- Avoid repeating the same response in the last 3 messages ---
+        max_regen = _MAX_RESPONSE_REGEN_ATTEMPTS
+        while response in self._recent_responses and max_regen > 0:
+            parts_retry: list[str] = [
+                self._pick(EMPATHY_PHRASES.get(emotion, EMPATHY_PHRASES["neutral"])),
+                self._pick(SUPPORT_PHRASES[concern_level]),
+            ]
+            response = self._humanise(" ".join(parts_retry))
+            max_regen -= 1
+
+        self._recent_responses.append(response)
 
         return response
 

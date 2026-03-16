@@ -49,9 +49,10 @@ class TestEmpathyPhrases:
             f"Response for {emotion!r} should include an empathy phrase from the pool"
         )
 
-    def test_contains_validation_phrase(self, responder):
+    def test_contains_validation_or_support_phrase(self, responder):
+        """With max-2-template limit, response includes empathy + support."""
         resp = responder.generate_response("I'm so sad", "sadness", "low", 0.6)
-        pool = VALIDATION_PHRASES["sadness"]
+        pool = VALIDATION_PHRASES["sadness"] + SUPPORT_PHRASES["low"]
         assert any(phrase in resp for phrase in pool)
 
     def test_contains_support_phrase(self, responder):
@@ -177,11 +178,13 @@ class TestGentleSuggestions:
                     )
 
     def test_suggestion_uses_soft_language(self, responder):
+        """With max-2-template limit, responses may not always include a
+        suggestion, but should never use commanding language."""
         resp = responder.generate_response("I'm stressed", "stress", "medium", 0.6)
-        suggestion_pool = GENTLE_SUGGESTIONS["stress"]
-        assert any(s in resp for s in suggestion_pool), (
-            "Response should include a gentle suggestion"
-        )
+        for cmd in self._COMMANDING:
+            assert cmd not in resp, (
+                f"Response contains commanding phrase {cmd!r}"
+            )
 
     def test_joy_skips_suggestion(self, responder):
         resp = responder.generate_response("I'm so happy!", "joy", "low", 0.8)

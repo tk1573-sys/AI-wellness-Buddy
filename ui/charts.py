@@ -36,6 +36,9 @@ _GAUGE_COLORS = {
     'critical': '#D32F2F',
 }
 
+# Gauge bar thickness shared by risk and CDI gauges (visual proportion)
+_GAUGE_BAR_THICKNESS = 0.82
+
 
 def _base_layout(height=320, **overrides):
     """Return a dict of common layout properties."""
@@ -170,7 +173,7 @@ def create_risk_gauge(risk_score: float, risk_level: str = 'low') -> go.Figure:
                 'ticktext': ['Safe', 'Low', 'Med', 'High', 'Crit'],
                 'tickfont': {'size': 10, 'color': '#94a3b8'},
             },
-            'bar': {'color': bar_color, 'thickness': 0.82},
+            'bar': {'color': bar_color, 'thickness': _GAUGE_BAR_THICKNESS},
             'bgcolor': _TRANSPARENT,
             'borderwidth': 0,
             'steps': [
@@ -398,4 +401,58 @@ def create_emotion_heatmap(emotion_timeline: list[dict]) -> go.Figure:
         margin=dict(l=80, r=20, t=20, b=40),
         xaxis_title='Conversation Timeline',
     ))
+    return fig
+
+
+# ── CDI Gauge ────────────────────────────────────────────────────────────
+
+_CDI_COLORS = {
+    'low': '#5B8CFF',
+    'moderate': '#FFB74D',
+    'high': '#EF5350',
+    'critical': '#D32F2F',
+}
+
+
+def create_cdi_gauge(cdi_score: float, cdi_level: str = 'low') -> go.Figure:
+    """Semi-circular Clinical Distress Index gauge chart."""
+    bar_color = _CDI_COLORS.get(cdi_level, '#5B8CFF')
+    fig = go.Figure(go.Indicator(
+        mode='gauge+number',
+        value=cdi_score,
+        title={'text': '<b>Clinical Distress Index</b>',
+               'font': {'size': 18, 'color': '#64748B', 'family': 'Inter'}},
+        number={'suffix': ' / 1.00',
+                'font': {'size': 32, 'color': '#334155', 'family': 'Inter'}},
+        gauge={
+            'axis': {
+                'range': [0, 1],
+                'tickwidth': 1,
+                'tickcolor': '#94a3b8',
+                'tickvals': [0, 0.3, 0.5, 0.7, 1.0],
+                'ticktext': ['Low', 'Mod', 'High', 'Crit', ''],
+                'tickfont': {'size': 10, 'color': '#94a3b8'},
+            },
+            'bar': {'color': bar_color, 'thickness': _GAUGE_BAR_THICKNESS},
+            'bgcolor': _TRANSPARENT,
+            'borderwidth': 0,
+            'steps': [
+                {'range': [0, 0.3], 'color': 'rgba(91,140,255,0.10)'},
+                {'range': [0.3, 0.5], 'color': 'rgba(255,183,77,0.10)'},
+                {'range': [0.5, 0.7], 'color': 'rgba(239,83,80,0.10)'},
+                {'range': [0.7, 1.0], 'color': 'rgba(211,47,47,0.12)'},
+            ],
+            'threshold': {
+                'line': {'color': '#D32F2F', 'width': 3},
+                'thickness': 0.85,
+                'value': cdi_score,
+            },
+        },
+    ))
+    fig.update_layout(
+        height=280,
+        margin=dict(l=30, r=30, t=50, b=10),
+        paper_bgcolor=_TRANSPARENT,
+        font=_FONT,
+    )
     return fig

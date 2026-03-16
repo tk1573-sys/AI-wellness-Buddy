@@ -23,6 +23,7 @@ Public API
 ----------
 - ``compute_clinical_indicators(emotion_history)``
 - ``compute_emotional_risk(emotion_data, clinical_indicators, pattern_summary)``
+- ``detect_escalation(emotion_history, window)``
 - ``DISCLAIMER``
 """
 
@@ -215,3 +216,136 @@ def compute_emotional_risk(
         "risk_score": risk_score,
         "risk_level": level,
     }
+
+
+# ── Clinical Distress Index (CDI) ───────────────────────────────────────
+
+# Weights for the CDI composite score
+_CDI_NEG_EMOTION_WEIGHT = 0.35
+_CDI_KEYWORD_WEIGHT = 0.25
+_CDI_VOLATILITY_WEIGHT = 0.20
+_CDI_SUSTAINED_SADNESS_WEIGHT = 0.20
+
+
+def compute_cdi(
+    emotion_data: dict,
+    clinical_indicators: dict | None = None,
+    pattern_summary: dict | None = None,
+) -> dict[str, Any]:
+    """Compute the Clinical Distress Index (CDI).
+
+    The CDI is a composite metric that combines:
+    - negative emotion probability
+    - distress keyword density
+    - emotion volatility
+    - sustained sadness detection
+
+    Parameters
+    ----------
+    emotion_data:
+        Emotion analysis result from ``EmotionAnalyzer.classify_emotion()``.
+    clinical_indicators:
+        Output from ``compute_clinical_indicators()``.
+    pattern_summary:
+        Output from ``PatternTracker.get_pattern_summary()``.
+
+    Returns
+    -------
+    dict with ``cdi_score`` (float 0–1), ``cdi_level``
+    (``'low'`` | ``'moderate'`` | ``'high'`` | ``'critical'``),
+    and ``cdi_components`` (breakdown dict).
+    """
+    probs = emotion_data.get("emotion_probabilities", {})
+    neg_prob = (
+        probs.get("sadness", 0.0)
+        + probs.get("fear", 0.0)
+        + probs.get("anxiety", 0.0)
+        + probs.get("anger", 0.0)
+    )
+    neg_prob = min(1.0, neg_prob)
+
+    # Distress keyword density (normalized 0–1)
+    distress_kw = emotion_data.get("distress_keywords", [])
+    kw_density = (
+        min(1.0, len(distress_kw) / _MAX_KEYWORDS_FOR_NORMALIZATION)
+        if distress_kw
+        else 0.0
+    )
+
+    ci = clinical_indicators or {}
+    volatility = ci.get("emotional_volatility", 0.0)
+    sustained = 1.0 if ci.get("sustained_sadness") else 0.0
+
+    cdi_score = (
+        _CDI_NEG_EMOTION_WEIGHT * neg_prob
+        + _CDI_KEYWORD_WEIGHT * kw_density
+        + _CDI_VOLATILITY_WEIGHT * volatility
+        + _CDI_SUSTAINED_SADNESS_WEIGHT * sustained
+    )
+    cdi_score = round(min(1.0, max(0.0, cdi_score)), 4)
+
+    if cdi_score > 0.7:
+        cdi_level = "critical"
+    elif cdi_score > 0.5:
+        cdi_level = "high"
+    elif cdi_score > 0.3:
+        cdi_level = "moderate"
+    else:
+        cdi_level = "low"
+
+    return {
+        "cdi_score": cdi_score,
+        "cdi_level": cdi_level,
+        "cdi_components": {
+            "negative_emotion_probability": round(neg_prob, 4),
+            "distress_keyword_density": round(kw_density, 4),
+            "emotion_volatility": round(volatility, 4),
+            "sustained_sadness": sustained,
+        },
+        "disclaimer": DISCLAIMER,
+    }
+
+
+# ── Emotional Escalation Detection ───────────────────────────────────────
+
+_NEGATIVE_EMOTIONS = frozenset(["sadness", "anxiety", "fear", "anger", "stress", "crisis"])
+_ESCALATION_WINDOW = 4
+
+
+def detect_escalation(
+    emotion_history: list[dict],
+    window: int = _ESCALATION_WINDOW,
+) -> dict[str, Any]:
+    """Detect emotional distress escalation in recent messages.
+
+    If the last *window* messages consist exclusively of negative emotions
+    (sadness, anxiety, fear, anger, stress, crisis), a warning is raised.
+
+    Parameters
+    ----------
+    emotion_history:
+        List of emotion snapshot dicts, each with an ``'emotion'`` key.
+    window:
+        Number of recent messages to inspect (default 4).
+
+    Returns
+    -------
+    dict with ``'escalation_detected'`` (bool) and ``'warning'`` (str or None).
+    """
+    if len(emotion_history) < window:
+        return {"escalation_detected": False, "warning": None}
+
+    recent = emotion_history[-window:]
+    all_negative = all(
+        (entry.get("emotion") or "neutral").lower() in _NEGATIVE_EMOTIONS
+        for entry in recent
+    )
+    if all_negative:
+        return {
+            "escalation_detected": True,
+            "warning": (
+                "\u26a0 Emotional distress appears to be escalating. "
+                "Please consider reaching out to someone you trust."
+            ),
+        }
+    return {"escalation_detected": False, "warning": None}

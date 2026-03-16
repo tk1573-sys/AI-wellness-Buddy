@@ -216,6 +216,46 @@ class PatternTracker:
         }
 
     # ------------------------------------------------------------------
+    # Rolling emotion average and emotion volatility (research metrics)
+    # ------------------------------------------------------------------
+
+    def get_rolling_emotion_average(self, window: int = 5) -> dict:
+        """Compute a rolling average of emotion probabilities over the last
+        *window* entries.
+
+        Returns a dict mapping each canonical emotion label to its mean
+        probability across the window.  Empty history returns all zeros.
+        """
+        _ALL_EMOTIONS = ('joy', 'sadness', 'anger', 'fear', 'anxiety', 'neutral', 'crisis')
+        if not self.emotion_history:
+            return {e: 0.0 for e in _ALL_EMOTIONS}
+
+        recent = list(self.emotion_history)[-window:]
+        totals = {e: 0.0 for e in _ALL_EMOTIONS}
+        for entry in recent:
+            probs = entry.get('emotion_probabilities', {})
+            for e in _ALL_EMOTIONS:
+                totals[e] += probs.get(e, 0.0)
+        n = len(recent)
+        return {e: round(totals[e] / n, 4) for e in _ALL_EMOTIONS}
+
+    def get_emotion_volatility(self, window: int = 5) -> float:
+        """Standard deviation of dominant-emotion confidence over the last
+        *window* entries.  Returns 0.0 when insufficient data.
+        """
+        recent = list(self.emotion_history)[-window:]
+        if len(recent) < 2:
+            return 0.0
+        confidences = []
+        for entry in recent:
+            probs = entry.get('emotion_probabilities', {})
+            primary = entry.get('primary_emotion', entry.get('emotion', 'neutral'))
+            confidences.append(probs.get(primary, 0.0))
+        mean_c = sum(confidences) / len(confidences)
+        variance = sum((c - mean_c) ** 2 for c in confidences) / len(confidences)
+        return round(min(1.0, variance ** 0.5), 4)
+
+    # ------------------------------------------------------------------
     # Formula-based risk scoring
     # ------------------------------------------------------------------
 
@@ -334,6 +374,9 @@ class PatternTracker:
             'stress_persistence_score': self.get_stress_persistence_score(),
             'behavioral_drift_detected': behavioral_drift['drift_detected'],
             'behavioral_drift_score': behavioral_drift['drift_score'],
+            # Temporal emotion tracking
+            'rolling_emotion_average': self.get_rolling_emotion_average(),
+            'emotion_volatility': self.get_emotion_volatility(),
         }
 
     def reset_consecutive_distress(self):

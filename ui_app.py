@@ -25,7 +25,7 @@ from ui.charts import (
     create_history_chart, create_weekly_chart, create_sparkline,
     create_moving_average_chart, create_risk_history_chart, create_emotion_heatmap,
     create_emotion_journey_line, create_stress_intensity_gauge,
-    create_emotion_probability_bar,
+    create_emotion_probability_bar, create_cdi_gauge,
     EMO_COLORS, _HEATMAP_EMOTIONS,
 )
 from ui.layout import (
@@ -41,7 +41,9 @@ from ui.layout import (
 from ui.animations import (
     ambient_sound_html, ambient_stop_html, TYPING_INDICATOR_HTML,
     canvas_particles_html, breathing_circle_html, guided_breathing_message_html,
+    breathing_exercise_html,
 )
+import streamlit.components.v1 as components
 
 # Page configuration
 st.set_page_config(
@@ -74,6 +76,7 @@ for key, default in [
     ('voice_handler', None),
     ('last_voice_bytes', None),
     ('calm_music_enabled', False),
+    ('breathing_active', False),     # user-initiated breathing exercise
     ('authenticated', False),
     ('current_user', None),
     ('failed_attempts', 0),
@@ -103,6 +106,7 @@ _JOURNEY_TAB_HEATMAP_MAX_INTENSITY = 1.0
 _JOURNEY_TAB_HEATMAP_RISK_BOOST = 0.2
 _BACKGROUND_SCENES = ["calm_gradient", "night_sky", "aurora", "ocean"]
 _UI_THEMES = ["calm", "modern", "clinical"]
+_BREATHING_WIDGET_HEIGHT = 280
 
 # Concern level badge colours and emoji icons
 _CONCERN_BADGE_COLORS = {
@@ -117,6 +121,38 @@ _CONCERN_EMOJI = {
 # -----------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------
+
+def _generate_calming_tone(duration_s: float = 12.0, freq_hz: float = 174.0) -> bytes:
+    """Generate a soft calming sine-wave tone as WAV bytes for st.audio().
+
+    Uses a low Solfeggio frequency (174 Hz) with gentle fade-in/out.
+    Returns raw WAV data suitable for ``st.audio()``.
+    """
+    import io
+    import wave
+    try:
+        import numpy as np
+    except ImportError:
+        return b""
+    sample_rate = 22050
+    n_samples = int(sample_rate * duration_s)
+    t = np.linspace(0, duration_s, n_samples, endpoint=False)
+    # Generate gentle sine wave with volume envelope (fade in/out)
+    amplitude = 0.15
+    envelope = np.ones(n_samples)
+    fade_len = int(sample_rate * 1.5)
+    envelope[:fade_len] = np.linspace(0, 1, fade_len)
+    envelope[-fade_len:] = np.linspace(1, 0, fade_len)
+    samples = (amplitude * envelope * np.sin(2 * np.pi * freq_hz * t))
+    int_samples = np.int16(samples * 32767)
+    buf = io.BytesIO()
+    with wave.open(buf, 'wb') as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(int_samples.tobytes())
+    return buf.getvalue()
+
 
 def _coarse_to_fine_emotion(label: str) -> str:
     """Map coarse/legacy emotion labels to fine-grained display labels."""
@@ -633,6 +669,52 @@ def render_chat_tab():
                 if kw:
                     st.markdown(f"**Distress keywords:** {', '.join(kw)}")
 
+    # ---- Crisis resources: show immediately when crisis detected ----
+    if _det_emotion == 'crisis':
+        st.error(
+            "🆘 **Crisis Resources — Please reach out now**\n\n"
+            "- **988 Suicide & Crisis Lifeline**: Call or text **988** (24/7)\n"
+            "- **Crisis Text Line**: Text **HOME** to **741741**\n"
+            "- **Emergency**: Call **911**\n\n"
+            "You are not alone. Help is available right now. 💙"
+        )
+
+    # ---- Escalation warning ----
+    _escalation = _meta.get('escalation', {})
+    if _escalation.get('escalation_detected'):
+        st.warning(_escalation.get('warning', ''))
+
+    # ---- Intervention recommendations ----
+    _interventions = _meta.get('interventions', {})
+    _intervention_level = _interventions.get('level', '')
+    if _intervention_level in ('moderate', 'high', 'critical'):
+        _inter_msg = _interventions.get('supportive_message', '')
+        if _inter_msg:
+            st.info(f"💡 {_inter_msg}")
+
+    # ---- Breathing exercise opt-in (user-consent based) ----
+    _breathing_suggested = _meta.get('breathing_suggested', False)
+    if _breathing_suggested and _det_emotion != 'crisis':
+        st.info(
+            "😌 Anxiety detected. Would you like to try a calming breathing exercise?"
+        )
+        if st.button("🫁 Start Breathing Exercise", key="start_breathing"):
+            st.session_state.breathing_active = True
+
+    if st.session_state.get('breathing_active', False):
+        components.html(breathing_exercise_html(), height=_BREATHING_WIDGET_HEIGHT)
+        _vol = st.session_state.get('_calm_volume', 0.03)
+        _sound = st.session_state.get('ambient_sound', 'deep_focus')
+        st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
+        # Calming audio fallback for browsers that block Web Audio autoplay
+        _tone = _generate_calming_tone()
+        if _tone:
+            st.audio(_tone, format="audio/wav")
+        if st.button("✖ Stop Breathing Exercise", key="stop_breathing"):
+            st.session_state.breathing_active = False
+            st.markdown(ambient_stop_html(), unsafe_allow_html=True)
+            st.rerun()
+
     # Inline voice mic near chat input
     feedback_col, mic_col = st.columns([11, 1])
     with mic_col:
@@ -660,8 +742,7 @@ def render_chat_tab():
         # Tag the user message with the detected emotion for badge display
         _tag_last_user_emotion(st.session_state.last_response_meta)
         _track_session_metadata(st.session_state.last_response_meta)
-        if st.session_state.last_response_meta.get('calm_mode_suggested'):
-            st.session_state.calm_music_enabled = True
+        # Do NOT auto-enable calm mode; breathing button shown separately
         st.session_state.last_user_input = voice_transcript
         _play_tts(response)
         st.rerun()
@@ -689,8 +770,8 @@ def render_chat_tab():
             # Tag the user message with the detected emotion for badge display
             _tag_last_user_emotion(st.session_state.last_response_meta)
             _track_session_metadata(st.session_state.last_response_meta)
-            if st.session_state.last_response_meta.get('calm_mode_suggested'):
-                st.session_state.calm_music_enabled = True
+            # Do NOT auto-enable calm mode; only mark that breathing was suggested
+            # so the UI can present the opt-in button
             st.session_state.last_user_input = prompt
             if st.session_state.get('tts_enabled', False):
                 _play_tts(response)
@@ -985,6 +1066,14 @@ def render_risk_tab():
 
     # Plotly semi-circular animated risk dial
     st.plotly_chart(create_risk_gauge(risk_score, risk_level), width="stretch")
+
+    # Clinical Distress Index (CDI) gauge
+    _last_meta = st.session_state.get('last_response_meta') or {}
+    _cdi = _last_meta.get('cdi', {})
+    _cdi_score = _cdi.get('cdi_score', 0.0)
+    _cdi_level = _cdi.get('cdi_level', 'low')
+    if _cdi_score > 0:
+        st.plotly_chart(create_cdi_gauge(_cdi_score, _cdi_level), width="stretch")
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Risk Score", f"{risk_score:.2f}")
@@ -1562,12 +1651,13 @@ def main():
         st.markdown(render_waveform_section(_sound), unsafe_allow_html=True)
         st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
 
-        # Breathing meditation circle
+        # Breathing circle only shown via CSS (calm mode sidebar toggle)
         st.markdown(breathing_circle_html(), unsafe_allow_html=True)
         st.markdown(guided_breathing_message_html(), unsafe_allow_html=True)
     else:
-        # Stop ambient if it was playing
-        st.markdown(ambient_stop_html(), unsafe_allow_html=True)
+        # Stop ambient if it was playing (only when breathing exercise is also off)
+        if not st.session_state.get('breathing_active', False):
+            st.markdown(ambient_stop_html(), unsafe_allow_html=True)
 
     if not st.session_state.profile_loaded or not st.session_state.authenticated:
         show_profile_setup()

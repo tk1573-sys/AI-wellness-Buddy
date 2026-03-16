@@ -4,6 +4,7 @@ Main application that integrates all components for emotional support
 """
 
 import sys
+from datetime import datetime
 from emotion_analyzer import EmotionAnalyzer
 from pattern_tracker import PatternTracker
 from alert_system import AlertSystem
@@ -15,8 +16,11 @@ from language_handler import LanguageHandler
 from clinical_indicators import (
     compute_clinical_indicators,
     compute_emotional_risk,
+    compute_cdi,
+    detect_escalation,
     DISCLAIMER as CLINICAL_DISCLAIMER,
 )
+from intervention_engine import InterventionEngine
 import config
 
 
@@ -30,6 +34,7 @@ class WellnessBuddy:
         self.conversation_handler = ConversationHandler()
         self.prediction_agent = PredictionAgent()
         self.lang_handler = LanguageHandler()
+        self.intervention_engine = InterventionEngine()
         self.user_profile = None
         self.data_store = DataStore(data_dir)
         self.session_active = False
@@ -315,11 +320,34 @@ class WellnessBuddy:
         emotional_risk = compute_emotional_risk(
             emotion_data, clinical, pattern_summary,
         )
+        cdi = compute_cdi(emotion_data, clinical, pattern_summary)
+        interventions = self.intervention_engine.recommend(
+            emotional_risk['risk_level'],
+            emotion_data.get('primary_emotion', 'neutral'),
+            clinical,
+        )
         response_meta['clinical_indicators'] = clinical
         response_meta['emotional_risk'] = emotional_risk
+        response_meta['cdi'] = cdi
+        response_meta['interventions'] = interventions
+        response_meta['escalation'] = detect_escalation(
+            list(self.pattern_tracker.emotion_history)
+        )
         response_meta['disclaimer'] = CLINICAL_DISCLAIMER
 
         self._last_response_metadata = response_meta
+
+        # Persist session data for research analysis
+        try:
+            self.data_store.save_session_log(self.user_id or 'anonymous', {
+                'timestamp': response_meta.get('timestamp', datetime.now().isoformat()),
+                'message': user_message,
+                'emotion': response_meta.get('emotion', 'neutral'),
+                'confidence': response_meta.get('emotion_confidence', 0.0),
+                'risk_level': response_meta.get('risk_level', 'low'),
+            })
+        except Exception:
+            pass  # Never interrupt conversation for a logging failure
 
         return response
     

@@ -200,3 +200,28 @@ class DataStore:
         with open(user_file, 'rb') as f:
             file_hash = hashlib.sha256(f.read()).hexdigest()
         return file_hash
+
+    # ------------------------------------------------------------------
+    # Research session logging
+    # ------------------------------------------------------------------
+
+    def save_session_log(self, user_id: str, entry: dict) -> None:
+        """Append a research log entry to the user's ``session_data.json``.
+
+        Each entry is a dict with at least ``timestamp``, ``message``,
+        ``emotion``, ``confidence``, ``risk_level``.  The file is a JSON
+        array of such entries, suitable for offline research analysis.
+        """
+        log_file = self.data_dir / f"{user_id}_session_data.json"
+        entries: list = []
+        if log_file.exists():
+            try:
+                with open(log_file, "r", encoding="utf-8") as fh:
+                    entries = json.load(fh)
+            except (json.JSONDecodeError, OSError):
+                entries = []
+
+        entries.append(self._prepare_for_serialization(entry))
+        with open(log_file, "w", encoding="utf-8") as fh:
+            json.dump(entries, fh, indent=2)
+        os.chmod(log_file, 0o600)

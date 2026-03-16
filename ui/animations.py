@@ -235,3 +235,66 @@ def breathing_circle_html() -> str:
         <p class="breathing-caption">Follow the circle — inhale as it grows, exhale as it shrinks</p>
     </div>
     """
+
+
+def breathing_exercise_html() -> str:
+    """Return a self-contained HTML/CSS/JS breathing exercise widget.
+
+    Designed to be injected via ``streamlit.components.v1.html()``.
+    The widget features:
+    - An animated circle that expands (inhale), pauses (hold), and
+      shrinks (exhale) on a 12-second loop.
+    - Dynamic text showing the current breathing phase.
+    - A calming colour palette with soft glow effects.
+    """
+    return """
+    <div id="breathing-widget" style="
+        text-align:center; padding:2rem 0; font-family:'Segoe UI',system-ui,sans-serif;
+    ">
+        <div id="breath-circle" style="
+            width:140px; height:140px; margin:0 auto 1rem;
+            border-radius:50%;
+            background:radial-gradient(circle,rgba(91,140,255,0.25) 0%,rgba(155,140,255,0.10) 60%,transparent 80%);
+            border:2px solid rgba(91,140,255,0.30);
+            display:flex; align-items:center; justify-content:center;
+            box-shadow:0 0 40px rgba(91,140,255,0.18);
+            animation:breathe 12s ease-in-out infinite;
+        ">
+            <span id="breath-label" style="
+                font-size:1rem; font-weight:600; color:#5B8CFF;
+                letter-spacing:0.05em;
+            ">Inhale</span>
+        </div>
+        <p style="font-size:0.78rem;color:#64748B;font-style:italic;margin-top:0.5rem;">
+            Follow the circle — inhale as it grows, exhale as it shrinks
+        </p>
+    </div>
+    <style>
+        @keyframes breathe {
+            0%   { transform:scale(0.8); opacity:0.6; box-shadow:0 0 20px rgba(91,140,255,0.12); }
+            33%  { transform:scale(1.15); opacity:1; box-shadow:0 0 50px rgba(91,140,255,0.28); }
+            50%  { transform:scale(1.15); opacity:1; box-shadow:0 0 50px rgba(91,140,255,0.28); }
+            100% { transform:scale(0.8); opacity:0.6; box-shadow:0 0 20px rgba(91,140,255,0.12); }
+        }
+    </style>
+    <script>
+    (function(){
+        var phases = [
+            {text:'Inhale', duration:4000},
+            {text:'Hold',   duration:2000},
+            {text:'Exhale', duration:4000},
+            {text:'Rest',   duration:2000}
+        ];
+        var label = document.getElementById('breath-label');
+        if (!label) return;
+        var idx = 0;
+        function tick(){
+            label.textContent = phases[idx].text;
+            var dur = phases[idx].duration;
+            idx = (idx + 1) % phases.length;
+            setTimeout(tick, dur);
+        }
+        tick();
+    })();
+    </script>
+    """
