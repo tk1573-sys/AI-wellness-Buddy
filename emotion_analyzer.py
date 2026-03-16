@@ -29,6 +29,53 @@ from models.emotion_transformer import EmotionTransformer
 from explainability import generate_explanation
 
 
+# ---------------------------------------------------------------------------
+# Cached pipeline loaders – @st.cache_resource when Streamlit is available
+# ---------------------------------------------------------------------------
+
+def _load_ml_emotion_pipeline_impl():
+    """Load the HuggingFace emotion text-classification pipeline."""
+    from transformers import pipeline as _hf_pipeline
+    return _hf_pipeline(
+        'text-classification',
+        model='j-hartmann/emotion-english-distilroberta-base',
+        top_k=None,
+        device=-1,
+    )
+
+
+def _load_crisis_pipeline_impl():
+    """Load the HuggingFace zero-shot crisis classification pipeline."""
+    from transformers import pipeline as _hf_pipeline
+    return _hf_pipeline(
+        'zero-shot-classification',
+        model='facebook/bart-large-mnli',
+        device=-1,
+    )
+
+
+try:
+    import streamlit as _st
+
+    @_st.cache_resource
+    def load_ml_emotion_pipeline():
+        """Streamlit-cached emotion pipeline loader."""
+        return _load_ml_emotion_pipeline_impl()
+
+    @_st.cache_resource
+    def load_crisis_pipeline():
+        """Streamlit-cached crisis classification pipeline loader."""
+        return _load_crisis_pipeline_impl()
+except Exception:
+    def load_ml_emotion_pipeline():  # type: ignore[misc]
+        """Fallback (non-cached) emotion pipeline loader."""
+        return _load_ml_emotion_pipeline_impl()
+
+    def load_crisis_pipeline():  # type: ignore[misc]
+        """Fallback (non-cached) crisis classification pipeline loader."""
+        return _load_crisis_pipeline_impl()
+
+
 class MLEmotionAdapter:
     """
     Optional wrapper around a pretrained transformer emotion classifier.
@@ -75,13 +122,7 @@ class MLEmotionAdapter:
         self.available = False
         self._pipeline = None
         try:
-            from transformers import pipeline as _hf_pipeline  # noqa: F401
-            self._pipeline = _hf_pipeline(
-                'text-classification',
-                model=self._MODEL,
-                top_k=None,
-                device=-1,           # CPU only — keeps device-independence
-            )
+            self._pipeline = load_ml_emotion_pipeline()
             self.available = True
         except Exception:
             # ImportError, OSError (model not cached), RuntimeError — any failure
@@ -124,12 +165,7 @@ class ContextualCrisisAdapter:
         self.available = False
         self._pipeline = None
         try:
-            from transformers import pipeline as _hf_pipeline  # noqa: F401
-            self._pipeline = _hf_pipeline(
-                'zero-shot-classification',
-                model='facebook/bart-large-mnli',
-                device=-1,
-            )
+            self._pipeline = load_crisis_pipeline()
             self.available = True
         except Exception:
             pass
