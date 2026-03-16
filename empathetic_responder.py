@@ -337,7 +337,10 @@ class EmpatheticResponder:
                 parts.append(self._pick(HIGH_CONCERN_DEEPENERS))
                 supportive_count += 1
 
-        # Context memory (reference history when available)
+        # Context memory (reference history when available).
+        # Mutually exclusive with deepener: high concern already adds
+        # a deepener above, so history-aware phrases are reserved for
+        # lower concern levels to avoid over-lengthy responses.
         elif history and len(history) >= 4 and emotion not in ("joy", "neutral"):
             parts.append(self._pick(HISTORY_AWARE_PHRASES))
 

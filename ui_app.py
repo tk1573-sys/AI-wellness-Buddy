@@ -129,7 +129,6 @@ def _generate_calming_tone(duration_s: float = 12.0, freq_hz: float = 174.0) -> 
     Returns raw WAV data suitable for ``st.audio()``.
     """
     import io
-    import struct
     import wave
     try:
         import numpy as np

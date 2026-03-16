@@ -955,6 +955,8 @@ class ConversationHandler:
 
         # Offer grounding for high concern non-anxiety emotions that missed
         # the breathing path above (completes the coping-tool step).
+        # Tamil is excluded because grounding phrases have no Tamil
+        # translations yet; Tamil responses use modular segment pools.
         if (
             not breathing_suggested
             and concern_level in ('high', 'critical')
