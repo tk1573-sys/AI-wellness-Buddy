@@ -537,7 +537,7 @@ class EmotionAnalyzer:
 
     @staticmethod
     def _compute_concern_level(primary_emotion, emotion_probabilities,
-                               is_crisis, distress_keywords, severity):
+                               is_crisis, distress_keywords, severity=None):
         """Classify emotional concern into Low / Medium / High / Critical.
 
         The level is derived from the dominant emotion, its probability,
@@ -713,18 +713,13 @@ class EmotionAnalyzer:
         else:
             severity_score = 2.0
 
-        # Concern level and emotion confidence for the UI
-        concern_level = self._compute_concern_level(
-            emotion_probabilities, is_crisis, distress_keywords, severity,
-        )
-        emotion_confidence = max(emotion_probabilities.values()) if emotion_probabilities else 0.0
         # Concern level classification (low / medium / high / critical)
         concern_level = self._compute_concern_level(
             primary_emotion, emotion_probabilities, is_crisis,
             distress_keywords, severity,
         )
 
-        # Confidence of the primary emotion (max probability)
+        # Confidence of the primary emotion
         emotion_confidence = emotion_probabilities.get(primary_emotion, 0.0)
 
         return {
@@ -758,9 +753,6 @@ class EmotionAnalyzer:
             'severity_score': severity_score,
             'keyword_explanation': explanation,
             'xai_explanation': xai_explanation,
-            # Concern level & confidence for dashboard badges
-            'concern_level': concern_level,
-            'emotion_confidence': round(emotion_confidence, 4),
         }
 
 

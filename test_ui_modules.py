@@ -568,17 +568,17 @@ class TestConcernLevelComputation:
         from emotion_analyzer import EmotionAnalyzer
         # Crisis flag overrides everything
         assert EmotionAnalyzer._compute_concern_level(
-            {'joy': 1.0}, True, [], 'low'
+            'joy', {'joy': 1.0}, True, [], 'low'
         ) == 'critical'
         # High severity
         assert EmotionAnalyzer._compute_concern_level(
-            {'joy': 0.5, 'sadness': 0.5}, False, [], 'high'
+            'joy', {'joy': 0.5, 'sadness': 0.5}, False, [], 'high'
         ) == 'high'
         # Medium severity
         assert EmotionAnalyzer._compute_concern_level(
-            {'joy': 0.8, 'sadness': 0.2}, False, [], 'medium'
+            'joy', {'joy': 0.8, 'sadness': 0.2}, False, [], 'medium'
         ) == 'medium'
         # Low
         assert EmotionAnalyzer._compute_concern_level(
-            {'joy': 0.9, 'neutral': 0.1}, False, [], 'low'
+            'joy', {'joy': 0.9, 'neutral': 0.1}, False, [], 'low'
         ) == 'low'
