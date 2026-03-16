@@ -12,6 +12,11 @@ from user_profile import UserProfile
 from data_store import DataStore
 from prediction_agent import PredictionAgent
 from language_handler import LanguageHandler
+from clinical_indicators import (
+    compute_clinical_indicators,
+    compute_emotional_risk,
+    DISCLAIMER as CLINICAL_DISCLAIMER,
+)
 import config
 
 
@@ -300,6 +305,20 @@ class WellnessBuddy:
         response_meta['explanation'] = emotion_data.get('explanation', '')
         response_meta['distress_keywords'] = emotion_data.get('distress_keywords', [])
         response_meta['xai_explanation'] = emotion_data.get('xai_explanation', {})
+        response_meta['concern_level'] = emotion_data.get('concern_level', 'low')
+        response_meta['emotion_confidence'] = emotion_data.get('emotion_confidence', 0.0)
+
+        # Clinical distress indicators + weighted emotional risk index
+        clinical = compute_clinical_indicators(
+            list(self.pattern_tracker.emotion_history)
+        )
+        emotional_risk = compute_emotional_risk(
+            emotion_data, clinical, pattern_summary,
+        )
+        response_meta['clinical_indicators'] = clinical
+        response_meta['emotional_risk'] = emotional_risk
+        response_meta['disclaimer'] = CLINICAL_DISCLAIMER
+
         self._last_response_metadata = response_meta
 
         return response

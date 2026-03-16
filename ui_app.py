@@ -96,6 +96,15 @@ _JOURNEY_TAB_HEATMAP_RISK_BOOST = 0.2
 _BACKGROUND_SCENES = ["calm_gradient", "night_sky", "aurora", "ocean"]
 _UI_THEMES = ["calm", "modern", "clinical"]
 
+# Concern level badge colours and emoji icons
+_CONCERN_BADGE_COLORS = {
+    'low': '#4ade80', 'medium': '#facc15',
+    'high': '#f97316', 'critical': '#ef4444',
+}
+_CONCERN_EMOJI = {
+    'low': '🟢', 'medium': '🟡', 'high': '🟠', 'critical': '🔴',
+}
+
 
 # -----------------------------------------------------------------------
 # Helpers
@@ -495,13 +504,26 @@ def render_chat_tab():
     with chat_container:
         for idx, message in enumerate(st.session_state.chat_history):
             with st.chat_message(message["role"]):
-                # Show emotion badge beside user messages
+                # Show emotion badge with confidence and concern level beside user messages
                 _msg_emo = message.get("emotion", "")
                 if _msg_emo and message["role"] == "user":
                     _icon = EMO_ICONS.get(_msg_emo, "")
+                    _msg_conf = message.get("confidence", 0.0)
+                    _msg_concern = message.get("concern_level", "")
+                    _badge_color = _CONCERN_BADGE_COLORS.get(_msg_concern, '#9B8CFF')
+                    _badge_parts = [f"{_icon} {_msg_emo.capitalize()}"]
+                    if _msg_conf:
+                        _badge_parts.append(f"{_msg_conf:.0%}")
+                    if _msg_concern:
+                        _badge_parts.append(_msg_concern.capitalize())
+                    _badge_text = " · ".join(_badge_parts)
                     st.markdown(
-                        f"{message['content']}  "
-                        f"&nbsp;`{_icon} {_msg_emo.capitalize()}`",
+                        f"{message['content']}  \n"
+                        f'<span style="display:inline-block;background:{_badge_color}22;'
+                        f'color:{_badge_color};border:1px solid {_badge_color}44;'
+                        f'border-radius:12px;padding:2px 10px;font-size:0.8rem;'
+                        f'margin-top:4px;">{_badge_text}</span>',
+                        unsafe_allow_html=True,
                     )
                 else:
                     st.markdown(message["content"])
@@ -519,11 +541,14 @@ def render_chat_tab():
     _expl = _meta.get('explanation', '')
     _det_emotion = _meta.get('emotion', '')
     _xai = _meta.get('xai_explanation', {})
+    _concern = _meta.get('concern_level', '')
+    _emo_conf = _meta.get('emotion_confidence', 0.0)
     if _probs and _det_emotion:
         _conf = _xai.get('confidence', _probs.get(_det_emotion, 0))
+        _concern_display = f"  |  Concern: **{_concern.capitalize()}**" if _concern else ""
         with st.expander(
             f"🔬 Emotion Analysis — **{_det_emotion.capitalize()}**"
-            f"  (confidence {_conf:.1%})",
+            f"  (confidence {_conf:.1%}){_concern_display}",
             expanded=False,
         ):
             chart_col, info_col = st.columns([3, 2])
@@ -535,6 +560,8 @@ def render_chat_tab():
             with info_col:
                 st.markdown(f"**Detected emotion:** {_det_emotion.capitalize()}")
                 st.markdown(f"**Confidence:** {_conf:.1%}")
+                if _concern:
+                    st.markdown(f"**Concern level:** {_CONCERN_EMOJI.get(_concern, '⬜')} {_concern.capitalize()}")
                 # XAI key indicators
                 indicators = _xai.get('key_indicators', [])
                 if indicators:
@@ -637,10 +664,14 @@ def _tag_last_user_emotion(meta: dict):
     emo = meta.get('emotion', '')
     if not emo:
         return
+    confidence = meta.get('emotion_confidence', 0.0)
+    concern = meta.get('concern_level', '')
     # Walk backwards to find the last user message
     for msg in reversed(st.session_state.chat_history):
         if msg["role"] == "user":
             msg["emotion"] = emo
+            msg["confidence"] = confidence
+            msg["concern_level"] = concern
             break
 
 

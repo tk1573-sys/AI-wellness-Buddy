@@ -7,6 +7,7 @@ Pipeline stages:
 3) Forecasting agent
 4) Alert decision agent
 5) Response generation agent
+6) Clinical indicators (computed post-pipeline for research output)
 """
 
 from emotion_analyzer import EmotionAnalyzer
@@ -14,6 +15,11 @@ from pattern_tracker import PatternTracker
 from prediction_agent import PredictionAgent, compare_models
 from alert_system import AlertSystem
 from conversation_handler import ConversationHandler
+from clinical_indicators import (
+    compute_clinical_indicators,
+    compute_emotional_risk,
+    DISCLAIMER as CLINICAL_DISCLAIMER,
+)
 
 
 class EmotionAnalysisAgent:
@@ -74,6 +80,10 @@ class ResponseGenerationAgent:
 class WellnessAgentPipeline:
     """
     Orchestrates the full multi-agent processing pipeline.
+
+    ``process_turn()`` returns a research-ready structured dict that
+    includes emotion data, pattern summary, forecasting, alerts,
+    clinical indicators, emotional risk index, and the response.
     """
 
     def __init__(self):
@@ -90,10 +100,24 @@ class WellnessAgentPipeline:
         forecasting = self.forecast_agent.run(sentiment_history)
         alert = self.alert_agent.run(pattern_summary, user_profile=user_profile)
         response = self.response_agent.run(user_message, emotion_data, context=context)
+
+        # Clinical indicators + weighted emotional risk index
+        clinical = compute_clinical_indicators(
+            list(self.pattern_agent.tracker.emotion_history)
+        )
+        emotional_risk = compute_emotional_risk(
+            emotion_data, clinical, pattern_summary,
+        )
+
         return {
             'emotion': emotion_data,
+            'concern_level': emotion_data.get('concern_level', 'low'),
+            'clinical_indicators': clinical,
+            'risk_score': emotional_risk['risk_score'],
+            'risk_level': emotional_risk['risk_level'],
             'patterns': pattern_summary,
             'forecasting': forecasting,
             'alert': alert,
             'response': response,
+            'disclaimer': CLINICAL_DISCLAIMER,
         }
