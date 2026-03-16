@@ -1,7 +1,7 @@
 """
 Rule-based intervention decision engine for the AI Emotional Wellness Buddy.
 
-Maps risk levels and clinical indicators to personalised coping interventions.
+Maps risk levels and clinical indicators to personalized coping interventions.
 
 Decision logic
 --------------

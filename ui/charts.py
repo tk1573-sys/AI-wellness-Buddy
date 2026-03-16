@@ -36,6 +36,9 @@ _GAUGE_COLORS = {
     'critical': '#D32F2F',
 }
 
+# Gauge bar thickness shared by risk and CDI gauges (visual proportion)
+_GAUGE_BAR_THICKNESS = 0.82
+
 
 def _base_layout(height=320, **overrides):
     """Return a dict of common layout properties."""
@@ -170,7 +173,7 @@ def create_risk_gauge(risk_score: float, risk_level: str = 'low') -> go.Figure:
                 'ticktext': ['Safe', 'Low', 'Med', 'High', 'Crit'],
                 'tickfont': {'size': 10, 'color': '#94a3b8'},
             },
-            'bar': {'color': bar_color, 'thickness': 0.82},
+            'bar': {'color': bar_color, 'thickness': _GAUGE_BAR_THICKNESS},
             'bgcolor': _TRANSPARENT,
             'borderwidth': 0,
             'steps': [
@@ -430,7 +433,7 @@ def create_cdi_gauge(cdi_score: float, cdi_level: str = 'low') -> go.Figure:
                 'ticktext': ['Low', 'Mod', 'High', 'Crit', ''],
                 'tickfont': {'size': 10, 'color': '#94a3b8'},
             },
-            'bar': {'color': bar_color, 'thickness': 0.82},
+            'bar': {'color': bar_color, 'thickness': _GAUGE_BAR_THICKNESS},
             'bgcolor': _TRANSPARENT,
             'borderwidth': 0,
             'steps': [
