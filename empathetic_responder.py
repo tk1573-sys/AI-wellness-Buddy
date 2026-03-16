@@ -269,6 +269,8 @@ class EmpatheticResponder:
 
     def __init__(self):
         self._recent_phrases: deque = deque(maxlen=30)
+        # Track last 3 full responses to prevent repetition across messages
+        self._recent_responses: deque = deque(maxlen=3)
 
     # ------------------------------------------------------------------
     # Public API
@@ -307,36 +309,38 @@ class EmpatheticResponder:
         emotion = self._normalise_emotion(emotion)
         concern_level = concern_level if concern_level in SUPPORT_PHRASES else "low"
 
-        parts: list[str] = []
+        # Layer 1 — Emotional acknowledgment (always included)
+        empathy = self._pick(EMPATHY_PHRASES.get(emotion, EMPATHY_PHRASES["neutral"]))
 
-        # Layer 1 — Emotional acknowledgment
-        parts.append(self._pick(EMPATHY_PHRASES.get(emotion, EMPATHY_PHRASES["neutral"])))
+        # Layer 2 — Supportive statement (always included, scaled by concern)
+        support = self._pick(SUPPORT_PHRASES[concern_level])
 
-        # Layer 2 — Validation
-        parts.append(self._pick(VALIDATION_PHRASES.get(emotion, VALIDATION_PHRASES["neutral"])))
+        parts: list[str] = [empathy, support]
 
-        # Layer 3 — Supportive statement (scaled by concern)
-        parts.append(self._pick(SUPPORT_PHRASES[concern_level]))
-
-        # Layer 3b — Extra deepener for high/critical concern
+        # For high/critical concern, add a deepener to show extra care
         if concern_level in ("high", "critical"):
             parts.append(self._pick(HIGH_CONCERN_DEEPENERS))
 
-        # Layer 4 — Optional gentle suggestion
-        if emotion != "joy":
-            suggestion = self._pick(
-                GENTLE_SUGGESTIONS.get(emotion, GENTLE_SUGGESTIONS["neutral"])
-            )
-            parts.append(suggestion)
-
-        # Layer 5 — Context memory (reference history when available)
-        if history and len(history) >= 4 and emotion not in ("joy", "neutral"):
+        # Context memory (reference history when available)
+        elif history and len(history) >= 4 and emotion not in ("joy", "neutral"):
             parts.append(self._pick(HISTORY_AWARE_PHRASES))
 
         response = " ".join(parts)
 
         # Humanisation pass
         response = self._humanise(response)
+
+        # --- Avoid repeating the same response in the last 3 messages ---
+        max_regen = 4
+        while response in self._recent_responses and max_regen > 0:
+            parts_retry: list[str] = [
+                self._pick(EMPATHY_PHRASES.get(emotion, EMPATHY_PHRASES["neutral"])),
+                self._pick(SUPPORT_PHRASES[concern_level]),
+            ]
+            response = self._humanise(" ".join(parts_retry))
+            max_regen -= 1
+
+        self._recent_responses.append(response)
 
         return response
 

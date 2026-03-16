@@ -941,6 +941,7 @@ class ConversationHandler:
                 response += pool[(consec - 2) % len(pool)]
 
         calm_mode_suggested = False
+        breathing_suggested = False
         repeated_anxiety_or_stress = (
             primary_emotion in ('anxiety', 'stress')
             and self._consecutive_emotion_count(primary_emotion) >= 2
@@ -948,8 +949,14 @@ class ConversationHandler:
         if repeated_anxiety_or_stress and not calm_mode_active:
             response += f"\n\n{_CALM_MODE_SUGGESTION}"
             calm_mode_suggested = True
+            breathing_suggested = True
             if not suggestion_type:
                 suggestion_type = 'anxiety_grounding'
+
+        # For crisis: skip breathing UI suggestion entirely
+        if primary_emotion == 'crisis':
+            breathing_suggested = False
+            calm_mode_suggested = False
 
         if debug_enabled:
             _logger.info(
@@ -997,6 +1004,7 @@ class ConversationHandler:
             'trend': emotion_trend,
             'avatar_state': avatar_state,
             'calm_mode_suggested': calm_mode_suggested,
+            'breathing_suggested': breathing_suggested,
             'calm_mode_active': calm_mode_active,
             'conversational_style': conversation_style,
             'response_template': template_label,

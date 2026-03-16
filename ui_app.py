@@ -41,7 +41,9 @@ from ui.layout import (
 from ui.animations import (
     ambient_sound_html, ambient_stop_html, TYPING_INDICATOR_HTML,
     canvas_particles_html, breathing_circle_html, guided_breathing_message_html,
+    breathing_exercise_html,
 )
+import streamlit.components.v1 as components
 
 # Page configuration
 st.set_page_config(
@@ -74,6 +76,7 @@ for key, default in [
     ('voice_handler', None),
     ('last_voice_bytes', None),
     ('calm_music_enabled', False),
+    ('breathing_active', False),     # user-initiated breathing exercise
     ('authenticated', False),
     ('current_user', None),
     ('failed_attempts', 0),
@@ -633,6 +636,35 @@ def render_chat_tab():
                 if kw:
                     st.markdown(f"**Distress keywords:** {', '.join(kw)}")
 
+    # ---- Crisis resources: show immediately when crisis detected ----
+    if _det_emotion == 'crisis':
+        st.error(
+            "🆘 **Crisis Resources — Please reach out now**\n\n"
+            "- **988 Suicide & Crisis Lifeline**: Call or text **988** (24/7)\n"
+            "- **Crisis Text Line**: Text **HOME** to **741741**\n"
+            "- **Emergency**: Call **911**\n\n"
+            "You are not alone. Help is available right now. 💙"
+        )
+
+    # ---- Breathing exercise opt-in (user-consent based) ----
+    _breathing_suggested = _meta.get('breathing_suggested', False)
+    if _breathing_suggested and _det_emotion != 'crisis':
+        st.info(
+            "😌 Anxiety detected. Would you like to try a calming breathing exercise?"
+        )
+        if st.button("🫁 Start Breathing Exercise", key="start_breathing"):
+            st.session_state.breathing_active = True
+
+    if st.session_state.get('breathing_active', False):
+        components.html(breathing_exercise_html(), height=280)
+        _vol = st.session_state.get('_calm_volume', 0.03)
+        _sound = st.session_state.get('ambient_sound', 'deep_focus')
+        st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
+        if st.button("✖ Stop Breathing Exercise", key="stop_breathing"):
+            st.session_state.breathing_active = False
+            st.markdown(ambient_stop_html(), unsafe_allow_html=True)
+            st.rerun()
+
     # Inline voice mic near chat input
     feedback_col, mic_col = st.columns([11, 1])
     with mic_col:
@@ -660,8 +692,7 @@ def render_chat_tab():
         # Tag the user message with the detected emotion for badge display
         _tag_last_user_emotion(st.session_state.last_response_meta)
         _track_session_metadata(st.session_state.last_response_meta)
-        if st.session_state.last_response_meta.get('calm_mode_suggested'):
-            st.session_state.calm_music_enabled = True
+        # Do NOT auto-enable calm mode; breathing button shown separately
         st.session_state.last_user_input = voice_transcript
         _play_tts(response)
         st.rerun()
@@ -689,8 +720,8 @@ def render_chat_tab():
             # Tag the user message with the detected emotion for badge display
             _tag_last_user_emotion(st.session_state.last_response_meta)
             _track_session_metadata(st.session_state.last_response_meta)
-            if st.session_state.last_response_meta.get('calm_mode_suggested'):
-                st.session_state.calm_music_enabled = True
+            # Do NOT auto-enable calm mode; only mark that breathing was suggested
+            # so the UI can present the opt-in button
             st.session_state.last_user_input = prompt
             if st.session_state.get('tts_enabled', False):
                 _play_tts(response)
@@ -1562,12 +1593,13 @@ def main():
         st.markdown(render_waveform_section(_sound), unsafe_allow_html=True)
         st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
 
-        # Breathing meditation circle
+        # Breathing circle only shown via CSS (calm mode sidebar toggle)
         st.markdown(breathing_circle_html(), unsafe_allow_html=True)
         st.markdown(guided_breathing_message_html(), unsafe_allow_html=True)
     else:
-        # Stop ambient if it was playing
-        st.markdown(ambient_stop_html(), unsafe_allow_html=True)
+        # Stop ambient if it was playing (only when breathing exercise is also off)
+        if not st.session_state.get('breathing_active', False):
+            st.markdown(ambient_stop_html(), unsafe_allow_html=True)
 
     if not st.session_state.profile_loaded or not st.session_state.authenticated:
         show_profile_setup()

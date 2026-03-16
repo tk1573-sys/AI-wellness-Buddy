@@ -40,4 +40,5 @@ from ui.animations import (                   # noqa: F401
     canvas_particles_html,
     breathing_circle_html,
     guided_breathing_message_html,
+    breathing_exercise_html,
 )
