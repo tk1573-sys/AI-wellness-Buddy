@@ -327,3 +327,117 @@ def test_no_deprecated_use_container_width():
     assert violations == [], (
         "Deprecated parameter found:\n" + "\n".join(violations)
     )
+
+
+# ---------------------------------------------------------------------------
+# EmotionAnalyzer caching / model-loading optimisation tests
+# ---------------------------------------------------------------------------
+
+def test_wellness_buddy_accepts_injected_emotion_analyzer():
+    """WellnessBuddy.__init__ must accept a pre-built EmotionAnalyzer."""
+    from emotion_analyzer import EmotionAnalyzer
+    from wellness_buddy import WellnessBuddy
+
+    ea = EmotionAnalyzer()
+    buddy = WellnessBuddy(emotion_analyzer=ea)
+    assert buddy.emotion_analyzer is ea, (
+        "WellnessBuddy should use the injected EmotionAnalyzer instance"
+    )
+
+
+def test_wellness_buddy_creates_own_analyzer_by_default():
+    """When no analyzer is injected, WellnessBuddy creates its own."""
+    from emotion_analyzer import EmotionAnalyzer
+    from wellness_buddy import WellnessBuddy
+
+    ea = EmotionAnalyzer()
+    buddy_injected = WellnessBuddy(emotion_analyzer=ea)
+    buddy_default = WellnessBuddy()
+    # Default buddy must have a fresh, distinct analyzer
+    assert isinstance(buddy_default.emotion_analyzer, EmotionAnalyzer)
+    assert buddy_default.emotion_analyzer is not ea
+
+
+def test_wellness_buddy_injection_logs_cache_message(caplog):
+    """WellnessBuddy should emit 'Model loaded from cache' when injected."""
+    import logging
+    from emotion_analyzer import EmotionAnalyzer
+    from wellness_buddy import WellnessBuddy
+
+    ea = EmotionAnalyzer()
+    with caplog.at_level(logging.INFO, logger="wellness_buddy"):
+        WellnessBuddy(emotion_analyzer=ea)
+    assert any("Model loaded from cache" in r.message for r in caplog.records), (
+        "Expected 'Model loaded from cache' log message when analyzer is injected"
+    )
+
+
+def test_wellness_buddy_no_cache_log_without_injection(caplog):
+    """No 'Model loaded from cache' log when using the default path."""
+    import logging
+    from wellness_buddy import WellnessBuddy
+
+    with caplog.at_level(logging.INFO, logger="wellness_buddy"):
+        WellnessBuddy()
+    assert not any("Model loaded from cache" in r.message for r in caplog.records), (
+        "Should not log 'Model loaded from cache' when creating a fresh analyzer"
+    )
+
+
+def test_load_emotion_analyzer_cached_function_exists_in_ui_app():
+    """ui_app must expose _load_emotion_analyzer_cached."""
+    try:
+        import streamlit  # noqa: F401
+    except ImportError:
+        return
+    import importlib
+    ui_app = importlib.import_module("ui_app")
+    assert hasattr(ui_app, "_load_emotion_analyzer_cached"), (
+        "ui_app must define _load_emotion_analyzer_cached"
+    )
+
+
+def test_load_emotion_analyzer_cached_returns_emotion_analyzer():
+    """_load_emotion_analyzer_cached must return an EmotionAnalyzer."""
+    try:
+        import streamlit  # noqa: F401
+    except ImportError:
+        return
+    import importlib
+    from emotion_analyzer import EmotionAnalyzer
+
+    ui_app = importlib.import_module("ui_app")
+    # Call the function; st.cache_resource is bypassed in test context
+    # (cache_resource falls through to a regular function in test env)
+    result = ui_app._load_emotion_analyzer_cached()
+    assert isinstance(result, EmotionAnalyzer), (
+        "_load_emotion_analyzer_cached must return an EmotionAnalyzer instance"
+    )
+
+
+def test_init_buddy_passes_cached_analyzer_to_buddy():
+    """init_buddy must inject the cached EmotionAnalyzer into WellnessBuddy."""
+    try:
+        import streamlit as st
+    except ImportError:
+        return
+    import importlib
+    from emotion_analyzer import EmotionAnalyzer
+    from unittest.mock import patch
+
+    ui_app = importlib.import_module("ui_app")
+
+    # Reset session state buddy to None to force re-init
+    st.session_state.buddy = None
+    st.session_state.voice_handler = None
+    st.session_state.session_mgr = None
+
+    sentinel = EmotionAnalyzer()
+    with patch.object(ui_app, "_load_emotion_analyzer_cached", return_value=sentinel):
+        ui_app.init_buddy()
+
+    assert st.session_state.buddy is not None
+    assert st.session_state.buddy.emotion_analyzer is sentinel, (
+        "init_buddy must pass the cached analyzer to WellnessBuddy"
+    )
+

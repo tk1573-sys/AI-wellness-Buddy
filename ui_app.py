@@ -6,17 +6,21 @@ Premium glassmorphism theme with Plotly visualizations.
 Run with: streamlit run ui_app.py
 """
 
+import logging
 import streamlit as st
 from datetime import datetime
 from wellness_buddy import WellnessBuddy
 from user_profile import UserProfile
 from data_store import DataStore
+from emotion_analyzer import EmotionAnalyzer
 from prediction_agent import PredictionAgent
 from voice_handler import VoiceHandler
 from auth_manager import AuthManager
 from session_manager import SessionManager
 import config
 import os
+
+_logger = logging.getLogger(__name__)
 
 # Modular UI components
 from ui.theme import get_theme_css
@@ -174,11 +178,27 @@ def _count_emotions_from_history(history: list) -> dict[str, int]:
     return counts
 
 
+@st.cache_resource
+def _load_emotion_analyzer_cached():
+    """Create and cache a single EmotionAnalyzer at app scope.
+
+    Decorated with ``@st.cache_resource`` so the instance (and its
+    underlying HuggingFace pipelines) is created only once and shared
+    across all user sessions and Streamlit reruns.  Subsequent calls
+    return the cached object without any model I/O.
+    """
+    analyzer = EmotionAnalyzer()
+    _logger.info("Model loaded from cache")
+    return analyzer
+
+
 def init_buddy():
     """Initialize wellness buddy instance"""
     if st.session_state.buddy is None:
-        st.session_state.buddy = WellnessBuddy()
-        st.session_state.buddy.data_store = DataStore()
+        with st.spinner("Loading AI Wellness models…"):
+            analyzer = _load_emotion_analyzer_cached()
+            st.session_state.buddy = WellnessBuddy(emotion_analyzer=analyzer)
+            st.session_state.buddy.data_store = DataStore()
     if st.session_state.voice_handler is None:
         st.session_state.voice_handler = VoiceHandler()
     if st.session_state.get('session_mgr') is None:

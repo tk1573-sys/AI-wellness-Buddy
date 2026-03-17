@@ -3,6 +3,7 @@ AI-based Emotional Wellness Buddy
 Main application that integrates all components for emotional support
 """
 
+import logging
 import sys
 from datetime import datetime
 from emotion_analyzer import EmotionAnalyzer
@@ -23,12 +24,18 @@ from clinical_indicators import (
 from intervention_engine import InterventionEngine
 import config
 
+_logger = logging.getLogger(__name__)
+
 
 class WellnessBuddy:
     """Main AI Wellness Buddy application"""
-    
-    def __init__(self, data_dir=None):
-        self.emotion_analyzer = EmotionAnalyzer()
+
+    def __init__(self, data_dir=None, emotion_analyzer=None):
+        if emotion_analyzer is not None:
+            self.emotion_analyzer = emotion_analyzer
+            _logger.info("Model loaded from cache")
+        else:
+            self.emotion_analyzer = EmotionAnalyzer()
         self.pattern_tracker = PatternTracker()
         self.alert_system = AlertSystem()
         self.conversation_handler = ConversationHandler()
