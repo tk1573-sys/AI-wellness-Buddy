@@ -235,6 +235,40 @@ HISTORY_AWARE_PHRASES = [
 ]
 
 # ---------------------------------------------------------------------------
+# Short response templates for key emotions (used with random.choice)
+# ---------------------------------------------------------------------------
+
+RESPONSE_TEMPLATES = {
+    "sadness": [
+        "I'm really sorry you're going through this. What you're feeling is completely valid.",
+        "That sounds very painful. You don't have to figure this out alone.",
+        "It must be hard carrying that feeling. It's okay to feel this way — there's nothing wrong with that.",
+        "I can hear how heavy things feel right now. I'm right here with you.",
+        "That kind of sadness can be really exhausting. We can work through this together.",
+    ],
+    "anxiety": [
+        "That sounds overwhelming. Your worry makes sense given what you're dealing with.",
+        "I can understand why that would make you anxious. It's completely normal to feel this way.",
+        "It makes sense that you'd feel stressed about that. You're not alone in this — I'm here.",
+        "When everything feels urgent, it can be really draining. There's nothing wrong with feeling this way.",
+        "That level of worry must be exhausting to carry around. I'm right here with you.",
+    ],
+    "anger": [
+        "It sounds like you're really frustrated. Your anger is completely understandable.",
+        "That situation would upset many people. It makes sense that you'd feel this way.",
+        "I can see why that made you angry. You have every right to feel frustrated about this.",
+        "Your frustration makes a lot of sense given what happened. I'm right here with you.",
+        "It's okay to feel angry — that's a very human response. You don't have to figure this out alone.",
+    ],
+    "neutral": [
+        "Thank you for sharing that with me. Whatever you're feeling right now is okay.",
+        "I appreciate you opening up. There's no right or wrong way to feel.",
+        "I'm here and listening. It's perfectly fine to just check in like this.",
+        "Thanks for letting me know what's on your mind. I'm right here with you.",
+    ],
+}
+
+# ---------------------------------------------------------------------------
 # Humanisation post-processing helpers
 # ---------------------------------------------------------------------------
 
@@ -276,7 +310,7 @@ class EmpatheticResponder:
     def __init__(self):
         self._recent_phrases: deque = deque(maxlen=30)
         # Track last 3 full responses to prevent repetition across messages
-        self._recent_responses: deque = deque(maxlen=3)
+        self.last_responses: deque = deque(maxlen=3)
 
     # ------------------------------------------------------------------
     # Public API
@@ -315,6 +349,17 @@ class EmpatheticResponder:
         emotion = self._normalise_emotion(emotion)
         concern_level = concern_level if concern_level in SUPPORT_PHRASES else "low"
 
+        # --- Short-template path for key emotions at low concern ---
+        if emotion in RESPONSE_TEMPLATES and concern_level == "low":
+            templates = RESPONSE_TEMPLATES[emotion]
+            response = random.choice(templates)
+            max_regen = _MAX_RESPONSE_REGEN_ATTEMPTS
+            while response in self.last_responses and max_regen > 0:
+                response = random.choice(templates)
+                max_regen -= 1
+            self.last_responses.append(response)
+            return self._humanise(response)
+
         # Layer 1 — Emotional acknowledgment (always included)
         empathy = self._pick(EMPATHY_PHRASES.get(emotion, EMPATHY_PHRASES["neutral"]))
 
@@ -351,7 +396,7 @@ class EmpatheticResponder:
 
         # --- Avoid repeating the same response in the last 3 messages ---
         max_regen = _MAX_RESPONSE_REGEN_ATTEMPTS
-        while response in self._recent_responses and max_regen > 0:
+        while response in self.last_responses and max_regen > 0:
             parts_retry: list[str] = [
                 self._pick(EMPATHY_PHRASES.get(emotion, EMPATHY_PHRASES["neutral"])),
                 self._pick(SUPPORT_PHRASES[concern_level]),
@@ -359,7 +404,7 @@ class EmpatheticResponder:
             response = self._humanise(" ".join(parts_retry))
             max_regen -= 1
 
-        self._recent_responses.append(response)
+        self.last_responses.append(response)
 
         return response
 
