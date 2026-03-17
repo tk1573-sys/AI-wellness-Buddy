@@ -188,7 +188,7 @@ def _load_emotion_analyzer_cached():
     return the cached object without any model I/O.
     """
     analyzer = EmotionAnalyzer()
-    _logger.info("Model loaded from cache")
+    _logger.info("EmotionAnalyzer initialized and cached")
     return analyzer
 
 
