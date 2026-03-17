@@ -210,11 +210,12 @@ def load_profile(username):
     st.session_state.chat_history = session["chat_history"]
     st.session_state.emotion_history = session["emotion_history"]
     st.session_state.risk_history = session["risk_history"]
-    # Keep legacy messages list in sync
-    st.session_state.messages = [
-        {"role": m["role"], "content": m["content"]}
-        for m in session["chat_history"]
-    ]
+    # Populate messages from the persisted chat_history, preserving all fields
+    # (including emotion/confidence/concern_level) so badges render correctly.
+    # Only initialise once; do not overwrite an already-populated messages list
+    # to prevent rerun duplication.
+    if not st.session_state["messages"]:
+        st.session_state["messages"] = [dict(m) for m in session["chat_history"]]
     st.session_state.profile_loaded = True
     st.session_state.authenticated = True
     st.rerun()
@@ -556,7 +557,7 @@ def render_chat_tab():
     st.markdown(render_emotion_flag(_dom_emotion), unsafe_allow_html=True)
 
     # Add a welcome message when there's no chat history yet
-    if not st.session_state.chat_history:
+    if not st.session_state["messages"]:
         user_name = st.session_state.user_id or "friend"
         greeting = (
             f"Hello **{user_name}** 👋  \n"
@@ -564,15 +565,14 @@ def render_chat_tab():
             "Share how you're feeling, and I'll do my best to listen and help."
         )
         st.session_state.chat_history.append({"role": "assistant", "content": greeting})
-        # Keep legacy messages list in sync
-        st.session_state.messages.append({"role": "assistant", "content": greeting})
+        st.session_state["messages"].append({"role": "assistant", "content": greeting})
 
-    # --- Dedicated container: render from session history (prevents UI
-    #     duplication during Streamlit reruns) ---
+    # --- Dedicated container: render from session_state["messages"] only.
+    #     Using a single list prevents UI duplication during Streamlit reruns.
     chat_container = st.container()
 
     with chat_container:
-        for idx, message in enumerate(st.session_state.chat_history):
+        for idx, message in enumerate(st.session_state["messages"]):
             with st.chat_message(message["role"]):
                 # Show emotion badge with confidence and concern level beside user messages
                 _msg_emo = message.get("emotion", "")
@@ -779,7 +779,7 @@ def render_chat_tab():
 
 
 def _add_chat_message(role, content, emotion=None):
-    """Append a message to both chat_history and legacy messages list.
+    """Append a message to both chat_history and the messages list.
 
     When *emotion* is provided it is stored alongside the message so the
     Chat tab can display an emotion badge next to the user's text.
@@ -791,7 +791,9 @@ def _add_chat_message(role, content, emotion=None):
     if emotion:
         entry["emotion"] = emotion
     st.session_state.chat_history.append(entry)
-    st.session_state.messages.append({"role": role, "content": content})
+    # messages is the primary rendering list; store full entry (including any
+    # emotion fields) so badges render correctly when iterating messages.
+    st.session_state["messages"].append(dict(entry))
     # Persist to user profile storage
     _persist_chat_history()
 
@@ -804,13 +806,15 @@ def _tag_last_user_emotion(meta: dict):
         return
     confidence = meta.get('emotion_confidence', 0.0)
     concern = meta.get('concern_level', '')
-    # Walk backwards to find the last user message
-    for msg in reversed(st.session_state.chat_history):
-        if msg["role"] == "user":
-            msg["emotion"] = emo
-            msg["confidence"] = confidence
-            msg["concern_level"] = concern
-            break
+    # Annotate both lists so that badges show whether rendering from
+    # chat_history (backend context) or messages (primary render list).
+    for store in (st.session_state.chat_history, st.session_state["messages"]):
+        for msg in reversed(store):
+            if msg["role"] == "user":
+                msg["emotion"] = emo
+                msg["confidence"] = confidence
+                msg["concern_level"] = concern
+                break
 
 
 def _track_session_metadata(meta: dict):
