@@ -368,6 +368,7 @@ def run_ablation_study(
     results_filename: str = "ablation_results.json",
     csv_filename: str = "ablation_comparison.csv",
     plot_filename: str = "ablation_comparison.png",
+    run_stats: bool = True,
     verbose: bool = True,
 ) -> dict:
     """Run an ablation study comparing keyword, transformer, and hybrid models.
@@ -397,6 +398,11 @@ def run_ablation_study(
         CSV output filename (default ``"ablation_comparison.csv"``).
     plot_filename : str
         PNG chart filename (default ``"ablation_comparison.png"``).
+    run_stats : bool
+        When ``True`` (default), run paired t-tests comparing the hybrid
+        model against transformer and keyword baselines.  Results are saved
+        to ``{output_dir}/results/statistical_significance.json`` and merged
+        into the returned payload under the key ``"statistical_tests"``.
     verbose : bool
         When ``True``, print the comparison table to stdout.
 
@@ -405,7 +411,8 @@ def run_ablation_study(
     dict
         ``{model_name: metrics_dict, ...}`` for all three ablation models,
         plus ``"meta"`` containing run metadata (timestamp, sample count,
-        dataset name, label set).
+        dataset name, label set), and optionally ``"statistical_tests"``
+        when *run_stats* is ``True``.
 
     Raises
     ------
@@ -490,5 +497,16 @@ def run_ablation_study(
         logger.warning(
             "matplotlib/numpy not installed — skipping chart generation."
         )
+
+    # ── 7. Statistical significance tests ─────────────────────────────────
+    if run_stats:
+        from evaluation.statistical_tests import run_significance_tests  # local import
+        stat_results = run_significance_tests(
+            samples,  # pre-loaded list — avoids re-reading from disk
+            labels=labels,
+            output_dir=output_dir,
+            verbose=verbose,
+        )
+        output_payload["statistical_tests"] = stat_results
 
     return output_payload
