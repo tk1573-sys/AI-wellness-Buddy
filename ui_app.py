@@ -692,21 +692,27 @@ def render_chat_tab():
         if _inter_msg:
             st.info(f"💡 {_inter_msg}")
 
-    # ---- Breathing exercise opt-in (user-consent based) ----
-    _breathing_suggested = _meta.get('breathing_suggested', False)
-    if _breathing_suggested and _det_emotion != 'crisis':
+    # ---- Breathing exercise: triggered by anxiety emotion or high risk ----
+    _risk_level = _meta.get('risk_level', 'low')
+    _should_offer = (
+        (_det_emotion == 'anxiety' or _risk_level == 'high')
+        and _det_emotion != 'crisis'
+        and not st.session_state.get('breathing_active', False)
+    )
+    if _should_offer:
         st.info(
-            "😌 Anxiety detected. Would you like to try a calming breathing exercise?"
+            "😌 Anxiety or elevated risk detected. Would you like to try a calming breathing exercise?"
         )
         if st.button("🫁 Start Breathing Exercise", key="start_breathing"):
             st.session_state.breathing_active = True
+            st.rerun()
 
     if st.session_state.get('breathing_active', False):
         components.html(breathing_exercise_html(), height=_BREATHING_WIDGET_HEIGHT)
         _vol = st.session_state.get('_calm_volume', 0.03)
         _sound = st.session_state.get('ambient_sound', 'deep_focus')
         st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
-        # Calming audio fallback for browsers that block Web Audio autoplay
+        # Calming audio (st.audio for browsers that block Web Audio autoplay)
         _tone = _generate_calming_tone()
         if _tone:
             st.audio(_tone, format="audio/wav")

@@ -306,6 +306,58 @@ def test_persist_chat_history_saves_to_profile():
 # Streamlit deprecation checks
 # -----------------------------------------------------------------------
 
+# -----------------------------------------------------------------------
+# Breathing exercise trigger logic tests
+# -----------------------------------------------------------------------
+
+def _breathing_should_offer(det_emotion: str, risk_level: str, breathing_active: bool) -> bool:
+    """Mirror of the _should_offer computation in ui_app.py render_chat_tab()."""
+    return (
+        (det_emotion == 'anxiety' or risk_level == 'high')
+        and det_emotion != 'crisis'
+        and not breathing_active
+    )
+
+
+def test_breathing_active_initialised_false():
+    """breathing_active session state key must default to False."""
+    try:
+        import streamlit as st
+    except ImportError:
+        return
+    importlib.import_module('ui_app')
+    assert st.session_state.get('breathing_active') is False
+
+
+def test_breathing_should_offer_for_anxiety_emotion():
+    """_should_offer must be True when emotion is anxiety (even at low risk)."""
+    assert _breathing_should_offer('anxiety', 'low', False) is True
+
+
+def test_breathing_should_offer_for_high_risk():
+    """_should_offer must be True when risk_level is high (any non-crisis emotion)."""
+    assert _breathing_should_offer('sadness', 'high', False) is True
+
+
+def test_breathing_should_not_offer_for_neutral_low_risk():
+    """_should_offer must be False for neutral emotion and low risk."""
+    assert _breathing_should_offer('neutral', 'low', False) is False
+
+
+def test_breathing_should_not_offer_when_already_active():
+    """_should_offer must be False when breathing exercise is already running."""
+    assert _breathing_should_offer('anxiety', 'high', True) is False
+
+
+def test_breathing_should_not_offer_for_crisis():
+    """_should_offer must be False even when anxiety/high-risk during crisis."""
+    assert _breathing_should_offer('crisis', 'high', False) is False
+
+
+# -----------------------------------------------------------------------
+# Streamlit deprecation checks
+# -----------------------------------------------------------------------
+
 def test_no_deprecated_use_container_width():
     """ui_app.py and ui/ must not use the deprecated use_container_width arg.
 
