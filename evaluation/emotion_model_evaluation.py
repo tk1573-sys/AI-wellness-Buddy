@@ -27,6 +27,7 @@ from research_evaluation import (        # noqa: E402
 )
 from datasets.goemotions_loader import (  # noqa: E402
     load_goemotions,
+    load_goemotions_hf,
     SYSTEM_LABELS,
 )
 
@@ -35,6 +36,7 @@ __all__ = [
     "evaluate_emotion_model",
     "compute_metrics",
     "format_summary_table",
+    "load_goemotions_hf",
     "SYSTEM_LABELS",
 ]
 
@@ -120,7 +122,7 @@ def evaluate_emotion_model(
         _analyzer = EmotionAnalyzer()
 
         def _default_classifier(text: str) -> str:
-            return _analyzer.classify_emotion(text)["primary_emotion"]
+            return _analyzer.classify_emotion_ml(text)["primary_emotion"]
 
         classifier_fn = _default_classifier
 

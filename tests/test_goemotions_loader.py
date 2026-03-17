@@ -7,17 +7,22 @@ Validates:
 - CSV loading
 - max_samples limit
 - Invalid/missing rows handled gracefully
+- crisis label present in SYSTEM_LABELS
+- load_goemotions_hf raises ImportError when datasets library is unavailable
 """
 
 import csv
 import json
 import os
+import sys
 import tempfile
+import unittest.mock as mock
 
 from datasets.goemotions_loader import (
     GOEMOTIONS_LABEL_MAP,
     SYSTEM_LABELS,
     load_goemotions,
+    load_goemotions_hf,
     map_label,
 )
 
@@ -175,3 +180,109 @@ def test_text_whitespace_normalised():
         assert samples[0]["text"] == "lots of spaces"
     finally:
         os.unlink(path)
+
+
+# ------------------------------------------------------------------
+# SYSTEM_LABELS completeness
+# ------------------------------------------------------------------
+
+def test_crisis_in_system_labels():
+    """'crisis' must be present in SYSTEM_LABELS for full schema coverage."""
+    assert "crisis" in SYSTEM_LABELS
+
+
+def test_system_labels_contains_all_required():
+    """SYSTEM_LABELS must include all seven emotion classes."""
+    required = {"joy", "sadness", "anger", "fear", "anxiety", "neutral", "crisis"}
+    assert required.issubset(set(SYSTEM_LABELS))
+
+
+# ------------------------------------------------------------------
+# HuggingFace datasets loader
+# ------------------------------------------------------------------
+
+def _make_mock_hf_dataset(label_names: list, rows: list):
+    """Build a minimal mock HuggingFace dataset with the go_emotions schema.
+
+    The real go_emotions dataset exposes:
+        ds.features["labels"].feature.names  (Sequence(ClassLabel).feature.names)
+    """
+    mock_class_label = mock.MagicMock()
+    mock_class_label.names = label_names
+
+    mock_sequence_feature = mock.MagicMock()
+    mock_sequence_feature.feature = mock_class_label
+
+    mock_features = mock.MagicMock()
+    mock_features.__getitem__ = mock.Mock(return_value=mock_sequence_feature)
+
+    mock_ds = mock.MagicMock()
+    mock_ds.features = mock_features
+    mock_ds.__iter__ = mock.Mock(return_value=iter(rows))
+    return mock_ds
+
+
+def _mock_datasets_module(mock_ds):
+    """Return a mock 'datasets' module whose load_dataset returns *mock_ds*."""
+    mock_load_dataset = mock.MagicMock(return_value=mock_ds)
+    mod = mock.MagicMock()
+    mod.load_dataset = mock_load_dataset
+    return mod
+
+
+def test_load_goemotions_hf_raises_without_datasets_lib():
+    """load_goemotions_hf must raise ImportError when 'datasets' is absent."""
+    import pytest
+    with pytest.raises(ImportError, match="datasets"):
+        with mock.patch.dict(sys.modules, {"datasets": None}):
+            load_goemotions_hf()
+
+
+def test_load_goemotions_hf_uses_first_label_per_row():
+    """load_goemotions_hf must pick the first label for multi-label rows."""
+    label_names = ["admiration", "joy", "sadness", "neutral"]
+    rows = [
+        {"text": "I feel great", "labels": [0]},       # admiration → joy
+        {"text": "Feeling low today", "labels": [2]},  # sadness → sadness
+    ]
+    mock_ds = _make_mock_hf_dataset(label_names, rows)
+    mock_mod = _mock_datasets_module(mock_ds)
+
+    with mock.patch.dict(sys.modules, {"datasets": mock_mod}):
+        samples = load_goemotions_hf(split="test", max_samples=10)
+
+    assert len(samples) == 2
+    assert samples[0]["label"] == "joy"      # admiration → joy
+    assert samples[1]["label"] == "sadness"  # sadness → sadness
+
+
+def test_load_goemotions_hf_max_samples_respected():
+    """load_goemotions_hf must honour the max_samples limit."""
+    mock_ds = _make_mock_hf_dataset(
+        label_names=["neutral"],
+        rows=[{"text": f"sample {i}", "labels": [0]} for i in range(20)],
+    )
+    mock_mod = _mock_datasets_module(mock_ds)
+
+    with mock.patch.dict(sys.modules, {"datasets": mock_mod}):
+        samples = load_goemotions_hf(split="test", max_samples=5)
+
+    assert len(samples) == 5
+
+
+def test_load_goemotions_hf_skips_empty_text():
+    """load_goemotions_hf must skip rows with empty text."""
+    mock_ds = _make_mock_hf_dataset(
+        label_names=["neutral"],
+        rows=[
+            {"text": "", "labels": [0]},
+            {"text": "valid text", "labels": [0]},
+        ],
+    )
+    mock_mod = _mock_datasets_module(mock_ds)
+
+    with mock.patch.dict(sys.modules, {"datasets": mock_mod}):
+        samples = load_goemotions_hf(split="test")
+
+    assert len(samples) == 1
+    assert samples[0]["text"] == "valid text"

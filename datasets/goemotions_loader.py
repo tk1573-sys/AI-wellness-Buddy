@@ -2,21 +2,26 @@
 GoEmotions dataset loader.
 
 Loads the `GoEmotions <https://github.com/google-research/google-research/tree/master/goemotions>`_
-dataset from JSONL or CSV files, cleans text samples, and maps the
-fine-grained GoEmotions labels to the six system emotion classes used
-by the AI Wellness Buddy (joy, sadness, anger, fear, anxiety, neutral).
+dataset either from JSONL/CSV files or via the HuggingFace ``datasets`` library,
+cleans text samples, and maps the fine-grained GoEmotions labels to the seven
+system emotion classes used by the AI Wellness Buddy
+(joy, sadness, anger, fear, anxiety, neutral, crisis).
 
 Public API
 ----------
 - ``GOEMOTIONS_LABEL_MAP`` — full mapping from GoEmotions labels → system labels
-- ``load_goemotions(path, ...)`` — load & clean dataset, return ``(texts, labels)``
+- ``load_goemotions(path, ...)`` — load & clean a local file, return list of dicts
+- ``load_goemotions_hf(split, ...)`` — load via HuggingFace ``datasets`` library
 """
 
 from __future__ import annotations
 
 import csv
 import json
+import logging
 import re
+
+logger = logging.getLogger(__name__)
 
 # ── GoEmotions (28 classes) → system emotion classes ────────────────────
 GOEMOTIONS_LABEL_MAP: dict[str, str] = {
@@ -56,9 +61,11 @@ GOEMOTIONS_LABEL_MAP: dict[str, str] = {
     "curiosity": "neutral",
 }
 
-# Canonical system labels
+# Canonical system labels (includes crisis for completeness; GoEmotions
+# samples will not produce crisis via label mapping, but the label is
+# reserved for custom datasets and the overall system schema).
 SYSTEM_LABELS: tuple[str, ...] = (
-    "joy", "sadness", "anger", "fear", "anxiety", "neutral",
+    "joy", "sadness", "anger", "fear", "anxiety", "neutral", "crisis",
 )
 
 
@@ -179,3 +186,77 @@ def _load_json(path: str, text_key: str, label_key: str) -> list[dict]:
             "label": _extract_label(obj, label_key),
         })
     return rows
+
+
+# ── HuggingFace datasets loader ─────────────────────────────────────────
+
+def load_goemotions_hf(
+    split: str = "test",
+    *,
+    subset: str = "simplified",
+    max_samples: int | None = None,
+) -> list[dict[str, str]]:
+    """Load GoEmotions from the HuggingFace ``datasets`` hub.
+
+    Uses the ``go_emotions`` dataset (``google-research-datasets/go_emotions``).
+    When the ``datasets`` library is not installed this function raises
+    ``ImportError`` with a helpful message so callers can fall back to
+    :func:`load_goemotions` (file-based loading).
+
+    Parameters
+    ----------
+    split : str
+        Dataset split — ``"train"``, ``"validation"``, or ``"test"``.
+    subset : str
+        Dataset configuration — ``"simplified"`` (28→1 label) or ``"raw"``.
+    max_samples : int or None
+        When set, truncate the loaded split to at most this many samples.
+
+    Returns
+    -------
+    list[dict[str, str]]
+        Each element is ``{"text": <cleaned_text>, "label": <system_label>}``.
+
+    Raises
+    ------
+    ImportError
+        If the ``datasets`` package is not installed.
+    """
+    try:
+        from datasets import load_dataset  # type: ignore[import]
+    except ImportError as exc:
+        raise ImportError(
+            "The 'datasets' package is required to use load_goemotions_hf(). "
+            "Install it with: pip install datasets"
+        ) from exc
+
+    logger.info("Loading GoEmotions '%s' split from HuggingFace Hub …", split)
+    ds = load_dataset("google-research-datasets/go_emotions", subset, split=split)
+
+    # The 'simplified' subset exposes a 'labels' column with integer indices
+    # into ds.features['labels'].feature.names (Sequence(ClassLabel).feature.names)
+    try:
+        label_names: list[str] = ds.features["labels"].feature.names
+    except (AttributeError, KeyError) as exc:
+        raise ValueError(
+            f"Unexpected dataset schema — could not read label names from "
+            f"ds.features['labels'].feature.names: {exc}"
+        ) from exc
+
+    samples: list[dict[str, str]] = []
+    for row in ds:
+        text = _clean_text(str(row.get("text", "")))
+        if not text:
+            continue
+        raw_ids: list[int] = row.get("labels", [])
+        if raw_ids:
+            raw_label = label_names[raw_ids[0]]
+        else:
+            raw_label = "neutral"
+        label = map_label(raw_label)
+        samples.append({"text": text, "label": label})
+        if max_samples is not None and len(samples) >= max_samples:
+            break
+
+    logger.info("Loaded %d samples from GoEmotions '%s' split.", len(samples), split)
+    return samples
