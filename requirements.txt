@@ -9,3 +9,4 @@ langdetect>=1.0.9
 audio-recorder-streamlit>=0.0.10
 plotly>=5.18.0
 bcrypt>=3.2.0
+matplotlib>=3.8.0
