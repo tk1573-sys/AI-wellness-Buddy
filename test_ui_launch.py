@@ -379,3 +379,56 @@ def test_no_deprecated_use_container_width():
     assert violations == [], (
         "Deprecated parameter found:\n" + "\n".join(violations)
     )
+
+
+# -----------------------------------------------------------------------
+# Emotion prediction insight tests
+# -----------------------------------------------------------------------
+
+def test_emotion_predictor_imported_in_ui_app():
+    """ui_app.py must import predict_next_emotion and detect_trend."""
+    import pathlib
+    text = (pathlib.Path(__file__).resolve().parent / 'ui_app.py').read_text(encoding='utf-8')
+    assert 'from emotion_predictor import predict_next_emotion, detect_trend' in text
+
+
+def test_predict_next_emotion_basic():
+    """predict_next_emotion returns the repeating last emotion."""
+    from emotion_predictor import predict_next_emotion
+    assert predict_next_emotion(['sadness', 'sadness']) == 'sadness'
+
+
+def test_predict_next_emotion_most_common():
+    """predict_next_emotion returns the most frequent emotion in history."""
+    from emotion_predictor import predict_next_emotion
+    assert predict_next_emotion(['joy', 'sadness', 'sadness', 'anxiety']) == 'sadness'
+
+
+def test_predict_next_emotion_empty_returns_neutral():
+    """predict_next_emotion returns 'neutral' for empty history."""
+    from emotion_predictor import predict_next_emotion
+    assert predict_next_emotion([]) == 'neutral'
+
+
+def test_detect_trend_increasing_stress():
+    """detect_trend returns 'increasing stress' for a negative window."""
+    from emotion_predictor import detect_trend
+    assert detect_trend(['anxiety', 'sadness', 'anger']) == 'increasing stress'
+
+
+def test_detect_trend_improving():
+    """detect_trend returns 'improving' for a positive window."""
+    from emotion_predictor import detect_trend
+    assert detect_trend(['joy', 'neutral', 'joy']) == 'improving'
+
+
+def test_detect_trend_stable():
+    """detect_trend returns 'stable' for a mixed window."""
+    from emotion_predictor import detect_trend
+    assert detect_trend(['sadness', 'joy']) == 'stable'
+
+
+def test_detect_trend_empty_returns_stable():
+    """detect_trend returns 'stable' for empty history."""
+    from emotion_predictor import detect_trend
+    assert detect_trend([]) == 'stable'

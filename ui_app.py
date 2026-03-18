@@ -15,6 +15,7 @@ from prediction_agent import PredictionAgent
 from voice_handler import VoiceHandler
 from auth_manager import AuthManager
 from session_manager import SessionManager
+from emotion_predictor import predict_next_emotion, detect_trend
 import config
 import os
 
@@ -683,6 +684,19 @@ def render_chat_tab():
     _escalation = _meta.get('escalation', {})
     if _escalation.get('escalation_detected'):
         st.warning(_escalation.get('warning', ''))
+
+    # ---- Emotion prediction insight ----
+    _emo_labels = [
+        e['emotion'] for e in st.session_state.get('emotion_history', [])
+        if isinstance(e, dict) and e.get('emotion')
+    ]
+    if _emo_labels:
+        _next_emotion = predict_next_emotion(_emo_labels)
+        _trend = detect_trend(_emo_labels)
+        st.info(
+            f"🔮 **Predicted next emotion:** {_next_emotion.capitalize()} "
+            f" | 📈 **Trend:** {_trend.capitalize()}"
+        )
 
     # ---- Intervention recommendations ----
     _interventions = _meta.get('interventions', {})
