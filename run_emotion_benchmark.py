@@ -31,7 +31,7 @@ def _write_synthetic_jsonl() -> str:
     return path
 
 
-def run(dataset_path=None, dry_run=False, max_samples=None):
+def run_benchmark(dataset_path=None, dry_run=False, max_samples=None):
     """Evaluate all three models; print table; save results/final_metrics.json."""
     os.makedirs(os.path.join(_ROOT, "results"), exist_ok=True)
     tmp = None
@@ -85,8 +85,8 @@ def main(argv=None):
     p.add_argument("--max-samples", type=int, default=None,
                    help="Limit number of samples evaluated.")
     args = p.parse_args(argv)
-    run(dataset_path=args.dataset, dry_run=args.dry_run, max_samples=args.max_samples)
+    run_benchmark(dataset_path=args.dataset, dry_run=args.dry_run, max_samples=args.max_samples)
 
 
 if __name__ == "__main__":
-    main()
+    run_benchmark()
