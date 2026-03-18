@@ -906,6 +906,19 @@ def render_trends_tab():
     summary = buddy.pattern_tracker.get_pattern_summary()
     history = buddy.user_profile.get_emotional_history(days=30)
 
+    # ---- Predictive insight cards: Predicted Emotion, Trend, Escalation Score ----
+    _emo_labels_t = [
+        e['emotion'] for e in st.session_state.get('emotion_history', [])
+        if isinstance(e, dict) and e.get('emotion')
+    ]
+    if _emo_labels_t:
+        st.markdown("#### 🔍 Predictive Insights")
+        _pi1, _pi2, _pi3 = st.columns(3)
+        _pi1.metric("🔮 Predicted Emotion", (predict_next_emotion(_emo_labels_t) or "unknown").capitalize())
+        _pi2.metric("📈 Trend", (detect_trend(_emo_labels_t) or "stable").title())
+        _pi3.metric("⚠️ Escalation Score", f"{escalation_score(_emo_labels_t):.2f}",
+                    help="0 = no concern · 1 = maximum escalation risk")
+
     # ---- Current session sentiment line (Plotly interactive) ----
     sentiments = list(buddy.pattern_tracker.sentiment_history)
     if sentiments:
@@ -1108,6 +1121,19 @@ def render_risk_tab():
     col2.metric("Stability", f"{summary['stability_index']:.2f}")
     col3.metric("Volatility", f"{summary['volatility']:.2f}")
     col4.metric("Consecutive Distress", summary['consecutive_distress'])
+
+    # ---- Predictive insight cards: Predicted Emotion, Trend, Escalation Score ----
+    _emo_labels_r = [
+        e['emotion'] for e in st.session_state.get('emotion_history', [])
+        if isinstance(e, dict) and e.get('emotion')
+    ]
+    if _emo_labels_r:
+        st.markdown("#### 🔍 Predictive Insights")
+        _ri1, _ri2, _ri3 = st.columns(3)
+        _ri1.metric("🔮 Predicted Emotion", (predict_next_emotion(_emo_labels_r) or "unknown").capitalize())
+        _ri2.metric("📈 Trend", (detect_trend(_emo_labels_r) or "stable").title())
+        _ri3.metric("⚠️ Escalation Score", f"{escalation_score(_emo_labels_r):.2f}",
+                    help="0 = no concern · 1 = maximum escalation risk")
 
     # Crisis alert
     if summary.get('crisis_count', 0) > 0:
