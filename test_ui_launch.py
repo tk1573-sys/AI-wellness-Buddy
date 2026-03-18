@@ -432,3 +432,98 @@ def test_detect_trend_empty_returns_stable():
     """detect_trend returns 'stable' for empty history."""
     from emotion_predictor import detect_trend
     assert detect_trend([]) == 'stable'
+
+
+# -----------------------------------------------------------------------
+# hybrid_predict tests
+# -----------------------------------------------------------------------
+
+def test_hybrid_predict_weighted_blend():
+    """hybrid_predict combines transformer and keyword scores 0.7/0.3."""
+    from emotion_predictor import hybrid_predict
+    # keyword scores are at or below the 0.8 override threshold (not strictly above)
+    transformer = {'joy': 0.8, 'sadness': 0.2}
+    keyword = {'joy': 0.2, 'sadness': 0.8}
+    result = hybrid_predict(transformer, keyword)
+    # joy = 0.7*0.8 + 0.3*0.2 = 0.62; sadness = 0.7*0.2 + 0.3*0.8 = 0.38
+    # keyword sadness == 0.8, which is not *strictly* > 0.8, so no override occurs.
+    total = sum(result.values())
+    assert abs(total - 1.0) < 1e-3, f"scores must sum to 1.0, got {total}"
+    assert result['joy'] > result['sadness'], "joy should dominate when transformer says joy"
+
+
+def test_hybrid_predict_keyword_override():
+    """keyword confidence > 0.8 should override the transformer prediction."""
+    from emotion_predictor import hybrid_predict
+    transformer = {'joy': 0.9, 'sadness': 0.1}
+    keyword = {'sadness': 0.9, 'joy': 0.1}
+    result = hybrid_predict(transformer, keyword)
+    # keyword sadness confidence 0.9 > threshold 0.8 → keyword wins
+    assert result['sadness'] > result['joy'], (
+        "keyword override should make sadness dominant"
+    )
+
+
+def test_hybrid_predict_no_override_below_threshold():
+    """keyword confidence ≤ 0.8 should NOT override transformer."""
+    from emotion_predictor import hybrid_predict
+    transformer = {'joy': 0.9, 'sadness': 0.1}
+    keyword = {'sadness': 0.75, 'joy': 0.25}
+    result = hybrid_predict(transformer, keyword)
+    # No override; weighted blend → joy should still dominate
+    assert result['joy'] > result['sadness'], (
+        "transformer should dominate when keyword confidence is below threshold"
+    )
+
+
+def test_hybrid_predict_scores_sum_to_one():
+    """hybrid_predict output scores must sum to 1.0."""
+    from emotion_predictor import hybrid_predict
+    transformer = {'joy': 0.5, 'sadness': 0.2, 'anxiety': 0.1,
+                   'fear': 0.1, 'anger': 0.05, 'neutral': 0.05}
+    keyword = {'joy': 0.3, 'sadness': 0.3, 'anxiety': 0.2,
+               'fear': 0.1, 'anger': 0.05, 'neutral': 0.05}
+    result = hybrid_predict(transformer, keyword)
+    total = sum(result.values())
+    assert abs(total - 1.0) < 1e-3, f"scores must sum to 1.0, got {total}"
+
+
+def test_hybrid_predict_minority_class_boost():
+    """fear and anxiety should receive a relative boost vs non-minority emotions."""
+    from emotion_predictor import hybrid_predict
+    # Equal input scores so any asymmetry is from the boost alone
+    emotions = ['joy', 'sadness', 'anger', 'fear', 'anxiety', 'neutral']
+    equal = {e: 1.0 / len(emotions) for e in emotions}
+    result = hybrid_predict(equal, equal)
+    # After boost, fear > joy and anxiety > joy
+    assert result.get('fear', 0) > result.get('joy', 0), (
+        "fear should be boosted above non-minority emotions"
+    )
+    assert result.get('anxiety', 0) > result.get('joy', 0), (
+        "anxiety should be boosted above non-minority emotions"
+    )
+
+
+def test_hybrid_predict_empty_inputs_returns_empty():
+    """hybrid_predict with both empty dicts returns empty dict."""
+    from emotion_predictor import hybrid_predict
+    assert hybrid_predict({}, {}) == {}
+
+
+def test_hybrid_predict_transformer_only():
+    """hybrid_predict works when keyword_scores is empty."""
+    from emotion_predictor import hybrid_predict
+    transformer = {'joy': 0.6, 'sadness': 0.4}
+    result = hybrid_predict(transformer, {})
+    total = sum(result.values())
+    assert abs(total - 1.0) < 1e-3
+    assert 'joy' in result and 'sadness' in result
+
+
+def test_hybrid_predict_keyword_only():
+    """hybrid_predict works when transformer_scores is empty."""
+    from emotion_predictor import hybrid_predict
+    keyword = {'anger': 0.7, 'fear': 0.3}
+    result = hybrid_predict({}, keyword)
+    total = sum(result.values())
+    assert abs(total - 1.0) < 1e-3
