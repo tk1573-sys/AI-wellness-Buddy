@@ -15,7 +15,7 @@ from datasets.goemotions_loader import load_goemotions, SYSTEM_LABELS  # noqa: E
 from research_evaluation import evaluate_classifier                     # noqa: E402
 from benchmark_emotion_models import (                                  # noqa: E402
     _make_keyword_classifier, _make_transformer_classifier,
-    _make_hybrid_classifier,
+    _make_hybrid_classifier, _make_hybrid_no_override_classifier,
 )
 
 LABELS = list(SYSTEM_LABELS)
@@ -438,6 +438,70 @@ def _write_synthetic_jsonl() -> str:
     return path
 
 
+def run_ablation(dataset_path=None, dry_run=False, max_samples=None):
+    """Run ablation study across four model configurations.
+
+    Configurations evaluated:
+
+    * ``Transformer Only``   — transformer scores only, no keyword signal.
+    * ``Keyword Only``       — keyword/heuristic scores only, no transformer.
+    * ``Hybrid (no override)`` — blended transformer + keyword distribution,
+      argmax of fused scores (**override disabled**).
+    * ``Hybrid (with override)`` — blended distribution with adaptive keyword
+      override when the top keyword score exceeds the threshold.
+
+    Prints a comparison table and saves ``results/ablation.json``.
+    """
+    os.makedirs(os.path.join(_ROOT, "results"), exist_ok=True)
+    tmp = None
+    if dry_run or not dataset_path:
+        tmp = _write_synthetic_jsonl()
+        dataset_path = tmp
+    samples = load_goemotions(dataset_path, max_samples=max_samples)
+    if tmp and os.path.exists(tmp):
+        os.unlink(tmp)
+    if not samples:
+        print("⚠  No samples loaded — aborting ablation.")
+        return {}
+    eval_pairs = [(s["text"], s["label"]) for s in samples]
+
+    transformer_clf, _ = _make_transformer_classifier()
+    hybrid_no_ov_clf, _ = _make_hybrid_no_override_classifier()
+    hybrid_ov_clf, _ = _make_hybrid_classifier()
+    ablation_models = {
+        "Transformer Only":       transformer_clf,
+        "Keyword Only":           _make_keyword_classifier(),
+        "Hybrid (no override)":   hybrid_no_ov_clf,
+        "Hybrid (with override)": hybrid_ov_clf,
+    }
+
+    final: dict = {}
+    for name, clf in ablation_models.items():
+        r = evaluate_classifier(eval_pairs, clf, labels=LABELS)
+        final[name] = {
+            "precision": r["macro_precision"],
+            "recall":    r["macro_recall"],
+            "macro_f1":  r["macro_f1"],
+            "accuracy":  r["accuracy"],
+        }
+
+    hdr = (f"{'Model':<26} {'Precision':>10} {'Recall':>10}"
+           f" {'Macro F1':>10} {'Accuracy':>10}")
+    sep = "-" * len(hdr)
+    print(f"\n{'='*66}\nAblation Study  ({len(samples)} samples)\n{'='*66}")
+    print(sep); print(hdr); print(sep)
+    for name, m in final.items():
+        print(f"{name:<26} {m['precision']:>10.4f} {m['recall']:>10.4f}"
+              f" {m['macro_f1']:>10.4f} {m['accuracy']:>10.4f}")
+    print(sep)
+
+    out = os.path.join(_ROOT, "results", "ablation.json")
+    with open(out, "w", encoding="utf-8") as fh:
+        json.dump(final, fh, indent=2)
+    print(f"\n✅ Ablation results saved to {out}")
+    return final
+
+
 def run_benchmark(dataset_path=None, dry_run=False, max_samples=None):
     """Evaluate all three models; print table; save results/final_metrics.json."""
     os.makedirs(os.path.join(_ROOT, "results"), exist_ok=True)
@@ -497,9 +561,18 @@ def main(argv=None):
                    help="Use built-in synthetic data (no file needed).")
     p.add_argument("--max-samples", type=int, default=None,
                    help="Limit number of samples evaluated.")
+    p.add_argument("--ablation", action="store_true",
+                   help="Run ablation study (4 variants) and save results/ablation.json.")
     args = p.parse_args(argv)
-    run_benchmark(dataset_path=args.dataset, dry_run=args.dry_run, max_samples=args.max_samples)
+    if args.ablation:
+        run_ablation(dataset_path=args.dataset, dry_run=args.dry_run,
+                     max_samples=args.max_samples)
+    else:
+        run_benchmark(dataset_path=args.dataset, dry_run=args.dry_run,
+                      max_samples=args.max_samples)
+        run_ablation(dataset_path=args.dataset, dry_run=args.dry_run,
+                     max_samples=args.max_samples)
 
 
 if __name__ == "__main__":
-    run_benchmark()
+    main()
