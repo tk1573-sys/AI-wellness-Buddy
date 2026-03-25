@@ -130,9 +130,15 @@ cd AI-wellness-Buddy
 pip install -r requirements.txt
 ```
 
-3. Download required NLTK data (first time only):
-```python
+3. Download required corpora (first time only):
+```bash
+python -m textblob.download_corpora
 python -c "import nltk; nltk.download('brown'); nltk.download('punkt')"
+```
+
+**Alternatively, run the one-shot setup script which handles everything above automatically:**
+```bash
+python setup_env.py
 ```
 
 ### Running the Application
