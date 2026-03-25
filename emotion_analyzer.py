@@ -19,6 +19,7 @@ delegates to ``EmotionTransformer``.
 
 from textblob import TextBlob
 from datetime import datetime
+import math
 import re
 from language_handler import (
     TANGLISH_EMOTION_KEYWORDS,
@@ -200,6 +201,12 @@ class EmotionAnalyzer:
     # Research-grade fusion: 0.75 transformer + 0.25 keyword (calibrated)
     _TRANSFORMER_WEIGHT = 0.75
     _HEURISTIC_WEIGHT = 0.25
+
+    # Adaptive keyword override: use keyword label when Pk max exceeds this
+    _KEYWORD_OVERRIDE_THRESHOLD = 0.85
+
+    # Uncertainty threshold: predictions below this confidence are labelled uncertain
+    _UNCERTAINTY_THRESHOLD = 0.4
 
     def __init__(self):
         # --- Legacy coarse keywords (backward-compat) ---
@@ -613,6 +620,48 @@ class EmotionAnalyzer:
         return 'low'
 
     # ------------------------------------------------------------------
+    # Uncertainty modeling
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _compute_uncertainty(final_probabilities):
+        """Compute research-level uncertainty metrics from a probability distribution.
+
+        Parameters
+        ----------
+        final_probabilities : dict[str, float]
+            Normalised emotion probability distribution (values sum to 1.0).
+
+        Returns
+        -------
+        dict
+            ``confidence_score`` – max probability in the distribution.
+            ``uncertainty_score`` – Shannon entropy H = -Σ p·log(p), normalised
+                to [0, 1] by dividing by log(n) where n is the number of classes.
+            ``is_uncertain`` – ``True`` when confidence_score < 0.4.
+        """
+        probs = [p for p in final_probabilities.values() if p > 0]
+        n = len(final_probabilities)
+
+        # Shannon entropy
+        raw_entropy = -sum(p * math.log(p) for p in probs)
+        raw_entropy = max(0.0, raw_entropy)  # guard against -0.0 float artefact
+        # Normalise by maximum possible entropy log(n) so the score is in [0, 1].
+        # When n==1 there is only one class, so entropy is always 0; set max_entropy
+        # to 1.0 to avoid division-by-zero (0.0 / 1.0 == 0.0 as expected).
+        max_entropy = math.log(n) if n > 1 else 1.0
+        uncertainty_score = round(raw_entropy / max_entropy, 4) if max_entropy > 0 else 0.0
+
+        confidence_score = round(max(final_probabilities.values()) if final_probabilities else 0.0, 4)
+        is_uncertain = confidence_score < EmotionAnalyzer._UNCERTAINTY_THRESHOLD
+
+        return {
+            'confidence_score': confidence_score,
+            'uncertainty_score': uncertainty_score,
+            'is_uncertain': is_uncertain,
+        }
+
+    # ------------------------------------------------------------------
     # Main classification entry point
     # ------------------------------------------------------------------
 
@@ -679,7 +728,7 @@ class EmotionAnalyzer:
         if emotion_probabilities:
             _pk_max_label = max(emotion_probabilities, key=emotion_probabilities.get)
             _pk_max_score = emotion_probabilities[_pk_max_label]
-            _keyword_override = bool(_pk_max_score > 0.85)
+            _keyword_override = bool(_pk_max_score > self._KEYWORD_OVERRIDE_THRESHOLD)
         else:
             _pk_max_label = 'neutral'
             _pk_max_score = 0.0
@@ -751,6 +800,12 @@ class EmotionAnalyzer:
 
         # final_probabilities is the normalised fused distribution
         final_probabilities = dict(emotion_probabilities)
+
+        # --- Uncertainty modeling ---
+        uncertainty = self._compute_uncertainty(final_probabilities)
+        confidence_score = uncertainty['confidence_score']
+        uncertainty_score = uncertainty['uncertainty_score']
+        is_uncertain = uncertainty['is_uncertain']
 
         explanation = self.explain_emotion(text, primary_emotion)
         contextual_crisis = self.crisis_adapter.classify(text) or {}
@@ -828,6 +883,10 @@ class EmotionAnalyzer:
             'final_emotion': final_emotion,
             'final_probabilities': final_probabilities,
             'fusion_weights': fusion_weights,
+            # Uncertainty modeling
+            'confidence_score': confidence_score,
+            'uncertainty_score': uncertainty_score,
+            'is_uncertain': is_uncertain,
         }
 
 
