@@ -671,21 +671,37 @@ class EmotionAnalyzer:
             primary_emotion = tanglish_emotion
 
         emotion_scores = self.detect_emotion_scores(text)
+
+        # Pk: normalized keyword frequency distribution (sums to 1.0)
         emotion_probabilities = self.get_emotion_confidence(text)
 
-        # --- Merge transformer predictions with heuristic keyword scores ---
-        # The EmotionTransformer uses the model when available, or falls back
-        # to its own keyword classifier.  We blend the two signals so that
-        # transformer predictions (70 %) are prioritised while heuristic
-        # keyword scores (30 %) still contribute.
+        # Capture Pk before fusion for the adaptive override check
+        if emotion_probabilities:
+            _pk_max_label = max(emotion_probabilities, key=emotion_probabilities.get)
+            _pk_max_score = emotion_probabilities[_pk_max_label]
+            _keyword_override = bool(_pk_max_score > 0.85)
+        else:
+            _pk_max_label = 'neutral'
+            _pk_max_score = 0.0
+            _keyword_override = False
+
+        # --- Hybrid fusion: Pfinal = alpha * Pt + (1 - alpha) * Pk ---
+        # Pt: transformer probability distribution; alpha = 0.75 (research-grade)
         transformer_probs = self._emotion_transformer.classify(text)
+
+        # Ensure Pt is a proper probability distribution before fusion
+        _pt_total = sum(transformer_probs.values())
+        if _pt_total > 0 and abs(_pt_total - 1.0) > 1e-6:
+            transformer_probs = {k: v / _pt_total for k, v in transformer_probs.items()}
+
+        _alpha = self._TRANSFORMER_WEIGHT  # initialised before branch for safety
         if self._emotion_transformer.available:
             merged = {}
             all_labels = set(emotion_probabilities) | set(transformer_probs)
             for label in all_labels:
                 t_val = transformer_probs.get(label, 0.0)
                 h_val = emotion_probabilities.get(label, 0.0)
-                merged[label] = self._TRANSFORMER_WEIGHT * t_val + self._HEURISTIC_WEIGHT * h_val
+                merged[label] = _alpha * t_val + (1.0 - _alpha) * h_val
             # Re-normalise so probabilities sum to 1.0
             total = sum(merged.values())
             if total > 0:
@@ -695,12 +711,13 @@ class EmotionAnalyzer:
         else:
             # Transformer unavailable — use keyword-based fallback from
             # EmotionTransformer (same keyword logic) merged with heuristic
+            _alpha = 0.5
             merged = {}
             all_labels = set(emotion_probabilities) | set(transformer_probs)
             for label in all_labels:
                 t_val = transformer_probs.get(label, 0.0)
                 h_val = emotion_probabilities.get(label, 0.0)
-                merged[label] = 0.5 * t_val + 0.5 * h_val
+                merged[label] = _alpha * t_val + (1.0 - _alpha) * h_val
             total = sum(merged.values())
             if total > 0:
                 emotion_probabilities = {k: round(v / total, 4) for k, v in merged.items()}
@@ -717,6 +734,23 @@ class EmotionAnalyzer:
             emotion_probabilities = {
                 k: round(v / ep_total, 4) for k, v in emotion_probabilities.items()
             }
+
+        # Fusion weights metadata
+        fusion_weights = {
+            'transformer': _alpha,
+            'keyword': round(1.0 - _alpha, 4),
+            'keyword_override': _keyword_override,
+        }
+
+        # Adaptive override: when keyword model is highly confident (Pk > 0.85),
+        # use the keyword-derived label as final_emotion
+        if _keyword_override:
+            final_emotion = _pk_max_label
+        else:
+            final_emotion = max(emotion_probabilities, key=emotion_probabilities.get)
+
+        # final_probabilities is the normalised fused distribution
+        final_probabilities = dict(emotion_probabilities)
 
         explanation = self.explain_emotion(text, primary_emotion)
         contextual_crisis = self.crisis_adapter.classify(text) or {}
@@ -790,6 +824,10 @@ class EmotionAnalyzer:
             'severity_score': severity_score,
             'keyword_explanation': explanation,
             'xai_explanation': xai_explanation,
+            # Hybrid fusion model outputs
+            'final_emotion': final_emotion,
+            'final_probabilities': final_probabilities,
+            'fusion_weights': fusion_weights,
         }
 
 
