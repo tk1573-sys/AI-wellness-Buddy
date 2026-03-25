@@ -559,6 +559,14 @@ class EmotionAnalyzer:
         """
         Return a human-readable explanation of which keywords drove the
         emotion classification (lightweight XAI / keyword attribution).
+
+        Returns
+        -------
+        str
+            ``explanation_text`` – e.g.
+            ``"Detected sadness due to keywords [sad, empty] and contextual cues."``
+            When no keywords match:
+            ``"Detected sadness due to contextual cues."``
         """
         text_lower = text.lower()
         matched = []
@@ -569,8 +577,14 @@ class EmotionAnalyzer:
             matched = [kw for kw in keywords if kw in text_lower]
 
         if matched:
-            return f"Detected '{primary_emotion}' due to keywords: {', '.join(matched[:5])}"
-        return f"Detected '{primary_emotion}' based on overall sentiment."
+            keyword_list = ', '.join(matched[:5])
+            explanation_text = (
+                f"Detected {primary_emotion} due to keywords "
+                f"[{keyword_list}] and contextual cues."
+            )
+        else:
+            explanation_text = f"Detected {primary_emotion} due to contextual cues."
+        return explanation_text
 
     # ------------------------------------------------------------------
     # Concern level classification
