@@ -111,13 +111,37 @@ def _make_hybrid_classifier():
 
     Uses :class:`EmotionAnalyzer` which internally blends 70 % transformer
     + 30 % keyword heuristic (or 50/50 when the transformer is unavailable).
+    Applies adaptive keyword override when the top keyword score exceeds the
+    override threshold.
     """
     from emotion_analyzer import EmotionAnalyzer
 
     _analyzer = EmotionAnalyzer()
     def _classify(text: str) -> str:
         result = _analyzer.classify_emotion(text)
-        return result.get("primary_emotion", "neutral")
+        return result.get("final_emotion", "neutral")
+
+    return _classify, _analyzer
+
+
+def _make_hybrid_no_override_classifier():
+    """Return a hybrid classifier that blends transformer and keyword scores
+    without applying the adaptive keyword override.
+
+    Uses :class:`EmotionAnalyzer` for the fusion step but always picks the
+    ``argmax`` of the fused probability distribution, ignoring the override
+    that would otherwise fire when the top keyword score exceeds the
+    override threshold.
+    """
+    from emotion_analyzer import EmotionAnalyzer
+
+    _analyzer = EmotionAnalyzer()
+    def _classify(text: str) -> str:
+        result = _analyzer.classify_emotion(text)
+        probs = result.get("final_probabilities") or {}
+        if not probs:
+            return "neutral"
+        return max(probs, key=probs.get)
 
     return _classify, _analyzer
 
