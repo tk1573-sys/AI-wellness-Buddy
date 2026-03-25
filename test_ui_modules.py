@@ -465,19 +465,19 @@ class TestDashboardCSSClasses:
         from ui.theme import get_theme_css
         css = get_theme_css()
         assert '.chat-user' in css
-        assert '#E3F2FD' in css
+        assert 'border-left: 3px solid #5B8CFF' in css
 
     def test_chat_assistant_class_in_theme(self):
         from ui.theme import get_theme_css
         css = get_theme_css()
         assert '.chat-assistant' in css
-        assert '#EAEAEA' in css
+        assert 'border-left: 3px solid #9B8CFF' in css
 
     def test_card_class_in_theme(self):
         from ui.theme import get_theme_css
         css = get_theme_css()
         assert '.card' in css
-        assert 'border-radius: 14px' in css
+        assert 'border-radius: 1rem' in css
 
     def test_concern_badge_css_classes(self):
         from ui.theme import get_theme_css

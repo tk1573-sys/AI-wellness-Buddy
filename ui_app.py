@@ -583,18 +583,27 @@ def render_chat_tab():
                     _msg_conf = message.get("confidence", 0.0)
                     _msg_concern = message.get("concern_level", "")
                     _badge_color = _CONCERN_BADGE_COLORS.get(_msg_concern, '#9B8CFF')
-                    _badge_parts = [f"{_icon} {_msg_emo.capitalize()}"]
-                    if _msg_conf:
-                        _badge_parts.append(f"{_msg_conf:.0%}")
-                    if _msg_concern:
-                        _badge_parts.append(_msg_concern.capitalize())
-                    _badge_text = " · ".join(_badge_parts)
+                    _conf_html = (
+                        f'<span class="badge-conf">{_msg_conf:.0%}</span>'
+                        if _msg_conf else ""
+                    )
+                    _concern_html = (
+                        f'<span class="badge-sep">·</span>'
+                        f'<span class="badge-concern">{_msg_concern.capitalize()}</span>'
+                        if _msg_concern else ""
+                    )
+                    _badge_html = (
+                        f'<span class="emotion-badge-pill" style="'
+                        f'background:{_badge_color}18;'
+                        f'color:{_badge_color};'
+                        f'border-color:{_badge_color}50;">'
+                        f'{_icon} {_msg_emo.capitalize()}'
+                        f'{_conf_html}'
+                        f'{_concern_html}'
+                        f'</span>'
+                    )
                     st.markdown(
-                        f"{message['content']}  \n"
-                        f'<span style="display:inline-block;background:{_badge_color}22;'
-                        f'color:{_badge_color};border:1px solid {_badge_color}44;'
-                        f'border-radius:12px;padding:2px 10px;font-size:0.8rem;'
-                        f'margin-top:4px;">{_badge_text}</span>',
+                        f"{message['content']}\n\n{_badge_html}",
                         unsafe_allow_html=True,
                     )
                 else:

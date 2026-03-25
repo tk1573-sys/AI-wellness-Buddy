@@ -223,69 +223,88 @@ h4 {{ color: {h4_color}; font-weight: 600; letter-spacing: -0.01em; }}
 p, li, span {{ color: {text_primary}; }}
 .stCaption, caption {{ color: {text_secondary}; letter-spacing: 0.02em; text-transform: uppercase; font-size: 0.72rem; }}
 
-/* ---- Glassmorphism chat cards — depth layered ---- */
+/* ---- Glassmorphism chat cards — premium depth layers ---- */
 .stChatMessage {{
-    padding: 1.1rem 1.3rem;
-    border-radius: 1.25rem;
+    padding: 1.2rem 1.4rem;
+    border-radius: 1.4rem;
     background: {card_bg};
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
     border: 1px solid {card_border};
-    box-shadow: 0 4px 24px {glow_color}, inset 0 1px 0 rgba(255,255,255,0.08);
-    margin-bottom: 0.8rem;
+    box-shadow: 0 4px 28px {glow_color}, inset 0 1px 0 rgba(255,255,255,0.12);
+    margin-bottom: 1rem;
     animation: fadeSlideIn 0.45s cubic-bezier(0.22,1,0.36,1);
     transition: box-shadow 0.3s ease, transform 0.3s ease;
     position: relative;
     z-index: 1;
+    overflow: hidden;
+}}
+/* Subtle inner shimmer streak */
+.stChatMessage::before {{
+    content: '';
+    position: absolute;
+    top: 0; left: -60%;
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+    animation: msgShimmer 6s ease-in-out infinite;
+    pointer-events: none;
+}}
+@keyframes msgShimmer {{
+    0% {{ left: -60%; }}
+    100% {{ left: 160%; }}
 }}
 .stChatMessage:hover {{
-    transform: translateY(-1px);
-    box-shadow: 0 8px 32px {glow_color};
+    transform: translateY(-2px);
+    box-shadow: 0 10px 36px {glow_color};
 }}
 @keyframes fadeSlideIn {{
     from {{ opacity: 0; transform: translateY(16px) scale(0.98); }}
     to   {{ opacity: 1; transform: translateY(0) scale(1); }}
 }}
 
-/* ---- User vs assistant message distinction ---- */
+/* ---- User vs assistant message distinction — gradient bubbles ---- */
 .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {{
+    background: linear-gradient(135deg, rgba(91,140,255,0.11) 0%, rgba(155,140,255,0.07) 100%);
     border-left: 3px solid #5B8CFF;
+    box-shadow: 0 4px 24px rgba(91,140,255,0.12), inset 0 1px 0 rgba(91,140,255,0.08);
 }}
 .stChatMessage[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {{
+    background: linear-gradient(135deg, rgba(155,140,255,0.08) 0%, rgba(77,208,225,0.06) 100%);
     border-left: 3px solid #9B8CFF;
+    box-shadow: 0 4px 24px rgba(155,140,255,0.12), inset 0 1px 0 rgba(155,140,255,0.08);
 }}
 
 /* ---- Typing indicator animation ---- */
 .typing-indicator {{
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 6px 0;
+    gap: 6px;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, rgba(155,140,255,0.10), rgba(91,140,255,0.07));
+    border-radius: 999px;
+    border: 1px solid rgba(155,140,255,0.20);
+    animation: assistantGlow 2s ease-in-out infinite;
 }}
 .typing-indicator span {{
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #9B8CFF;
+    background: linear-gradient(135deg, #9B8CFF, #5B8CFF);
     animation: typingBounce 1.2s ease-in-out infinite;
-    box-shadow: 0 0 6px rgba(155,140,255,0.4);
+    box-shadow: 0 0 8px rgba(155,140,255,0.5);
 }}
-.typing-indicator span:nth-child(2) {{ animation-delay: 0.15s; }}
-.typing-indicator span:nth-child(3) {{ animation-delay: 0.3s; }}
+.typing-indicator span:nth-child(2) {{ animation-delay: 0.18s; }}
+.typing-indicator span:nth-child(3) {{ animation-delay: 0.36s; }}
 @keyframes typingBounce {{
-    0%, 60%, 100% {{ transform: translateY(0); opacity: 0.4; }}
-    30% {{ transform: translateY(-8px); opacity: 1; }}
+    0%, 60%, 100% {{ transform: translateY(0) scale(0.85); opacity: 0.45; }}
+    30% {{ transform: translateY(-9px) scale(1.1); opacity: 1; }}
 }}
 
 /* ---- AI responding glow ---- */
 @keyframes assistantGlow {{
-    0%, 100% {{ box-shadow: 0 0 12px rgba(155,140,255,0.15); }}
-    50% {{ box-shadow: 0 0 24px rgba(155,140,255,0.30); }}
-}}
-.typing-indicator {{
-    animation: assistantGlow 2s ease-in-out infinite;
-    border-radius: 1rem;
-    padding: 8px 12px;
+    0%, 100% {{ box-shadow: 0 0 10px rgba(155,140,255,0.14); }}
+    50% {{ box-shadow: 0 0 22px rgba(155,140,255,0.30); }}
 }}
 
 /* ---- Premium chat input bar ---- */
@@ -363,17 +382,17 @@ section[data-testid="stSidebar"] .stMarkdown p {{
 /* ---- Metric cards — glassmorphism with hover tilt ---- */
 [data-testid="stMetric"] {{
     background: {card_bg};
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: 0.75rem;
-    padding: 0.8rem;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 1rem;
+    padding: 1rem 1.1rem;
     border: 1px solid {card_border};
-    box-shadow: 0 2px 16px rgba(0,0,0,0.04);
+    box-shadow: 0 2px 18px rgba(0,0,0,0.04);
     transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s ease;
 }}
 [data-testid="stMetric"]:hover {{
     transform: translateY(-3px) perspective(600px) rotateX(1deg);
-    box-shadow: 0 8px 28px rgba(91,140,255,0.14);
+    box-shadow: 0 8px 32px rgba(91,140,255,0.16);
 }}
 
 /* ---- Button hover glow ---- */
@@ -1070,22 +1089,66 @@ section[data-testid="stSidebar"] .stMarkdown p {{
    ============================================= */
 
 .card {{
-    background: white;
-    border-radius: 14px;
-    padding: 16px;
-    box-shadow: 0px 4px 12px rgba(0,0,0,0.05);
+    background: {card_bg};
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 1rem;
+    padding: 1.1rem 1.25rem;
+    border: 1px solid {card_border};
+    box-shadow: 0 4px 20px rgba(91,140,255,0.08);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}}
+.card:hover {{
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(91,140,255,0.14);
 }}
 .chat-user {{
-    background: #E3F2FD;
-    padding: 14px;
-    border-radius: 16px;
-    margin-bottom: 10px;
+    background: linear-gradient(135deg, rgba(91,140,255,0.12) 0%, rgba(155,140,255,0.07) 100%);
+    padding: 1rem 1.1rem;
+    border-radius: 1.1rem;
+    margin-bottom: 0.75rem;
+    border-left: 3px solid #5B8CFF;
 }}
 .chat-assistant {{
-    background: white;
-    padding: 14px;
-    border-radius: 16px;
-    border: 1px solid #EAEAEA;
+    background: linear-gradient(135deg, rgba(155,140,255,0.08) 0%, rgba(77,208,225,0.05) 100%);
+    padding: 1rem 1.1rem;
+    border-radius: 1.1rem;
+    border: 1px solid rgba(155,140,255,0.15);
+    border-left: 3px solid #9B8CFF;
+}}
+
+/* ---- Premium emotion badge pill ---- */
+.emotion-badge-pill {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.25rem 0.75rem 0.25rem 0.55rem;
+    border-radius: 999px;
+    margin-top: 7px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid;
+    letter-spacing: 0.01em;
+    animation: badgePop 0.45s cubic-bezier(0.22,1,0.36,1);
+    vertical-align: middle;
+}}
+.emotion-badge-pill .badge-conf {{
+    font-size: 0.73rem;
+    font-weight: 700;
+    opacity: 0.88;
+    margin-left: 0.1rem;
+}}
+.emotion-badge-pill .badge-sep {{
+    opacity: 0.35;
+    font-weight: 400;
+    margin: 0 0.1rem;
+}}
+.emotion-badge-pill .badge-concern {{
+    font-weight: 600;
+    font-size: 0.73rem;
+    opacity: 0.85;
 }}
 
 /* Concern level badge */
