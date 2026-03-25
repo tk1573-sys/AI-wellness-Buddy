@@ -11,6 +11,33 @@ _ROOT = os.path.abspath(os.path.dirname(__file__))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
+# ---------------------------------------------------------------------------
+# Startup dependency validation
+# ---------------------------------------------------------------------------
+_REQUIRED_PACKAGES = {
+    "textblob": "textblob>=0.17.1",
+    "matplotlib": "matplotlib>=3.7.0",
+    "sklearn": "scikit-learn>=1.3.0",
+    "transformers": "transformers>=4.35.0",
+    "torch": "torch>=2.0.0",
+}
+
+_missing_packages: list[str] = []
+for _pkg, _req in _REQUIRED_PACKAGES.items():
+    try:
+        __import__(_pkg)
+    except ImportError:
+        _missing_packages.append(_req)
+
+if _missing_packages:
+    print(
+        "ERROR: Missing required dependencies. Install them with:\n"
+        f"  pip install {' '.join(_missing_packages)}\n"
+        "Then re-run this script.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
 from datasets.goemotions_loader import load_goemotions, SYSTEM_LABELS  # noqa: E402
 from research_evaluation import evaluate_classifier                     # noqa: E402
 from benchmark_emotion_models import (                                  # noqa: E402

@@ -17,7 +17,12 @@ is kept for backward compatibility but the main ``classify_emotion()`` flow
 delegates to ``EmotionTransformer``.
 """
 
-from textblob import TextBlob
+try:
+    from textblob import TextBlob
+except ImportError as _tb_err:
+    raise ImportError(
+        "TextBlob not installed. Run: pip install textblob && python -m textblob.download_corpora"
+    ) from _tb_err
 from datetime import datetime
 import math
 import re
