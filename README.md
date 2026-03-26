@@ -461,3 +461,133 @@ Our mission is to provide accessible emotional support for everyone, with specia
 ---
 
 **Remember**: You are not alone. Help is available 24/7. You deserve support and care. 💙
+
+---
+
+## 🚀 SaaS Production Deployment (v2.0)
+
+The project has been upgraded to a production-grade microservice architecture.
+
+### Architecture Overview
+
+```
+├── backend/          # FastAPI + SQLAlchemy backend
+│   ├── app/
+│   │   ├── main.py           # App factory, CORS, lifespan
+│   │   ├── config.py         # Pydantic-settings (.env support)
+│   │   ├── database.py       # Async SQLAlchemy engine
+│   │   ├── models/           # User, ChatHistory, EmotionLog ORM models
+│   │   ├── schemas/          # Pydantic v2 request/response schemas
+│   │   ├── routers/          # /health /auth /predict /chat
+│   │   ├── services/         # auth_service, emotion_service, chat_service
+│   │   └── middleware/       # Request logging
+│   ├── tests/                # 19 pytest-asyncio unit + integration tests
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── pytest.ini
+├── frontend/         # Next.js 14 + Tailwind CSS
+│   ├── src/app/
+│   │   ├── (auth)/login      # Login page
+│   │   ├── (auth)/signup     # Signup page
+│   │   └── (app)/chat        # Main chat interface
+│   ├── src/components/
+│   │   ├── chat/             # ChatBubble, TypingIndicator
+│   │   ├── emotion/          # EmotionBadge, ConfidenceBar
+│   │   └── ui/               # Button, Input, GlassCard
+│   └── src/lib/              # api.ts, auth.ts (typed API client)
+├── Dockerfile.backend        # Multi-stage backend image
+├── docker-compose.yml        # Full-stack local dev
+└── frontend/Dockerfile       # Next.js production image
+```
+
+### API Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET`  | `/health` | No | Liveness probe |
+| `POST` | `/api/v1/auth/signup` | No | Register + receive JWT |
+| `POST` | `/api/v1/auth/login` | No | Authenticate + receive JWT |
+| `GET`  | `/api/v1/auth/me` | Bearer | Current user profile |
+| `POST` | `/api/v1/predict` | Optional | Emotion detection |
+| `POST` | `/api/v1/chat` | Bearer | Chat with AI buddy |
+| `GET`  | `/api/v1/chat/history` | Bearer | Retrieve chat history |
+
+### Quick Start (Local)
+
+```bash
+# 1. Backend
+cd backend
+cp .env.example .env          # fill in SECRET_KEY
+pip install -r requirements.txt
+uvicorn app.main:app --reload  # http://localhost:8000/docs
+
+# 2. Frontend
+cd frontend
+cp .env.example .env.local     # set NEXT_PUBLIC_API_URL
+npm install
+npm run dev                    # http://localhost:3000
+```
+
+### Docker Compose (Full Stack)
+
+```bash
+cp backend/.env.example backend/.env    # set SECRET_KEY
+docker compose up --build
+# Backend: http://localhost:8000
+# Frontend: http://localhost:3000
+```
+
+### Backend Tests
+
+```bash
+cd backend
+pytest tests/ -v   # 19 tests (unit + integration)
+```
+
+### Deploy to Render (Backend)
+
+1. Create a **Web Service** on [render.com](https://render.com)
+2. Build command: `pip install -r backend/requirements.txt`
+3. Start command: `cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+4. Add environment variables from `backend/.env.example`
+5. Set `DATABASE_URL` to a Render PostgreSQL connection string
+
+### Deploy to Vercel (Frontend)
+
+```bash
+cd frontend
+npx vercel --prod
+# Set NEXT_PUBLIC_API_URL to your Render backend URL
+```
+
+### Environment Variables
+
+**Backend (`backend/.env`)**:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SECRET_KEY` | JWT signing secret (generate with `secrets.token_hex(32)`) | random |
+| `DATABASE_URL` | Async DB connection string | SQLite (`wellness.db`) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT lifetime | 60 |
+| `ALLOWED_ORIGINS` | CORS origins JSON array | `["http://localhost:3000"]` |
+| `CRISIS_CONFIDENCE_THRESHOLD` | Safety gate trigger level | 0.6 |
+| `LOG_LEVEL` | Logging verbosity | INFO |
+
+**Frontend (`frontend/.env.local`)**:
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_API_URL` | Backend API base URL |
+
+### Database Schema
+
+```sql
+-- users
+id, email (unique), username (unique), hashed_password, is_active, created_at, updated_at
+
+-- chat_history
+id, user_id (FK), session_id, role (user/assistant), content, emotion, created_at
+
+-- emotion_logs
+id, user_id (FK), input_text, primary_emotion, confidence, uncertainty, is_high_risk, all_scores (JSON), created_at
+```
