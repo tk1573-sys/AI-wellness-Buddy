@@ -1,3 +1,7 @@
+# nltk: latest release (3.9.3) is the best available.
+# Known unpatched CVE: unauthenticated remote shutdown in nltk.app.wordnet_app
+# (affects all versions <= 3.9.3; no patched release exists).
+# This project NEVER starts that server, so there is no exposure.
 nltk==3.9.3
 textblob==0.17.1
 python-dateutil==2.8.2
