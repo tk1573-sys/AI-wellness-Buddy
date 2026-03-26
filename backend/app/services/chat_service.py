@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import secrets
 import sys
-from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,11 +12,12 @@ from app.models.chat import ChatHistory
 from app.models.emotion import EmotionLog
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.services.emotion_service import predict
+from app.utils import find_project_root
 
-# Allow importing the AI modules in the project root.
-_ROOT = Path(__file__).resolve().parents[4]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+# Add the AI core (project root) to sys.path once.
+_root = find_project_root()
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
 
 logger = logging.getLogger(__name__)
 

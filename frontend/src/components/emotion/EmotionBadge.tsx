@@ -1,5 +1,5 @@
 /**
- * EmotionBadge — displays the detected emotion with a colour-coded pill.
+ * EmotionBadge — displays the detected emotion with a color-coded pill.
  */
 
 import { clsx } from "clsx";

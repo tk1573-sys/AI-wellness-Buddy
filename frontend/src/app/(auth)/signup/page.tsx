@@ -28,9 +28,13 @@ export default function SignupPage() {
     const e: typeof errors = {};
     if (!email.includes("@")) e.email = "Enter a valid email.";
     if (username.length < 3) e.username = "Username must be at least 3 characters.";
-    if (!/[A-Z]/.test(password)) e.password = "Password must contain an uppercase letter.";
-    else if (!/\d/.test(password)) e.password = "Password must contain a digit.";
-    else if (password.length < 8) e.password = "Password must be at least 8 characters.";
+    const pwdErrors: string[] = [];
+    if (password.length < 8) pwdErrors.push("at least 8 characters");
+    if (!/[A-Z]/.test(password)) pwdErrors.push("one uppercase letter");
+    if (!/\d/.test(password)) pwdErrors.push("one digit");
+    if (pwdErrors.length > 0) {
+      e.password = `Password must contain: ${pwdErrors.join(", ")}.`;
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };

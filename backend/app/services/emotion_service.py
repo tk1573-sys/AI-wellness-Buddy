@@ -10,20 +10,20 @@ from __future__ import annotations
 
 import logging
 import sys
-from pathlib import Path
 
 from app.config import get_settings
 from app.schemas.emotion import EmotionScore, PredictResponse
+from app.utils import find_project_root
 
 # ------------------------------------------------------------------ #
-# Allow importing the AI modules that live in the project root.
-# The actual import is deferred until first use so that starting the
-# app (or importing this module in tests) doesn't require TextBlob /
-# torch to be installed up-front.
+# Add the AI core (project root) to sys.path once at import time.
+# The actual heavy imports (TextBlob, torch) are deferred until first
+# use so that loading this module in tests does not require the full
+# ML stack to be installed.
 # ------------------------------------------------------------------ #
-_ROOT = Path(__file__).resolve().parents[4]  # repo root
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+_root = find_project_root()
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -104,10 +104,25 @@ def _fallback_result(text: str) -> dict:
     """Minimal keyword-only fallback when the transformer stack is unavailable."""
     text_lower = text.lower()
     if any(w in text_lower for w in ("crisis", "suicid", "harm", "end my life")):
-        return {"emotion": "crisis", "confidence_score": 0.9, "uncertainty_score": 0.1,
-                "is_uncertain": False, "final_probabilities": {"crisis": 0.9, "neutral": 0.1}}
+        return {
+            "emotion": "crisis",
+            "confidence_score": 0.9,
+            "uncertainty_score": 0.1,
+            "is_uncertain": False,
+            "final_probabilities": {"crisis": 0.9, "neutral": 0.1},
+        }
     if any(w in text_lower for w in ("sad", "depress", "cry", "hopeless")):
-        return {"emotion": "sadness", "confidence_score": 0.7, "uncertainty_score": 0.3,
-                "is_uncertain": False, "final_probabilities": {"sadness": 0.7, "neutral": 0.3}}
-    return {"emotion": "neutral", "confidence_score": 0.5, "uncertainty_score": 0.5,
-            "is_uncertain": True, "final_probabilities": {"neutral": 1.0}}
+        return {
+            "emotion": "sadness",
+            "confidence_score": 0.7,
+            "uncertainty_score": 0.3,
+            "is_uncertain": False,
+            "final_probabilities": {"sadness": 0.7, "neutral": 0.3},
+        }
+    return {
+        "emotion": "neutral",
+        "confidence_score": 0.5,
+        "uncertainty_score": 0.5,
+        "is_uncertain": True,
+        "final_probabilities": {"neutral": 1.0},
+    }
