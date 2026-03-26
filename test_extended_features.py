@@ -28,13 +28,12 @@ def test_extended_tracking():
         assert hasattr(config, 'MAX_EMOTIONAL_SNAPSHOTS'), "MAX_EMOTIONAL_SNAPSHOTS not found"
         print(f"✅ PASS: Max emotional snapshots: {config.MAX_EMOTIONAL_SNAPSHOTS}")
         
-        return True
     except AssertionError as e:
         print(f"❌ FAIL: {e}")
-        return False
+        raise
     except Exception as e:
         print(f"❌ ERROR: {e}")
-        return False
+        raise
 
 def test_security_configuration():
     """Test security settings"""
@@ -66,10 +65,10 @@ def test_security_configuration():
                 else:
                     print(f"⚠️  WARNING: {setting} = {actual} (expected {expected})")
         
-        return all_passed
+        assert all_passed
     except Exception as e:
         print(f"❌ ERROR: {e}")
-        return False
+        raise
 
 def test_user_profile_security():
     """Test user profile security features"""
@@ -87,40 +86,30 @@ def test_user_profile_security():
         print("✅ PASS: Password setting works")
         
         # Test password verification - correct password
-        if profile.verify_password("TestPassword123!"):
-            print("✅ PASS: Password verification (correct) works")
-        else:
-            print("❌ FAIL: Password verification (correct) failed")
-            return False
+        assert profile.verify_password("TestPassword123!"), "Password verification (correct) failed"
+        print("✅ PASS: Password verification (correct) works")
         
         # Test password verification - wrong password
-        if not profile.verify_password("WrongPassword"):
-            print("✅ PASS: Password verification (wrong) correctly rejects")
-        else:
-            print("❌ FAIL: Password verification (wrong) incorrectly accepts")
-            return False
+        assert not profile.verify_password("WrongPassword"), "Password verification (wrong) incorrectly accepts"
+        print("✅ PASS: Password verification (wrong) correctly rejects")
         
         # Test account lockout
         profile.profile_data['failed_login_attempts'] = 0
         for i in range(3):
             profile.verify_password("WrongPassword")
         
-        if profile.is_locked_out():
-            print("✅ PASS: Account lockout works after 3 failed attempts")
-        else:
-            print("❌ FAIL: Account lockout not triggered")
-            return False
+        assert profile.is_locked_out(), "Account lockout not triggered"
+        print("✅ PASS: Account lockout works after 3 failed attempts")
         
         # Test session expiry methods
         profile.update_last_activity()
         print("✅ PASS: Last activity update works")
         
-        return True
     except Exception as e:
         print(f"❌ ERROR: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 def test_data_encryption():
     """Test data encryption features"""
@@ -155,40 +144,27 @@ def test_data_encryption():
             print("✅ PASS: Data save works")
             
             loaded_data = data_store.load_user_data('test_user')
-            if loaded_data:
-                print("✅ PASS: Data load works")
-                
-                if loaded_data['user_id'] == 'test_user':
-                    print("✅ PASS: Data integrity verified")
-                else:
-                    print("❌ FAIL: Data corrupted")
-                    return False
-            else:
-                print("❌ FAIL: Data load returned None")
-                return False
+            assert loaded_data, "Data load returned None"
+            print("✅ PASS: Data load works")
+            
+            assert loaded_data['user_id'] == 'test_user', "Data corrupted"
+            print("✅ PASS: Data integrity verified")
             
             # Test backup creation
             backup_file = data_store.create_backup('test_user')
-            if backup_file and backup_file.exists():
-                print(f"✅ PASS: Backup creation works: {backup_file.name}")
-            else:
-                print("❌ FAIL: Backup creation failed")
-                return False
+            assert backup_file and backup_file.exists(), "Backup creation failed"
+            print(f"✅ PASS: Backup creation works: {backup_file.name}")
             
             # Test integrity hash
             integrity_hash = data_store.get_data_integrity_hash('test_user')
-            if integrity_hash:
-                print(f"✅ PASS: Data integrity hash: {integrity_hash[:16]}...")
-            else:
-                print("❌ FAIL: Integrity hash generation failed")
-                return False
+            assert integrity_hash, "Integrity hash generation failed"
+            print(f"✅ PASS: Data integrity hash: {integrity_hash[:16]}...")
         
-        return True
     except Exception as e:
         print(f"❌ ERROR: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 def test_extended_history_retention():
     """Test that profile can handle 365 days of history"""
@@ -231,12 +207,11 @@ def test_extended_history_retention():
         if len(last_30_days) == 30:
             print(f"✅ PASS: Last 30 days retrieval works ({len(last_30_days)} entries)")
         
-        return True
     except Exception as e:
         print(f"❌ ERROR: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 def test_backwards_compatibility():
     """Test that old profiles still work"""
@@ -258,22 +233,18 @@ def test_backwards_compatibility():
             del profile.profile_data['security_enabled']
         
         # Test that verify_password works with legacy profile (no password)
-        if profile.verify_password("anything"):
-            print("✅ PASS: Legacy profile (no password) allows access")
-        else:
-            print("❌ FAIL: Legacy profile incorrectly denies access")
-            return False
+        assert profile.verify_password("anything"), "Legacy profile incorrectly denies access"
+        print("✅ PASS: Legacy profile (no password) allows access")
         
         # Test that legacy profile can be upgraded
         profile.set_password("NewPassword123!")
         print("✅ PASS: Legacy profile can be upgraded with password")
         
-        return True
     except Exception as e:
         print(f"❌ ERROR: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 def main():
     """Run all tests"""
