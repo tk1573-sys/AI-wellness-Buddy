@@ -1,6 +1,6 @@
 textblob==0.17.1
 python-dateutil==2.8.2
-streamlit==1.28.0
+streamlit==1.54.0
 cryptography==46.0.5
 gTTS==2.5.4
 SpeechRecognition==3.14.5
