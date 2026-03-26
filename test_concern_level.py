@@ -41,7 +41,9 @@ class TestConcernLevelClassification:
         assert result['concern_level'] == 'low'
 
     def test_moderate_anxiety_returns_medium(self):
-        result = self.analyzer.classify_emotion("I'm a bit worried and stressed about work")
+        result = self.analyzer.classify_emotion(
+            "I feel a bit nervous and anxious about the upcoming exam"
+        )
         assert result['concern_level'] in ('medium', 'high')
 
     def test_concern_level_always_present(self):
