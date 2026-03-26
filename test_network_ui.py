@@ -15,9 +15,7 @@ def test_streamlit_config():
     print("=" * 50)
     
     # Check config file exists
-    if not config_path.exists():
-        print("❌ FAIL: .streamlit/config.toml not found")
-        return False
+    assert config_path.exists(), ".streamlit/config.toml not found"
     print("✅ PASS: Config file exists")
     
     # Check config content
@@ -35,25 +33,20 @@ def test_streamlit_config():
         if setting in content:
             print(f"✅ PASS: '{setting}' configured")
         else:
-            print(f"❌ FAIL: '{setting}' not found in config")
-            return False
+            assert False, f"'{setting}' not found in config"
     
     # Check that XSRF protection is enabled for security
     if 'enableXsrfProtection = true' in content:
         print("✅ PASS: XSRF protection enabled (secure)")
     elif 'enableXsrfProtection = false' in content:
         print("⚠️  WARNING: XSRF protection disabled (less secure)")
-    
-    return True
 
 def test_network_script():
     """Test that network startup script exists and is executable"""
     script_path = Path('start_ui_network.sh')
     
     # Check script exists
-    if not script_path.exists():
-        print("❌ FAIL: start_ui_network.sh not found")
-        return False
+    assert script_path.exists(), "start_ui_network.sh not found"
     print("✅ PASS: Network startup script exists")
     
     # Check script is executable
@@ -61,19 +54,13 @@ def test_network_script():
         print("✅ PASS: Script is executable")
     else:
         print("⚠️  WARNING: Script not executable (chmod +x start_ui_network.sh)")
-    
-    return True
 
 def test_ui_app():
     """Test that ui_app.py exists"""
     ui_path = Path('ui_app.py')
     
-    if not ui_path.exists():
-        print("❌ FAIL: ui_app.py not found")
-        return False
+    assert ui_path.exists(), "ui_app.py not found"
     print("✅ PASS: UI app exists")
-    
-    return True
 
 def test_dependencies():
     """Test that required dependencies are importable"""
@@ -93,7 +80,7 @@ def test_dependencies():
             print(f"❌ FAIL: {name} not available (install requirements.txt)")
             all_imported = False
     
-    return all_imported
+    assert all_imported
 
 def main():
     """Run all tests"""

@@ -17,7 +17,12 @@ is kept for backward compatibility but the main ``classify_emotion()`` flow
 delegates to ``EmotionTransformer``.
 """
 
-from textblob import TextBlob
+try:
+    from textblob import TextBlob
+except ImportError as _tb_err:
+    raise ImportError(
+        "TextBlob not installed. Run: pip install textblob && python -m textblob.download_corpora"
+    ) from _tb_err
 from datetime import datetime
 import math
 import re
@@ -201,6 +206,12 @@ class EmotionAnalyzer:
     # Research-grade fusion: 0.75 transformer + 0.25 keyword (calibrated)
     _TRANSFORMER_WEIGHT = 0.75
     _HEURISTIC_WEIGHT = 0.25
+
+    # Dynamic alpha range for entropy-based fusion weighting.
+    # α = _TRANSFORMER_WEIGHT when transformer entropy is 0 (fully confident).
+    # α = _ALPHA_MIN when transformer entropy is 1 (maximally uncertain).
+    # Linear interpolation: α = _TRANSFORMER_WEIGHT·(1−H_t) + _ALPHA_MIN·H_t
+    _ALPHA_MIN = 0.3
 
     # Adaptive keyword override: use keyword label when Pk max exceeds this
     _KEYWORD_OVERRIDE_THRESHOLD = 0.85
@@ -675,16 +686,74 @@ class EmotionAnalyzer:
             'is_uncertain': is_uncertain,
         }
 
+    @staticmethod
+    def _compute_alpha_dynamic(transformer_probs: dict) -> float:
+        r"""Compute an entropy-adjusted fusion weight α for the transformer.
+
+        The weight is linearly interpolated between *_TRANSFORMER_WEIGHT*
+        (α_max, when the transformer is fully confident, H_t = 0) and
+        *_ALPHA_MIN* (when the transformer is maximally uncertain, H_t = 1):
+
+        .. math::
+
+            \alpha = \alpha_{\max} \cdot (1 - H_t) + \alpha_{\min} \cdot H_t
+
+        Parameters
+        ----------
+        transformer_probs : dict[str, float]
+            Calibrated (normalised) transformer probability distribution.
+
+        Returns
+        -------
+        float
+            Dynamic weight α ∈ [_ALPHA_MIN, _TRANSFORMER_WEIGHT].
+        """
+        probs = [p for p in transformer_probs.values() if p > 0]
+        n = len(transformer_probs)
+        if not probs or n == 0:
+            return EmotionAnalyzer._ALPHA_MIN
+        # Single-class distribution has zero entropy; return maximum alpha.
+        if n == 1:
+            return EmotionAnalyzer._TRANSFORMER_WEIGHT
+        max_entropy = math.log(n)
+        raw_entropy = -sum(p * math.log(p) for p in probs)
+        H_t = round(min(1.0, max(0.0, raw_entropy / max_entropy)), 4)
+        alpha_max = EmotionAnalyzer._TRANSFORMER_WEIGHT
+        alpha_min = EmotionAnalyzer._ALPHA_MIN
+        return round(alpha_max * (1.0 - H_t) + alpha_min * H_t, 4)
+
     # ------------------------------------------------------------------
     # Main classification entry point
     # ------------------------------------------------------------------
 
-    def classify_emotion(self, text):
-        """
-        Classify emotional state based on sentiment and keywords.
-        Handles English, Tamil Unicode, and Tanglish input.
-        Returns a dict with both coarse (backward-compat) and fine-grained
-        emotion data, plus XAI explanation and crisis flag.
+    def classify_emotion(self, text, *, fusion_mode: str = "hybrid"):
+        """Classify emotional state based on sentiment and keywords.
+
+        Handles English, Tamil Unicode, and Tanglish input.  Returns a dict
+        with both coarse (backward-compat) and fine-grained emotion data, plus
+        XAI explanation and crisis flag.
+
+        Fusion equation (hybrid mode)
+        ------------------------------
+        .. math::
+
+            P_{\\text{final}}[e] = \\alpha \\cdot P_t[e] + (1 - \\alpha) \\cdot P_k[e]
+
+        where P_t is the calibrated transformer distribution, P_k is the
+        calibrated keyword distribution, and α is computed dynamically from the
+        normalised Shannon entropy of P_t (see :meth:`_compute_alpha_dynamic`).
+
+        Ablation study support
+        ----------------------
+        Set *fusion_mode* to one of:
+
+        - ``"hybrid"`` (default) — dynamic-α fusion of transformer + keyword.
+        - ``"transformer_only"`` — use P_t only (α = 1.0).
+        - ``"keyword_only"`` — use P_k only (α = 0.0).
+
+        Intermediate outputs logged in the returned dict
+        ------------------------------------------------
+        ``pk_distribution``, ``pt_distribution``, ``fusion_alpha``
         """
         sentiment = self.analyze_sentiment(text)
         distress_keywords = self.detect_distress_keywords(text)
@@ -738,27 +807,61 @@ class EmotionAnalyzer:
         # Pk: normalized keyword frequency distribution (sums to 1.0)
         emotion_probabilities = self.get_emotion_confidence(text)
 
-        # Capture Pk before fusion for the adaptive override check
-        if emotion_probabilities:
-            _pk_max_label = max(emotion_probabilities, key=emotion_probabilities.get)
-            _pk_max_score = emotion_probabilities[_pk_max_label]
+        # Calibrate Pk: re-normalise to ensure a proper probability distribution
+        _pk_total = sum(emotion_probabilities.values())
+        if _pk_total > 0 and abs(_pk_total - 1.0) > 1e-6:
+            emotion_probabilities = {k: v / _pk_total for k, v in emotion_probabilities.items()}
+
+        # Capture Pk before fusion — stored as intermediate output and used for
+        # the adaptive override check
+        pk_distribution = dict(emotion_probabilities)
+
+        if pk_distribution:
+            _pk_max_label = max(pk_distribution, key=pk_distribution.get)
+            _pk_max_score = pk_distribution[_pk_max_label]
             _keyword_override = bool(_pk_max_score > self._KEYWORD_OVERRIDE_THRESHOLD)
         else:
             _pk_max_label = 'neutral'
             _pk_max_score = 0.0
             _keyword_override = False
 
-        # --- Hybrid fusion: Pfinal = alpha * Pt + (1 - alpha) * Pk ---
-        # Pt: transformer probability distribution; alpha = 0.75 (research-grade)
+        # Pt: transformer probability distribution
         transformer_probs = self._emotion_transformer.classify(text)
 
-        # Ensure Pt is a proper probability distribution before fusion
+        # Calibrate Pt: normalise to a proper probability distribution before fusion
         _pt_total = sum(transformer_probs.values())
         if _pt_total > 0 and abs(_pt_total - 1.0) > 1e-6:
             transformer_probs = {k: v / _pt_total for k, v in transformer_probs.items()}
 
-        _alpha = self._TRANSFORMER_WEIGHT  # initialised before branch for safety
-        if self._emotion_transformer.available:
+        # Capture Pt before fusion as intermediate output
+        pt_distribution = dict(transformer_probs)
+
+        # --- Hybrid fusion: P_final = alpha * P_t + (1 - alpha) * P_k ---
+        _alpha = self._TRANSFORMER_WEIGHT  # default; overwritten below per mode
+
+        # Ablation: keyword-only mode uses Pk directly (alpha = 0.0)
+        if fusion_mode == "keyword_only":
+            _alpha = 0.0
+            emotion_probabilities = dict(pk_distribution)
+
+        # Ablation: transformer-only mode uses Pt directly (alpha = 1.0)
+        elif fusion_mode == "transformer_only":
+            _alpha = 1.0
+            emotion_probabilities = dict(pt_distribution)
+
+        # Default hybrid mode: dynamic alpha + weighted blend
+        else:
+            if self._emotion_transformer.available:
+                # Compute entropy-adjusted alpha for the fusion equation
+                _alpha = self._compute_alpha_dynamic(transformer_probs)
+            else:
+                # Transformer unavailable — EmotionTransformer falls back to
+                # keyword-based scores, so both distributions share the same
+                # information source.  Equal weighting (α = 0.5) is used to
+                # blend the two keyword-based views rather than defaulting to
+                # _ALPHA_MIN, which would over-weight one copy of keyword scores.
+                _alpha = 0.5
+
             merged = {}
             all_labels = set(emotion_probabilities) | set(transformer_probs)
             for label in all_labels:
@@ -766,21 +869,6 @@ class EmotionAnalyzer:
                 h_val = emotion_probabilities.get(label, 0.0)
                 merged[label] = _alpha * t_val + (1.0 - _alpha) * h_val
             # Re-normalise so probabilities sum to 1.0
-            total = sum(merged.values())
-            if total > 0:
-                emotion_probabilities = {k: round(v / total, 4) for k, v in merged.items()}
-            else:
-                emotion_probabilities = merged
-        else:
-            # Transformer unavailable — use keyword-based fallback from
-            # EmotionTransformer (same keyword logic) merged with heuristic
-            _alpha = 0.5
-            merged = {}
-            all_labels = set(emotion_probabilities) | set(transformer_probs)
-            for label in all_labels:
-                t_val = transformer_probs.get(label, 0.0)
-                h_val = emotion_probabilities.get(label, 0.0)
-                merged[label] = _alpha * t_val + (1.0 - _alpha) * h_val
             total = sum(merged.values())
             if total > 0:
                 emotion_probabilities = {k: round(v / total, 4) for k, v in merged.items()}
@@ -897,6 +985,10 @@ class EmotionAnalyzer:
             'final_emotion': final_emotion,
             'final_probabilities': final_probabilities,
             'fusion_weights': fusion_weights,
+            # Intermediate fusion outputs (for logging and IEEE-grade reproducibility)
+            'pk_distribution': pk_distribution,
+            'pt_distribution': pt_distribution,
+            'fusion_alpha': _alpha,
             # Uncertainty modeling
             'confidence_score': confidence_score,
             'uncertainty_score': uncertainty_score,

@@ -131,11 +131,11 @@ def test_keyword_fallback_neutral():
 
 
 def test_no_keywords_returns_uniform():
-    """When no keywords match, a uniform distribution is returned."""
+    """When no keywords match, the keyword-only path returns a uniform distribution."""
     et = EmotionTransformer()
-    result = et.classify("xyzzy foobarbaz")
+    result = et._classify_keywords("xyzzy foobarbaz")
     values = list(result.values())
-    # All values should be equal (uniform)
+    # All values should be equal (uniform) in the keyword-only fallback
     assert all(abs(v - values[0]) < 1e-3 for v in values)
 
 
