@@ -15,7 +15,6 @@ import sys
 
 # Mapping: import_name → pip install name (as listed in requirements.txt)
 _REQUIRED: list[tuple[str, str]] = [
-    ("nltk",          "nltk==3.9.3"),
     ("textblob",      "textblob==0.17.1"),
     ("dateutil",      "python-dateutil==2.8.2"),
     ("streamlit",     "streamlit==1.28.0"),
