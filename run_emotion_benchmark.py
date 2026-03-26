@@ -39,8 +39,8 @@ _REQUIRED_PACKAGES = {
     "textblob": "textblob==0.17.1",
     "matplotlib": "matplotlib==3.7.0",
     "sklearn": "scikit-learn==1.3.2",
-    "transformers": "transformers==4.35.2",
-    "torch": "torch==2.1.1",
+    "transformers": "transformers==4.48.0",
+    "torch": "torch==2.6.0",
 }
 
 _missing_packages: list[str] = []

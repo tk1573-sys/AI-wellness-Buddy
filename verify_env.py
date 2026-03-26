@@ -15,11 +15,11 @@ import sys
 
 # Mapping: import_name → pip install name (as listed in requirements.txt)
 _REQUIRED: list[tuple[str, str]] = [
-    ("nltk",          "nltk==3.8.1"),
+    ("nltk",          "nltk==3.9.3"),
     ("textblob",      "textblob==0.17.1"),
     ("dateutil",      "python-dateutil==2.8.2"),
     ("streamlit",     "streamlit==1.28.0"),
-    ("cryptography",  "cryptography==41.0.7"),
+    ("cryptography",  "cryptography==46.0.5"),
     ("gtts",          "gTTS==2.5.4"),
     ("speech_recognition", "SpeechRecognition==3.14.5"),
     ("langdetect",    "langdetect==1.0.9"),
@@ -28,8 +28,8 @@ _REQUIRED: list[tuple[str, str]] = [
     ("seaborn",       "seaborn==0.12.2"),
     ("sklearn",       "scikit-learn==1.3.2"),
     ("numpy",         "numpy==1.26.2"),
-    ("transformers",  "transformers==4.35.2"),
-    ("torch",         "torch==2.1.1"),
+    ("transformers",  "transformers==4.48.0"),
+    ("torch",         "torch==2.6.0"),
     ("bcrypt",        "bcrypt==3.2.2"),
 ]
 
