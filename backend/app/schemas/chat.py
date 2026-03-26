@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+import html
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
     session_id: str | None = None  # client may pass existing session id
+
+    @field_validator("message")
+    @classmethod
+    def sanitize_message(cls, v: str) -> str:
+        """Strip leading/trailing whitespace and escape HTML entities."""
+        return html.escape(v.strip())
 
 
 class ChatMessage(BaseModel):

@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+import html
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class PredictRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("text")
+    @classmethod
+    def sanitize_text(cls, v: str) -> str:
+        """Strip leading/trailing whitespace and escape HTML entities."""
+        return html.escape(v.strip())
 
 
 class EmotionScore(BaseModel):

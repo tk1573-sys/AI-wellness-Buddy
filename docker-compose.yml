@@ -40,6 +40,12 @@ services:
         condition: service_healthy
     volumes:
       - model_cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # ────────────────────────────────────────────────────────────────────────────
   # Next.js frontend (development — production deploys to Vercel)
@@ -54,7 +60,14 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 volumes:
   postgres_data:
