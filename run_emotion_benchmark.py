@@ -2,24 +2,45 @@
 """Benchmark keyword, transformer, and hybrid emotion models on GoEmotions.
 
 Saves precision, recall, macro F1, accuracy → results/final_metrics.json.
+Saves per-class metrics                     → results/classification_report.csv.
+All runs are logged with timestamps         → logs/run.log.
+
 Usage: python run_emotion_benchmark.py [--dataset PATH] [--max-samples N] [--dry-run]
+       (omitting all flags uses built-in synthetic data automatically)
 """
 from __future__ import annotations
-import argparse, json, os, random, sys, tempfile  # noqa: E401
+import argparse, csv, json, logging, os, random, sys, tempfile  # noqa: E401
 
 _ROOT = os.path.abspath(os.path.dirname(__file__))
 if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 # ---------------------------------------------------------------------------
+# Logging – writes to logs/run.log (with timestamps) and to the console
+# ---------------------------------------------------------------------------
+_LOGS_DIR = os.path.join(_ROOT, "logs")
+os.makedirs(_LOGS_DIR, exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.FileHandler(os.path.join(_LOGS_DIR, "run.log"), encoding="utf-8"),
+        logging.StreamHandler(sys.stdout),
+    ],
+)
+log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
 # Startup dependency validation
 # ---------------------------------------------------------------------------
 _REQUIRED_PACKAGES = {
-    "textblob": "textblob>=0.17.1",
-    "matplotlib": "matplotlib>=3.7.0",
-    "sklearn": "scikit-learn>=1.3.0",
-    "transformers": "transformers>=4.35.0",
-    "torch": "torch>=2.0.0",
+    "textblob": "textblob==0.17.1",
+    "matplotlib": "matplotlib==3.7.0",
+    "sklearn": "scikit-learn==1.3.2",
+    "transformers": "transformers==4.48.0",
+    "torch": "torch==2.6.0",
 }
 
 _missing_packages: list[str] = []
@@ -30,11 +51,11 @@ for _pkg, _req in _REQUIRED_PACKAGES.items():
         _missing_packages.append(_req)
 
 if _missing_packages:
-    print(
-        "ERROR: Missing required dependencies. Install them with:\n"
-        f"  pip install {' '.join(_missing_packages)}\n"
+    log.error(
+        "Missing required dependencies. Install them with:\n"
+        "  pip install %s\n"
         "Then re-run this script.",
-        file=sys.stderr,
+        " ".join(_missing_packages),
     )
     sys.exit(1)
 
@@ -456,7 +477,7 @@ def _write_synthetic_jsonl() -> str:
     """Write GoEmotions subset JSONL to a temp file; return its path."""
     samples = list(_GOEMOTIONS_SUBSET)
     random.shuffle(samples)
-    print(f"ℹ  Using embedded GoEmotions subset: {len(samples)} samples")
+    log.info("Using embedded GoEmotions subset: %d samples", len(samples))
     fd, path = tempfile.mkstemp(suffix=".jsonl", prefix="goe_synth_")
     with os.fdopen(fd, "w") as fh:
         for text, label in samples:
@@ -479,6 +500,7 @@ def run_ablation(dataset_path=None, dry_run=False, max_samples=None):
 
     Prints a comparison table and saves ``results/ablation.json``.
     """
+    log.info("Starting ablation study (dry_run=%s, max_samples=%s)", dry_run, max_samples)
     os.makedirs(os.path.join(_ROOT, "results"), exist_ok=True)
     tmp = None
     if dry_run or not dataset_path:
@@ -488,8 +510,9 @@ def run_ablation(dataset_path=None, dry_run=False, max_samples=None):
     if tmp and os.path.exists(tmp):
         os.unlink(tmp)
     if not samples:
-        print("⚠  No samples loaded — aborting ablation.")
+        log.warning("No samples loaded — aborting ablation.")
         return {}
+    log.info("Loaded %d samples for ablation", len(samples))
     eval_pairs = [(s["text"], s["label"]) for s in samples]
 
     transformer_clf, _ = _make_transformer_classifier()
@@ -504,6 +527,7 @@ def run_ablation(dataset_path=None, dry_run=False, max_samples=None):
 
     final: dict = {}
     for name, clf in ablation_models.items():
+        log.info("Evaluating ablation variant: %s", name)
         r = evaluate_classifier(eval_pairs, clf, labels=LABELS)
         final[name] = {
             "precision": r["macro_precision"],
@@ -525,12 +549,15 @@ def run_ablation(dataset_path=None, dry_run=False, max_samples=None):
     out = os.path.join(_ROOT, "results", "ablation.json")
     with open(out, "w", encoding="utf-8") as fh:
         json.dump(final, fh, indent=2)
+    log.info("Ablation results saved to %s", out)
     print(f"\n✅ Ablation results saved to {out}")
     return final
 
 
 def run_benchmark(dataset_path=None, dry_run=False, max_samples=None):
-    """Evaluate all three models; print table; save results/final_metrics.json."""
+    """Evaluate all three models; print table; save results/final_metrics.json
+    and results/classification_report.csv."""
+    log.info("Starting benchmark (dry_run=%s, max_samples=%s)", dry_run, max_samples)
     os.makedirs(os.path.join(_ROOT, "results"), exist_ok=True)
     tmp = None
     if dry_run or not dataset_path:
@@ -540,8 +567,9 @@ def run_benchmark(dataset_path=None, dry_run=False, max_samples=None):
     if tmp and os.path.exists(tmp):
         os.unlink(tmp)
     if not samples:
-        print("⚠  No samples loaded — aborting.")
+        log.warning("No samples loaded — aborting benchmark.")
         return {}
+    log.info("Loaded %d samples for evaluation", len(samples))
     eval_pairs = [(s["text"], s["label"]) for s in samples]
     transformer_clf, _ = _make_transformer_classifier()
     hybrid_clf, _ = _make_hybrid_classifier()
@@ -551,7 +579,9 @@ def run_benchmark(dataset_path=None, dry_run=False, max_samples=None):
         "Hybrid":      hybrid_clf,
     }
     final: dict = {}
+    full_results: dict = {}
     for name, clf in models.items():
+        log.info("Evaluating model: %s", name)
         r = evaluate_classifier(eval_pairs, clf, labels=LABELS)
         final[name] = {
             "precision": r["macro_precision"],
@@ -560,6 +590,7 @@ def run_benchmark(dataset_path=None, dry_run=False, max_samples=None):
             "accuracy":  r["accuracy"],
             "confusion_matrix": r.get("confusion_matrix", {}),
         }
+        full_results[name] = r
     hdr = f"{'Model':<22} {'Precision':>10} {'Recall':>9} {'Macro F1':>10} {'Accuracy':>10}"
     sep = "-" * len(hdr)
     print(f"\n{'='*62}\nGoEmotions Benchmark  ({len(samples)} samples)\n{'='*62}")
@@ -568,6 +599,8 @@ def run_benchmark(dataset_path=None, dry_run=False, max_samples=None):
         print(f"{name:<22} {m['precision']:>10.4f} {m['recall']:>9.4f}"
               f" {m['macro_f1']:>10.4f} {m['accuracy']:>10.4f}")
     print(sep)
+
+    # Save results/final_metrics.json
     out = os.path.join(_ROOT, "results", "final_metrics.json")
     json_metrics = {
         name: {k: v for k, v in m.items() if k != "confusion_matrix"}
@@ -575,22 +608,51 @@ def run_benchmark(dataset_path=None, dry_run=False, max_samples=None):
     }
     with open(out, "w", encoding="utf-8") as fh:
         json.dump(json_metrics, fh, indent=2)
+    log.info("Results saved to %s", out)
     print(f"\n✅ Results saved to {out}")
+
+    # Save results/classification_report.csv (per-class metrics for each model)
+    csv_path = os.path.join(_ROOT, "results", "classification_report.csv")
+    with open(csv_path, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["model", "emotion", "precision", "recall", "f1_score"])
+        for name, r in full_results.items():
+            for emotion, metrics in r.get("per_class", {}).items():
+                writer.writerow([
+                    name,
+                    emotion,
+                    metrics.get("precision", ""),
+                    metrics.get("recall", ""),
+                    metrics.get("f1", ""),
+                ])
+    log.info("Classification report saved to %s", csv_path)
+    print(f"✅ Classification report saved to {csv_path}")
+
     save_plots(final, os.path.join(_ROOT, "plots"))
     return final
 
 
 def main(argv=None):
-    p = argparse.ArgumentParser(description="Benchmark emotion models on GoEmotions.")
+    p = argparse.ArgumentParser(
+        description=(
+            "Benchmark emotion models on GoEmotions.\n"
+            "When no --dataset is given the built-in synthetic subset is used "
+            "automatically — no manual data download required."
+        )
+    )
     p.add_argument("--dataset", metavar="PATH",
                    help="Path to GoEmotions dataset (.jsonl/.csv/.json).")
     p.add_argument("--dry-run", action="store_true",
-                   help="Use built-in synthetic data (no file needed).")
+                   help="Force use of built-in synthetic data (no file needed).")
     p.add_argument("--max-samples", type=int, default=None,
                    help="Limit number of samples evaluated.")
     p.add_argument("--ablation", action="store_true",
                    help="Run ablation study (4 variants) and save results/ablation.json.")
     args = p.parse_args(argv)
+    log.info(
+        "run_emotion_benchmark starting — dataset=%s dry_run=%s max_samples=%s ablation=%s",
+        args.dataset, args.dry_run, args.max_samples, args.ablation,
+    )
     if args.ablation:
         run_ablation(dataset_path=args.dataset, dry_run=args.dry_run,
                      max_samples=args.max_samples)
@@ -599,6 +661,7 @@ def main(argv=None):
                       max_samples=args.max_samples)
         run_ablation(dataset_path=args.dataset, dry_run=args.dry_run,
                      max_samples=args.max_samples)
+    log.info("run_emotion_benchmark finished.")
 
 
 if __name__ == "__main__":
