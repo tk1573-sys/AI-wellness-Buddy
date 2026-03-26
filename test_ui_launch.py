@@ -439,17 +439,17 @@ def test_detect_trend_empty_returns_stable():
 # -----------------------------------------------------------------------
 
 def test_hybrid_predict_weighted_blend():
-    """hybrid_predict combines transformer and keyword scores 0.7/0.3."""
+    """hybrid_predict uses dynamic alpha blend; a highly-confident transformer dominates."""
     from emotion_predictor import hybrid_predict
-    # keyword scores are at or below the 0.8 override threshold (not strictly above)
-    transformer = {'joy': 0.8, 'sadness': 0.2}
+    # High-confidence transformer (low entropy) → high dynamic alpha → transformer wins
+    transformer = {'joy': 0.95, 'sadness': 0.05}
     keyword = {'joy': 0.2, 'sadness': 0.8}
     result = hybrid_predict(transformer, keyword)
-    # joy = 0.7*0.8 + 0.3*0.2 = 0.62; sadness = 0.7*0.2 + 0.3*0.8 = 0.38
-    # keyword sadness == 0.8, which is not *strictly* > 0.8, so no override occurs.
     total = sum(result.values())
     assert abs(total - 1.0) < 1e-3, f"scores must sum to 1.0, got {total}"
-    assert result['joy'] > result['sadness'], "joy should dominate when transformer says joy"
+    assert result['joy'] > result['sadness'], (
+        "a highly-confident transformer should dominate via high dynamic alpha"
+    )
 
 
 def test_hybrid_predict_keyword_override():

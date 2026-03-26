@@ -401,3 +401,255 @@ class TestWellnessBuddyCDI:
             meta = buddy.get_last_response_metadata()
             assert 'cdi' in meta
             assert 'interventions' in meta
+
+
+# ---------------------------------------------------------------------------
+# 11. Dynamic Alpha (entropy-based fusion weighting)
+# ---------------------------------------------------------------------------
+
+class TestDynamicAlpha:
+    """Tests that _compute_alpha_dynamic returns values in [_ALPHA_MIN, _TRANSFORMER_WEIGHT]."""
+
+    def test_alpha_min_constant_exists(self):
+        assert hasattr(EmotionAnalyzer, '_ALPHA_MIN')
+        assert 0 < EmotionAnalyzer._ALPHA_MIN < EmotionAnalyzer._TRANSFORMER_WEIGHT
+
+    def test_confident_transformer_gives_high_alpha(self):
+        # One-hot distribution → entropy ≈ 0 → alpha near _TRANSFORMER_WEIGHT
+        confident = {'joy': 1.0, 'sadness': 0.0, 'anger': 0.0,
+                     'fear': 0.0, 'anxiety': 0.0, 'neutral': 0.0, 'crisis': 0.0}
+        alpha = EmotionAnalyzer._compute_alpha_dynamic(confident)
+        assert alpha >= EmotionAnalyzer._ALPHA_MIN
+        assert alpha <= EmotionAnalyzer._TRANSFORMER_WEIGHT
+        # Near-zero entropy → alpha should be close to _TRANSFORMER_WEIGHT
+        assert alpha > (EmotionAnalyzer._TRANSFORMER_WEIGHT + EmotionAnalyzer._ALPHA_MIN) / 2
+
+    def test_uncertain_transformer_gives_low_alpha(self):
+        # Uniform distribution → maximum entropy → alpha near _ALPHA_MIN
+        n = 7
+        uniform = {e: 1.0 / n for e in
+                   ('joy', 'sadness', 'anger', 'fear', 'anxiety', 'neutral', 'crisis')}
+        alpha = EmotionAnalyzer._compute_alpha_dynamic(uniform)
+        assert alpha >= EmotionAnalyzer._ALPHA_MIN
+        assert alpha <= EmotionAnalyzer._TRANSFORMER_WEIGHT
+        # Near-maximum entropy → alpha should be close to _ALPHA_MIN
+        assert alpha < (EmotionAnalyzer._TRANSFORMER_WEIGHT + EmotionAnalyzer._ALPHA_MIN) / 2
+
+    def test_alpha_in_bounds_for_arbitrary_distribution(self):
+        dist = {'joy': 0.5, 'sadness': 0.3, 'fear': 0.1, 'neutral': 0.1}
+        alpha = EmotionAnalyzer._compute_alpha_dynamic(dist)
+        assert EmotionAnalyzer._ALPHA_MIN <= alpha <= EmotionAnalyzer._TRANSFORMER_WEIGHT
+
+    def test_classify_emotion_returns_fusion_alpha(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I feel happy today")
+        assert 'fusion_alpha' in result
+        alpha = result['fusion_alpha']
+        assert EmotionAnalyzer._ALPHA_MIN <= alpha <= EmotionAnalyzer._TRANSFORMER_WEIGHT
+
+    def test_fusion_alpha_matches_fusion_weights_transformer(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I feel very anxious and worried")
+        assert abs(result['fusion_alpha'] - result['fusion_weights']['transformer']) < 1e-6
+
+
+# ---------------------------------------------------------------------------
+# 12. Ablation Study Support
+# ---------------------------------------------------------------------------
+
+class TestAblationMode:
+    """Tests for keyword-only, transformer-only, and hybrid fusion modes."""
+
+    def test_hybrid_mode_is_default(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I feel okay")
+        # default mode returns all fusion fields
+        assert 'pk_distribution' in result
+        assert 'pt_distribution' in result
+        assert 'fusion_alpha' in result
+
+    def test_keyword_only_mode_alpha_zero(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I feel sad", fusion_mode="keyword_only")
+        assert result['fusion_alpha'] == 0.0
+        assert result['fusion_weights']['transformer'] == 0.0
+        assert result['fusion_weights']['keyword'] == 1.0
+
+    def test_transformer_only_mode_alpha_one(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I feel sad", fusion_mode="transformer_only")
+        assert result['fusion_alpha'] == 1.0
+        assert result['fusion_weights']['transformer'] == 1.0
+        assert result['fusion_weights']['keyword'] == 0.0
+
+    def test_keyword_only_uses_pk_distribution(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I feel sad", fusion_mode="keyword_only")
+        # Probabilities should match pk_distribution after minor rounding adjustments
+        for label, prob in result['pk_distribution'].items():
+            assert abs(result['emotion_probabilities'].get(label, 0.0) - prob) < 1e-3
+
+    def test_transformer_only_uses_pt_distribution(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I feel sad", fusion_mode="transformer_only")
+        # Probabilities should match pt_distribution after minor rounding adjustments
+        for label, prob in result['pt_distribution'].items():
+            assert abs(result['emotion_probabilities'].get(label, 0.0) - prob) < 1e-3
+
+    def test_all_modes_probabilities_sum_to_one(self):
+        ea = EmotionAnalyzer()
+        for mode in ("hybrid", "keyword_only", "transformer_only"):
+            result = ea.classify_emotion("I feel worried", fusion_mode=mode)
+            total = sum(result['emotion_probabilities'].values())
+            assert abs(total - 1.0) < 1e-3, (
+                f"mode={mode}: emotion_probabilities must sum to 1.0, got {total}"
+            )
+
+    def test_ablation_hybrid_predict_transformer_only(self):
+        from emotion_predictor import hybrid_predict
+        transformer = {'joy': 0.8, 'sadness': 0.2}
+        keyword = {'sadness': 0.9, 'joy': 0.1}
+        result = hybrid_predict(transformer, keyword, mode="transformer_only")
+        # Should return the normalised transformer distribution only
+        assert result['joy'] > result['sadness']
+
+    def test_ablation_hybrid_predict_keyword_only(self):
+        from emotion_predictor import hybrid_predict
+        transformer = {'joy': 0.9, 'sadness': 0.1}
+        keyword = {'sadness': 0.85, 'joy': 0.15}
+        result = hybrid_predict(transformer, keyword, mode="keyword_only")
+        # Should return the normalised keyword distribution only
+        assert result['sadness'] > result['joy']
+
+
+# ---------------------------------------------------------------------------
+# 13. Intermediate Output Logging (pk, pt, final probabilities)
+# ---------------------------------------------------------------------------
+
+class TestIntermediateOutputs:
+    """Tests that classify_emotion and hybrid_predict expose pk, pt, and final probs."""
+
+    def test_classify_emotion_has_pk_distribution(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I feel sad and lonely")
+        assert 'pk_distribution' in result
+        assert isinstance(result['pk_distribution'], dict)
+        assert len(result['pk_distribution']) > 0
+
+    def test_classify_emotion_has_pt_distribution(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I feel sad and lonely")
+        assert 'pt_distribution' in result
+        assert isinstance(result['pt_distribution'], dict)
+
+    def test_pk_distribution_is_probability_distribution(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I am very anxious about everything")
+        pk = result['pk_distribution']
+        total = sum(pk.values())
+        assert abs(total - 1.0) < 1e-3, f"pk_distribution must sum to 1.0, got {total}"
+
+    def test_pt_distribution_is_probability_distribution(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I am very anxious about everything")
+        pt = result['pt_distribution']
+        if pt:  # may be empty when transformer is unavailable
+            total = sum(pt.values())
+            assert abs(total - 1.0) < 1e-3, f"pt_distribution must sum to 1.0, got {total}"
+
+    def test_final_probabilities_present_and_normalised(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I feel terrible and hopeless")
+        final = result['final_probabilities']
+        assert isinstance(final, dict)
+        total = sum(final.values())
+        assert abs(total - 1.0) < 1e-3
+
+    def test_hybrid_predict_return_intermediates(self):
+        from emotion_predictor import hybrid_predict
+        transformer = {'joy': 0.7, 'sadness': 0.3}
+        keyword = {'joy': 0.4, 'sadness': 0.6}
+        out = hybrid_predict(transformer, keyword, return_intermediates=True)
+        assert 'pk' in out
+        assert 'pt' in out
+        assert 'alpha' in out
+        assert 'final_probabilities' in out
+
+    def test_hybrid_predict_intermediates_pt_normalised(self):
+        from emotion_predictor import hybrid_predict
+        transformer = {'joy': 7.0, 'sadness': 3.0}   # unnormalised
+        keyword = {'joy': 0.4, 'sadness': 0.6}
+        out = hybrid_predict(transformer, keyword, return_intermediates=True)
+        pt = out['pt']
+        total = sum(pt.values())
+        assert abs(total - 1.0) < 1e-3, f"pt should be normalised, got sum={total}"
+
+    def test_hybrid_predict_intermediates_pk_normalised(self):
+        from emotion_predictor import hybrid_predict
+        transformer = {'joy': 0.7, 'sadness': 0.3}
+        keyword = {'joy': 4.0, 'sadness': 6.0}   # unnormalised
+        out = hybrid_predict(transformer, keyword, return_intermediates=True)
+        pk = out['pk']
+        total = sum(pk.values())
+        assert abs(total - 1.0) < 1e-3, f"pk should be normalised, got sum={total}"
+
+    def test_hybrid_predict_intermediates_alpha_in_bounds(self):
+        from emotion_predictor import hybrid_predict, _ALPHA_MIN, _ALPHA_MAX
+        transformer = {'joy': 0.6, 'sadness': 0.2, 'neutral': 0.2}
+        keyword = {'joy': 0.3, 'sadness': 0.5, 'neutral': 0.2}
+        out = hybrid_predict(transformer, keyword, return_intermediates=True)
+        alpha = out['alpha']
+        assert _ALPHA_MIN <= alpha <= _ALPHA_MAX
+
+    def test_hybrid_predict_default_still_returns_flat_dict(self):
+        from emotion_predictor import hybrid_predict
+        transformer = {'joy': 0.7, 'sadness': 0.3}
+        keyword = {'joy': 0.4, 'sadness': 0.6}
+        result = hybrid_predict(transformer, keyword)
+        # Default (return_intermediates=False) must return a flat {label: float} dict
+        assert isinstance(result, dict)
+        assert all(isinstance(v, float) for v in result.values())
+
+
+# ---------------------------------------------------------------------------
+# 14. Calibration (pre-fusion normalisation)
+# ---------------------------------------------------------------------------
+
+class TestCalibration:
+    """Tests that both Pk and Pt are normalised before fusion."""
+
+    def test_unnormalised_transformer_handled(self):
+        from emotion_predictor import hybrid_predict
+        # Deliberately un-normalised transformer scores
+        transformer = {'joy': 7.0, 'sadness': 3.0}
+        keyword = {'joy': 0.4, 'sadness': 0.6}
+        result = hybrid_predict(transformer, keyword)
+        total = sum(result.values())
+        assert abs(total - 1.0) < 1e-3
+
+    def test_unnormalised_keyword_handled(self):
+        from emotion_predictor import hybrid_predict
+        transformer = {'joy': 0.7, 'sadness': 0.3}
+        keyword = {'joy': 40.0, 'sadness': 60.0}
+        result = hybrid_predict(transformer, keyword)
+        total = sum(result.values())
+        assert abs(total - 1.0) < 1e-3
+
+    def test_classify_emotion_pk_is_calibrated(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I feel okay")
+        pk = result['pk_distribution']
+        total = sum(pk.values())
+        assert abs(total - 1.0) < 1e-3, (
+            f"pk_distribution (Pk) must be calibrated (sum to 1.0), got {total}"
+        )
+
+    def test_classify_emotion_final_probabilities_calibrated(self):
+        ea = EmotionAnalyzer()
+        result = ea.classify_emotion("I feel great and happy")
+        final = result['final_probabilities']
+        total = sum(final.values())
+        assert abs(total - 1.0) < 1e-3, (
+            f"final_probabilities must be calibrated (sum to 1.0), got {total}"
+        )
+
