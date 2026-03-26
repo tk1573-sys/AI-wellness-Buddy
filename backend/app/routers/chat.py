@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import get_db
+from app.limiter import limiter
 from app.models.chat import ChatHistory
 from app.routers.auth import get_current_user
 from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse
@@ -16,10 +20,13 @@ from app.services import chat_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat", tags=["Chat"])
+settings = get_settings()
 
 
 @router.post("", response_model=ChatResponse)
+@limiter.limit(settings.RATE_LIMIT_CHAT)
 async def chat(
+    request: Request,
     req: ChatRequest,
     token: str,
     db: AsyncSession = Depends(get_db),

@@ -4,16 +4,21 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jose import JWTError
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import get_db
+from app.limiter import limiter
 from app.schemas.auth import LoginRequest, SignupRequest, TokenResponse, UserResponse
 from app.services import auth_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Auth"])
+settings = get_settings()
 
 
 # --------------------------------------------------------------------------- #
@@ -46,7 +51,8 @@ async def get_current_user(
 # --------------------------------------------------------------------------- #
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit(settings.RATE_LIMIT_AUTH)
+async def signup(request: Request, req: SignupRequest, db: AsyncSession = Depends(get_db)):
     """Register a new account and return an access token."""
     existing = await auth_service.get_user_by_email(db, req.email)
     if existing:
@@ -59,7 +65,8 @@ async def signup(req: SignupRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit(settings.RATE_LIMIT_AUTH)
+async def login(request: Request, req: LoginRequest, db: AsyncSession = Depends(get_db)):
     """Authenticate and return an access token."""
     user = await auth_service.get_user_by_email(db, req.email)
     if user is None or not auth_service.verify_password(req.password, user.hashed_password):

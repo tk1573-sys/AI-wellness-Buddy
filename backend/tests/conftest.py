@@ -28,6 +28,8 @@ os.environ.setdefault("HF_HUB_OFFLINE", "1")
 # Use an in-memory SQLite database for all tests
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["SECRET_KEY"] = "test-secret-key-that-is-long-enough-for-jwt"
+# Disable rate limiting so tests don't hit per-IP limits
+os.environ["RATELIMIT_ENABLED"] = "false"
 
 # ── import after env is set ───────────────────────────────────────────────────
 from app.database import Base, get_db  # noqa: E402
