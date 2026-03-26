@@ -21,6 +21,7 @@ from ui.charts import (                       # noqa: F401
     create_emotion_heatmap,
     create_emotion_journey_line,
     create_stress_intensity_gauge,
+    create_session_emotion_timeline,
 )
 from ui.layout import (                       # noqa: F401
     render_hero_section,
@@ -35,6 +36,7 @@ from ui.layout import (                       # noqa: F401
     render_session_summary_card,
     render_emotional_avatar,
     render_wellness_illustration_large,
+    render_ai_insights_card,
 )
 from ui.animations import (                   # noqa: F401
     canvas_particles_html,
