@@ -370,6 +370,114 @@ def render_emotional_avatar(emotion: str = 'neutral', avatar_state: str | None =
 
 
 # -----------------------------------------------------------------------
+# AI Insights card — premium analysis panel
+# -----------------------------------------------------------------------
+
+# Color palette: (border, background, text) keyed by emotion label
+_EMO_BADGE_PALETTE: dict[str, tuple[str, str, str]] = {
+    'joy':      ('#22c55e', 'rgba(34,197,94,0.14)',   '#166534'),
+    'positive': ('#22c55e', 'rgba(34,197,94,0.14)',   '#166534'),
+    'neutral':  ('#eab308', 'rgba(234,179,8,0.14)',   '#713f12'),
+    'sadness':  ('#ef4444', 'rgba(239,68,68,0.14)',   '#7f1d1d'),
+    'anger':    ('#ef4444', 'rgba(239,68,68,0.14)',   '#7f1d1d'),
+    'fear':     ('#ef4444', 'rgba(239,68,68,0.14)',   '#7f1d1d'),
+    'anxiety':  ('#ef4444', 'rgba(239,68,68,0.14)',   '#7f1d1d'),
+    'stress':   ('#ef4444', 'rgba(239,68,68,0.14)',   '#7f1d1d'),
+    'crisis':   ('#dc2626', 'rgba(220,38,38,0.18)',   '#7f1d1d'),
+    'distress': ('#dc2626', 'rgba(220,38,38,0.18)',   '#7f1d1d'),
+}
+
+
+def render_ai_insights_card(
+    emotion: str,
+    confidence: float,
+    explanation: str,
+    key_indicators: list,
+    concern_level: str = '',
+    model_source: str = '',
+    sentiment_label: str = '',
+) -> str:
+    """Return HTML for a premium AI Insights analysis card.
+
+    Shows a color-coded emotion badge (green = positive, yellow = neutral,
+    red = risk), the model explanation, keyword signal chips, and model
+    metadata.
+
+    Parameters
+    ----------
+    emotion : str
+        Detected emotion label (e.g. ``'joy'``, ``'anxiety'``).
+    confidence : float
+        Confidence score in [0, 1].
+    explanation : str
+        Human-readable explanation from ``explain_emotion()``.
+    key_indicators : list
+        Up to 6 keyword / feature names that drove the prediction.
+    concern_level : str
+        Wellness concern level (``'low'``, ``'medium'``, ``'high'``,
+        ``'critical'``).
+    model_source : str
+        Short identifier for the model (e.g. ``'hybrid-fusion'``).
+    sentiment_label : str
+        Polarity label such as ``'positive'`` or ``'negative'``.
+    """
+    icon = EMO_ICONS.get(emotion, '🧠')
+    border, bg, text_col = _EMO_BADGE_PALETTE.get(
+        emotion, ('#9B8CFF', 'rgba(155,140,255,0.14)', '#4c1d95')
+    )
+
+    # Keyword signal chips (max 6)
+    kw_chips = ''.join(
+        f'<span class="kw-chip">{kw}</span>'
+        for kw in (key_indicators or [])[:6]
+    )
+    kw_section = (
+        f'<div class="ai-insight-keywords">'
+        f'<span class="kw-label">Key signals:</span> {kw_chips}'
+        f'</div>'
+        if kw_chips else ''
+    )
+
+    # Concern badge
+    _c_icons = {'low': '🟢', 'medium': '🟡', 'high': '🟠', 'critical': '🔴'}
+    concern_part = (
+        f'<span class="ai-insight-concern">'
+        f'{_c_icons.get(concern_level, "⬜")} {concern_level.capitalize()} concern'
+        f'</span>'
+        if concern_level else ''
+    )
+
+    # Meta row (model + sentiment)
+    meta_parts = []
+    if model_source:
+        meta_parts.append(f'🤖 Model: <code class="ai-meta-code">{model_source}</code>')
+    if sentiment_label:
+        meta_parts.append(f'💡 Sentiment: {sentiment_label}')
+    meta_html = (
+        f'<div class="ai-insight-meta">{" &nbsp;·&nbsp; ".join(meta_parts)}</div>'
+        if meta_parts else ''
+    )
+
+    expl_text = explanation or f'Detected {emotion} from conversational context.'
+
+    return (
+        f'<div class="ai-insights-card">'
+        f'  <div class="ai-insights-header">'
+        f'    <span class="ai-insights-title">🧠 AI Insights</span>'
+        f'    <span class="ai-insights-badge"'
+        f'      style="border-color:{border};background:{bg};color:{text_col};">'
+        f'      {icon} {emotion.capitalize()}&nbsp; {confidence:.0%}'
+        f'    </span>'
+        f'    {concern_part}'
+        f'  </div>'
+        f'  <p class="ai-insights-explanation">{expl_text}</p>'
+        f'  {kw_section}'
+        f'  {meta_html}'
+        f'</div>'
+    )
+
+
+# -----------------------------------------------------------------------
 # Enhanced wellness illustration (larger SVG)
 # -----------------------------------------------------------------------
 

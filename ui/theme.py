@@ -537,6 +537,131 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     to   {{ opacity: 1; transform: translateY(0); }}
 }}
 
+/* ==============================================
+   AI INSIGHTS CARD — premium analysis panel
+   ============================================== */
+
+.ai-insights-card {{
+    background: linear-gradient(135deg, rgba(155,140,255,0.07) 0%, rgba(91,140,255,0.05) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 1rem;
+    border: 1px solid rgba(155,140,255,0.22);
+    padding: 1rem 1.25rem;
+    margin: 0.6rem 0;
+    box-shadow: 0 4px 20px rgba(91,140,255,0.07), inset 0 1px 0 rgba(255,255,255,0.08);
+    animation: fadeSlideIn 0.4s cubic-bezier(0.22,1,0.36,1);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}}
+.ai-insights-card:hover {{
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(91,140,255,0.12);
+}}
+.ai-insights-header {{
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.55rem;
+}}
+.ai-insights-title {{
+    font-weight: 700;
+    font-size: 0.93rem;
+    color: {text_heading};
+    letter-spacing: -0.01em;
+}}
+.ai-insights-badge {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.22rem 0.7rem;
+    border-radius: 999px;
+    border: 1.5px solid;
+    font-weight: 600;
+    font-size: 0.80rem;
+    letter-spacing: 0.01em;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}}
+.ai-insights-badge:hover {{
+    transform: scale(1.04);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+}}
+.ai-insight-concern {{
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: {text_secondary};
+    margin-left: auto;
+    letter-spacing: 0.01em;
+}}
+.ai-insights-explanation {{
+    font-size: 0.89rem;
+    color: {text_primary};
+    margin: 0 0 0.5rem 0;
+    line-height: 1.65;
+}}
+.ai-insight-keywords {{
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.45rem;
+}}
+.kw-label {{
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: {text_secondary};
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-right: 0.15rem;
+}}
+.kw-chip {{
+    display: inline-flex;
+    padding: 0.14rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(91,140,255,0.09);
+    border: 1px solid rgba(91,140,255,0.20);
+    color: #5B8CFF;
+    font-size: 0.76rem;
+    font-weight: 500;
+    transition: background 0.2s ease;
+}}
+.kw-chip:hover {{
+    background: rgba(91,140,255,0.17);
+}}
+.ai-insight-meta {{
+    font-size: 0.76rem;
+    color: {text_secondary};
+    margin-top: 0.25rem;
+    line-height: 1.5;
+}}
+.ai-meta-code {{
+    background: rgba(91,140,255,0.10);
+    padding: 0.08rem 0.3rem;
+    border-radius: 0.25rem;
+    font-size: 0.73rem;
+    color: #5B8CFF;
+    font-family: 'SFMono-Regular', 'Consolas', monospace;
+}}
+
+/* ---- Section header with fade-out rule ---- */
+.section-header-premium {{
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: {text_secondary};
+    margin: 1.1rem 0 0.45rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}}
+.section-header-premium::after {{
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(91,140,255,0.25), transparent);
+}}
+
 /* =============================================
    LANDING SCREEN — Hero & Illustration
    ============================================= */
