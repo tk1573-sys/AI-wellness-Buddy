@@ -582,3 +582,232 @@ class TestConcernLevelComputation:
         assert EmotionAnalyzer._compute_concern_level(
             'joy', {'joy': 0.9, 'neutral': 0.1}, False, [], 'low'
         ) == 'low'
+
+
+# -----------------------------------------------------------------------
+# New: render_ai_insights_card tests
+# -----------------------------------------------------------------------
+
+class TestAiInsightsCard:
+    """Tests for render_ai_insights_card in ui/layout.py."""
+
+    def test_ai_insights_card_returns_html(self):
+        from ui.layout import render_ai_insights_card
+        html = render_ai_insights_card(
+            emotion='joy',
+            confidence=0.85,
+            explanation='Detected joy due to keywords [happy, excited].',
+            key_indicators=['happy', 'excited'],
+        )
+        assert '<div class="ai-insights-card">' in html
+        assert '🧠 AI Insights' in html
+
+    def test_ai_insights_card_positive_badge_green(self):
+        from ui.layout import render_ai_insights_card, _EMO_BADGE_PALETTE
+        html = render_ai_insights_card(
+            emotion='joy', confidence=0.9, explanation='', key_indicators=[]
+        )
+        border, bg, text = _EMO_BADGE_PALETTE['joy']
+        assert border in html  # green border colour
+
+    def test_ai_insights_card_neutral_badge_yellow(self):
+        from ui.layout import render_ai_insights_card, _EMO_BADGE_PALETTE
+        html = render_ai_insights_card(
+            emotion='neutral', confidence=0.7, explanation='', key_indicators=[]
+        )
+        border, bg, text = _EMO_BADGE_PALETTE['neutral']
+        assert border in html  # yellow border colour
+
+    def test_ai_insights_card_risk_badge_red(self):
+        from ui.layout import render_ai_insights_card, _EMO_BADGE_PALETTE
+        for emo in ('sadness', 'anger', 'fear', 'anxiety', 'crisis'):
+            html = render_ai_insights_card(
+                emotion=emo, confidence=0.8, explanation='', key_indicators=[]
+            )
+            border, bg, text = _EMO_BADGE_PALETTE[emo]
+            assert border in html, f"Expected red border for {emo}"
+
+    def test_ai_insights_card_shows_explanation(self):
+        from ui.layout import render_ai_insights_card
+        html = render_ai_insights_card(
+            emotion='sadness',
+            confidence=0.75,
+            explanation='Detected sadness due to contextual cues.',
+            key_indicators=[],
+        )
+        assert 'Detected sadness due to contextual cues.' in html
+
+    def test_ai_insights_card_shows_keyword_chips(self):
+        from ui.layout import render_ai_insights_card
+        html = render_ai_insights_card(
+            emotion='anxiety',
+            confidence=0.6,
+            explanation='',
+            key_indicators=['worried', 'nervous', 'panic'],
+        )
+        assert 'kw-chip' in html
+        assert 'worried' in html
+        assert 'nervous' in html
+        assert 'panic' in html
+
+    def test_ai_insights_card_limits_chips_to_six(self):
+        from ui.layout import render_ai_insights_card
+        html = render_ai_insights_card(
+            emotion='anxiety',
+            confidence=0.5,
+            explanation='',
+            key_indicators=[f'kw{i}' for i in range(10)],
+        )
+        # Only first 6 keyword chips should be rendered
+        assert html.count('kw-chip') == 6
+
+    def test_ai_insights_card_concern_badge(self):
+        from ui.layout import render_ai_insights_card
+        html = render_ai_insights_card(
+            emotion='sadness', confidence=0.7, explanation='',
+            key_indicators=[], concern_level='high',
+        )
+        assert 'ai-insight-concern' in html
+        assert 'High concern' in html
+        assert '🟠' in html
+
+    def test_ai_insights_card_model_source(self):
+        from ui.layout import render_ai_insights_card
+        html = render_ai_insights_card(
+            emotion='joy', confidence=0.9, explanation='',
+            key_indicators=[], model_source='hybrid-fusion',
+        )
+        assert 'hybrid-fusion' in html
+        assert 'ai-meta-code' in html
+
+    def test_ai_insights_card_sentiment_label(self):
+        from ui.layout import render_ai_insights_card
+        html = render_ai_insights_card(
+            emotion='joy', confidence=0.9, explanation='',
+            key_indicators=[], sentiment_label='positive',
+        )
+        assert 'positive' in html
+
+    def test_ai_insights_card_fallback_explanation(self):
+        from ui.layout import render_ai_insights_card
+        html = render_ai_insights_card(
+            emotion='anger', confidence=0.6, explanation='',
+            key_indicators=[],
+        )
+        # Falls back to generic message
+        assert 'Detected anger from conversational context.' in html
+
+    def test_emo_badge_palette_exported(self):
+        from ui.layout import _EMO_BADGE_PALETTE
+        assert 'joy' in _EMO_BADGE_PALETTE
+        assert 'neutral' in _EMO_BADGE_PALETTE
+        assert 'crisis' in _EMO_BADGE_PALETTE
+        for emo, vals in _EMO_BADGE_PALETTE.items():
+            assert len(vals) == 3, f"Expected 3-tuple for {emo}"
+
+
+# -----------------------------------------------------------------------
+# New: create_session_emotion_timeline tests
+# -----------------------------------------------------------------------
+
+class TestSessionEmotionTimeline:
+    """Tests for create_session_emotion_timeline in ui/charts.py."""
+
+    def test_timeline_returns_figure(self):
+        from ui.charts import create_session_emotion_timeline
+        history = [
+            {'emotion': 'joy', 'confidence': 0.85},
+            {'emotion': 'neutral', 'confidence': 0.60},
+            {'emotion': 'sadness', 'confidence': 0.70},
+        ]
+        fig = create_session_emotion_timeline(history)
+        assert fig is not None
+
+    def test_timeline_has_two_traces(self):
+        from ui.charts import create_session_emotion_timeline
+        history = [
+            {'emotion': 'joy', 'confidence': 0.85},
+            {'emotion': 'neutral', 'confidence': 0.60},
+        ]
+        fig = create_session_emotion_timeline(history)
+        # Trace 0: connecting line; Trace 1: markers+text
+        assert len(fig.data) == 2
+
+    def test_timeline_empty_input_defaults(self):
+        from ui.charts import create_session_emotion_timeline
+        fig = create_session_emotion_timeline([])
+        assert fig is not None
+        # Defaults to a single neutral point
+        assert len(fig.data) == 2
+
+    def test_timeline_correct_y_values(self):
+        from ui.charts import create_session_emotion_timeline
+        history = [
+            {'emotion': 'joy', 'confidence': 0.9},
+            {'emotion': 'sadness', 'confidence': 0.5},
+        ]
+        fig = create_session_emotion_timeline(history)
+        marker_trace = fig.data[1]
+        assert abs(marker_trace.y[0] - 0.9) < 1e-6
+        assert abs(marker_trace.y[1] - 0.5) < 1e-6
+
+    def test_timeline_text_labels_capitalised(self):
+        from ui.charts import create_session_emotion_timeline
+        history = [
+            {'emotion': 'anxiety', 'confidence': 0.75},
+            {'emotion': 'joy', 'confidence': 0.80},
+        ]
+        fig = create_session_emotion_timeline(history)
+        marker_trace = fig.data[1]
+        assert 'Anxiety' in marker_trace.text
+        assert 'Joy' in marker_trace.text
+
+    def test_timeline_height(self):
+        from ui.charts import create_session_emotion_timeline
+        history = [{'emotion': 'neutral', 'confidence': 0.5}]
+        fig = create_session_emotion_timeline(history)
+        assert fig.layout.height == 210
+
+    def test_timeline_confidence_clamped(self):
+        from ui.charts import create_session_emotion_timeline
+        history = [
+            {'emotion': 'joy', 'confidence': 1.5},   # over 1.0
+            {'emotion': 'sadness', 'confidence': -0.2},  # below 0
+        ]
+        fig = create_session_emotion_timeline(history)
+        marker_trace = fig.data[1]
+        assert marker_trace.y[0] <= 1.0
+        assert marker_trace.y[1] >= 0.0
+
+
+# -----------------------------------------------------------------------
+# New: AI Insights CSS in theme
+# -----------------------------------------------------------------------
+
+class TestAiInsightsCss:
+    """Verify that theme.py includes AI insights and section-header CSS."""
+
+    def test_ai_insights_card_class_in_theme(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        assert '.ai-insights-card' in css
+
+    def test_ai_insights_badge_class_in_theme(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        assert '.ai-insights-badge' in css
+
+    def test_kw_chip_class_in_theme(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        assert '.kw-chip' in css
+
+    def test_section_header_premium_class_in_theme(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        assert '.section-header-premium' in css
+
+    def test_ai_insight_meta_class_in_theme(self):
+        from ui.theme import get_theme_css
+        css = get_theme_css()
+        assert '.ai-insight-meta' in css

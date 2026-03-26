@@ -28,6 +28,7 @@ from ui.charts import (
     create_moving_average_chart, create_risk_history_chart, create_emotion_heatmap,
     create_emotion_journey_line, create_stress_intensity_gauge,
     create_emotion_probability_bar, create_cdi_gauge,
+    create_session_emotion_timeline,
     EMO_COLORS, _HEATMAP_EMOTIONS,
 )
 from ui.layout import (
@@ -37,6 +38,7 @@ from ui.layout import (
     render_session_info_card, render_streak_card, render_waveform_section,
     render_session_summary_card, render_emotion_flag,
     render_emotional_avatar, render_wellness_sidebar_card,
+    render_ai_insights_card,
     EMO_ICONS, EMO_BUBBLE_CLASS, CONCERN_ICONS,
     RISK_COLOUR, RISK_LEVEL_VALUES, SOUND_LABELS,
 )
@@ -616,7 +618,7 @@ def render_chat_tab():
                                      help="Listen to this response"):
                             _play_tts(message["content"])
 
-    # ---- Emotion Result Panel: show analytics for the latest response ----
+    # ---- AI Insights: premium analysis card + emotion probability bar ----
     _meta = st.session_state.get('last_response_meta') or {}
     _probs = _meta.get('emotion_probabilities', {})
     _expl = _meta.get('explanation', '')
@@ -626,59 +628,50 @@ def render_chat_tab():
     _emo_conf = _meta.get('emotion_confidence', 0.0)
     if _probs and _det_emotion:
         _conf = _xai.get('confidence', _probs.get(_det_emotion, 0))
-        # Inline concern + confidence badges above the expander
-        _concern_html = render_concern_badge(_concern) if _concern else ''
-        _conf_pct = f"{_emo_conf:.0%}" if 'emotion_confidence' in _meta else f"{_conf:.0%}"
+        _indicators = _xai.get('key_indicators', [])
+        _sent = _xai.get('sentiment_contribution', {})
+        _sent_label = _sent.get('influence', '')
+        _src = _xai.get('model_source', '')
+        # Distress keywords as supplementary indicators (backward compat)
+        _distress_kw = _meta.get('distress_keywords', [])
+        if _distress_kw and not _indicators:
+            _indicators = _distress_kw
+
+        insight_col, chart_col = st.columns([3, 2])
+        with insight_col:
+            st.markdown(
+                render_ai_insights_card(
+                    emotion=_det_emotion,
+                    confidence=_emo_conf or _conf,
+                    explanation=_expl,
+                    key_indicators=_indicators,
+                    concern_level=_concern,
+                    model_source=_src,
+                    sentiment_label=_sent_label,
+                ),
+                unsafe_allow_html=True,
+            )
+        with chart_col:
+            st.markdown(
+                '<div class="section-header-premium">📊 Emotion Probabilities</div>',
+                unsafe_allow_html=True,
+            )
+            st.plotly_chart(
+                create_emotion_probability_bar(_probs),
+                width="stretch",
+            )
+
+    # ---- Session Emotion Timeline ----
+    _session_emo_hist = st.session_state.get('emotion_history', [])
+    if len(_session_emo_hist) >= 2:
         st.markdown(
-            f"{_concern_html}"
-            f"&nbsp; `🎯 Confidence {_conf_pct}`"
-            f"&nbsp; `{EMO_ICONS.get(_det_emotion, '')} {_det_emotion.capitalize()}`",
+            '<div class="section-header-premium">📈 Session Emotion Timeline</div>',
             unsafe_allow_html=True,
         )
-        _concern_display = f"  |  Concern: **{_concern.capitalize()}**" if _concern else ""
-        with st.expander(
-            f"🔬 Emotion Analysis — **{_det_emotion.capitalize()}**"
-            f"  (confidence {_conf:.1%}){_concern_display}",
-            expanded=False,
-        ):
-            chart_col, info_col = st.columns([3, 2])
-            with chart_col:
-                st.plotly_chart(
-                    create_emotion_probability_bar(_probs),
-                    width="stretch",
-                )
-            with info_col:
-                st.markdown(f"**Detected emotion:** {_det_emotion.capitalize()}")
-                st.markdown(f"**Confidence:** {_conf:.1%}")
-                if _concern:
-                    st.markdown(
-                        f"**Concern level:** {render_concern_badge(_concern)}",
-                        unsafe_allow_html=True,
-                    )
-                    st.markdown(f"**Concern level:** {_CONCERN_EMOJI.get(_concern, '⬜')} {_concern.capitalize()}")
-                # XAI key indicators
-                indicators = _xai.get('key_indicators', [])
-                if indicators:
-                    st.markdown("**Key indicators:**")
-                    for kw in indicators:
-                        st.markdown(f"- {kw}")
-                elif _expl:
-                    st.markdown(f"**Explanation:** {_expl}")
-                # Sentiment contribution
-                _sent = _xai.get('sentiment_contribution', {})
-                if _sent:
-                    st.markdown(
-                        f"**Sentiment:** {_sent.get('influence', 'neutral')} "
-                        f"(polarity {_sent.get('polarity', 0):.2f})"
-                    )
-                # Model source
-                _src = _xai.get('model_source', '')
-                if _src:
-                    st.caption(f"Model: {_src}")
-                # Distress keywords (backward compat)
-                kw = _meta.get('distress_keywords', [])
-                if kw:
-                    st.markdown(f"**Distress keywords:** {', '.join(kw)}")
+        st.plotly_chart(
+            create_session_emotion_timeline(_session_emo_hist),
+            width="stretch",
+        )
 
     # ---- Crisis resources: show immediately when crisis detected ----
     if _det_emotion == 'crisis':
@@ -789,14 +782,15 @@ def render_chat_tab():
     if prompt := st.chat_input(placeholder):
         if prompt != st.session_state.last_user_input:
             _add_chat_message("user", prompt)
-            response = st.session_state.buddy.respond(
-                prompt,
-                context=st.session_state.chat_history,
-                options={
-                    'calm_mode_active': st.session_state.get('calm_music_enabled', False),
-                    'research_logging': st.session_state.get('research_logging_enabled', False),
-                },
-            )
+            with st.spinner("Analysing your message…"):
+                response = st.session_state.buddy.respond(
+                    prompt,
+                    context=st.session_state.chat_history,
+                    options={
+                        'calm_mode_active': st.session_state.get('calm_music_enabled', False),
+                        'research_logging': st.session_state.get('research_logging_enabled', False),
+                    },
+                )
             _add_chat_message("assistant", response)
             st.session_state.last_response = response
             st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()

@@ -456,3 +456,81 @@ def create_cdi_gauge(cdi_score: float, cdi_level: str = 'low') -> go.Figure:
         font=_FONT,
     )
     return fig
+
+
+# -----------------------------------------------------------------------
+# Session emotion timeline
+# -----------------------------------------------------------------------
+
+def create_session_emotion_timeline(emotion_history: list) -> go.Figure:
+    """Create a colour-coded scatter timeline of emotions in the current session.
+
+    Each point represents one detected emotion with its confidence score.
+    Points are coloured by emotion and labelled with the emotion name.
+
+    Parameters
+    ----------
+    emotion_history : list[dict]
+        List of dicts with keys ``'emotion'`` and ``'confidence'``.
+        Typically drawn from ``st.session_state.emotion_history``.
+
+    Returns a ``go.Figure`` ready for ``st.plotly_chart()``.
+    """
+    if not emotion_history:
+        emotion_history = [{'emotion': 'neutral', 'confidence': 0.5}]
+
+    labels = [e.get('emotion', 'neutral').capitalize() for e in emotion_history]
+    confidences = [min(1.0, max(0.0, float(e.get('confidence', 0.5)))) for e in emotion_history]
+    colors = [EMO_COLORS.get(e.get('emotion', 'neutral'), '#9B8CFF') for e in emotion_history]
+    x_vals = list(range(1, len(labels) + 1))
+
+    fig = go.Figure()
+    # Connecting line (subtle)
+    fig.add_trace(go.Scatter(
+        x=x_vals,
+        y=confidences,
+        mode='lines',
+        name='',
+        line=dict(color='rgba(155,140,255,0.30)', width=2, dash='dot'),
+        hoverinfo='skip',
+        showlegend=False,
+    ))
+    # Emotion markers with labels
+    fig.add_trace(go.Scatter(
+        x=x_vals,
+        y=confidences,
+        mode='markers+text',
+        name='Emotion',
+        text=labels,
+        textposition='top center',
+        textfont=dict(size=10, family='Inter', color='#475569'),
+        marker=dict(
+            size=13,
+            color=colors,
+            line=dict(color='#ffffff', width=2),
+            opacity=0.92,
+        ),
+        hovertemplate='Turn %{x}<br>%{text}: %{y:.0%}<extra></extra>',
+        showlegend=False,
+    ))
+
+    fig.update_layout(**_base_layout(
+        height=210,
+        xaxis=dict(
+            title='Message',
+            tickvals=x_vals,
+            showgrid=False,
+            zeroline=False,
+        ),
+        yaxis=dict(
+            title='Confidence',
+            range=[0, 1.25],
+            tickformat='.0%',
+            showgrid=True,
+            gridcolor='rgba(0,0,0,0.04)',
+            zeroline=False,
+        ),
+        margin=dict(l=50, r=20, t=30, b=30),
+        transition=dict(duration=_TRANSITION_DURATION, easing=_TRANSITION_EASING),
+    ))
+    return fig
