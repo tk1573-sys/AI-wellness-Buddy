@@ -19,3 +19,8 @@ limiter = Limiter(
     default_limits=["200/minute"],
     enabled=settings.RATELIMIT_ENABLED,
 )
+# Workaround: slowapi's get_app_config omits the cast argument when
+# default_value is falsy, causing starlette.config.Config to return the raw
+# environment-variable string (e.g. "false") instead of a proper bool.
+# Re-applying the Pydantic-parsed value guarantees the correct type.
+limiter.enabled = settings.RATELIMIT_ENABLED
