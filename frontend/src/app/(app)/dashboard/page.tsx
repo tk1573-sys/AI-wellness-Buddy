@@ -153,7 +153,7 @@ export default function DashboardPage() {
             <Tooltip
               contentStyle={{ background: "rgba(17,24,39,0.95)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#f3f4f6" }}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              formatter={(value: any) => [`${value ?? 0}%`, "Confidence"]}
+              formatter={(value: any) => [`${value ?? 0}%`, "Confidence"] as [string, string]}
             />
             <Line
               type="monotone"
