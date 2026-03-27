@@ -18,14 +18,15 @@ from starlette.types import ASGIApp
 # Strict CSP for production — no inline scripts, no external sources.
 _CSP_PRODUCTION = "default-src 'none'; frame-ancestors 'none'"
 
-# Targeted relaxed CSP for non-production environments.
-# Swagger UI requires 'unsafe-inline' for its scripts and styles, and
-# 'unsafe-eval' for its dynamic code evaluation.  Data URIs are needed
-# for its embedded favicon/images.  All other sources default to 'self'.
+# Targeted relaxed CSP for non-production environments and for the Swagger /docs
+# paths in production.  Swagger UI bundles are served from cdn.jsdelivr.net, so
+# that origin must be explicitly whitelisted.  'unsafe-inline' is required for
+# Swagger's injected styles/scripts; 'unsafe-eval' for its dynamic evaluation.
+# Data URIs cover the embedded favicon/images.
 _CSP_DEVELOPMENT = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-    "style-src 'self' 'unsafe-inline'; "
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
     "img-src 'self' data:; "
     "connect-src 'self'; "
     "frame-ancestors 'none'"
