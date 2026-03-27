@@ -222,6 +222,56 @@ async def test_chat_returns_reply(client, mocker):
     assert "session_id" in data
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Swagger / OpenAPI docs endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def test_docs_returns_200_html(client):
+    """GET /docs must return an HTML page (Swagger UI) with status 200."""
+    resp = await client.get("/docs")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+    assert b"swagger" in resp.content.lower()
+
+
+async def test_redoc_returns_200_html(client):
+    """GET /redoc must return an HTML page (ReDoc UI) with status 200."""
+    resp = await client.get("/redoc")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+
+
+async def test_openapi_json_returns_200(client):
+    """GET /openapi.json must return a valid JSON schema."""
+    resp = await client.get("/openapi.json")
+    assert resp.status_code == 200
+    assert "application/json" in resp.headers["content-type"]
+    schema = resp.json()
+    assert "openapi" in schema
+    assert "paths" in schema
+
+
+async def test_docs_csp_allows_cdn(client):
+    """script-src and style-src in the /docs CSP must list https://cdn.jsdelivr.net."""
+    resp = await client.get("/docs")
+    assert resp.status_code == 200
+    csp = resp.headers.get("content-security-policy", "")
+    # Parse CSP into {directive: [token, …]} so we can do exact membership checks
+    # rather than substring searches that could match unintended hosts.
+    directives: dict[str, list[str]] = {}
+    for part in csp.split(";"):
+        tokens = part.strip().split()
+        if tokens:
+            directives[tokens[0]] = tokens[1:]
+    cdn = "https://cdn.jsdelivr.net"
+    assert cdn in directives.get("script-src", []), (
+        f"Expected {cdn!r} in script-src; got {directives}"
+    )
+    assert cdn in directives.get("style-src", []), (
+        f"Expected {cdn!r} in style-src; got {directives}"
+    )
+
+
 async def test_chat_history_returns_list(client, mocker):
     await _signup(client, email="hist@example.com", username="histuser")
     token = (await _login(client, email="hist@example.com")).json()["access_token"]
