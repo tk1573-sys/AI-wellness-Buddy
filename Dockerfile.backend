@@ -1,0 +1,43 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# AI Wellness Buddy — Backend Dockerfile
+# ──────────────────────────────────────────────────────────────────────────────
+FROM python:3.11-slim AS base
+
+WORKDIR /workspace
+
+# System deps (needed for bcrypt / psycopg wheel builds)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Install dependencies ──────────────────────────────────────────────────────
+COPY backend/requirements.txt /workspace/backend/requirements.txt
+RUN pip install --no-cache-dir -r /workspace/backend/requirements.txt
+
+# ── Copy application code ─────────────────────────────────────────────────────
+# AI core (project root Python modules)
+COPY emotion_analyzer.py emotion_predictor.py empathetic_responder.py \
+     wellness_buddy.py agent_pipeline.py pattern_tracker.py \
+     alert_system.py conversation_handler.py user_profile.py \
+     data_store.py clinical_indicators.py intervention_engine.py \
+     risk_escalation.py prediction_agent.py language_handler.py \
+     evaluation_framework.py explainability.py config.py \
+     session_manager.py auth_manager.py \
+     /workspace/
+
+COPY models/ /workspace/models/
+COPY datasets/ /workspace/datasets/
+COPY evaluation/ /workspace/evaluation/
+
+# Backend app
+COPY backend/ /workspace/backend/
+
+WORKDIR /workspace/backend
+
+# ── Runtime ───────────────────────────────────────────────────────────────────
+EXPOSE 8000
+
+ENV PYTHONPATH=/workspace
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
