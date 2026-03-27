@@ -63,3 +63,10 @@ plots/*.html
 
 # Session data logs
 *_session_data.json
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/playwright-report/
+frontend/test-results/
+frontend/tsconfig.tsbuildinfo
