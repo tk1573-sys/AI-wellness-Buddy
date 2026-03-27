@@ -67,6 +67,7 @@ def create_app() -> FastAPI:
         ),
         docs_url="/docs",
         redoc_url="/redoc",
+        openapi_url="/openapi.json",
         lifespan=lifespan,
     )
 
@@ -80,7 +81,7 @@ def create_app() -> FastAPI:
     # ------------------------------------------------------------------ #
     # Security headers
     # ------------------------------------------------------------------ #
-    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware, env=settings.ENV)
 
     # ------------------------------------------------------------------ #
     # CORS
