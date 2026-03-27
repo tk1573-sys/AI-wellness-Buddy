@@ -37,3 +37,6 @@ class User(Base):
     emotion_logs: Mapped[list["EmotionLog"]] = relationship(  # noqa: F821
         back_populates="user", cascade="all, delete-orphan", lazy="select"
     )
+    profile: Mapped["UserProfile | None"] = relationship(  # noqa: F821
+        back_populates="user", cascade="all, delete-orphan", lazy="select", uselist=False
+    )

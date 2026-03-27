@@ -1,5 +1,5 @@
 /**
- * ChatBubble — renders a single chat message with emotion badge.
+ * ChatBubble — renders a single chat message with emotion badge and confidence score.
  */
 
 import { clsx } from "clsx";
@@ -56,15 +56,24 @@ export function ChatBubble({
             "rounded-2xl px-4 py-3 text-sm leading-relaxed",
             isUser
               ? "bg-brand-600 text-white rounded-tr-sm"
+              : isHighRisk
+              ? "bg-red-900/30 border border-red-500/50 text-gray-100 rounded-tl-sm backdrop-blur-sm"
               : "bg-glass border border-glass-border text-gray-100 rounded-tl-sm backdrop-blur-sm"
           )}
         >
           {content}
         </div>
 
-        {/* Emotion badge (assistant only) */}
+        {/* Emotion badge + confidence (assistant only) */}
         {!isUser && emotion && (
-          <EmotionBadge emotion={emotion} confidence={confidence} size="sm" />
+          <div className="flex items-center gap-2">
+            <EmotionBadge emotion={emotion} confidence={confidence} size="sm" />
+            {confidence !== undefined && (
+              <span className="text-xs text-gray-500">
+                {Math.round(confidence * 100)}% confidence
+              </span>
+            )}
+          </div>
         )}
 
         {/* High-risk alert */}

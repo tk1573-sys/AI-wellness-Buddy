@@ -1,8 +1,9 @@
 /**
  * Chat API utilities.
  *
- * Wraps the backend /api/v1/chat endpoints.  Every request attaches the stored
- * JWT via the `token` query parameter that the backend expects.
+ * Wraps the backend /api/v1/chat, /api/v1/profile, and /api/v1/dashboard
+ * endpoints. Every request attaches the stored JWT via the `token` query
+ * parameter that the backend expects.
  */
 
 import axios from "axios";
@@ -31,6 +32,49 @@ export interface ChatResponse {
   scores?: Array<Record<string, unknown>>;
 }
 
+export interface UserProfile {
+  id?: number;
+  user_id?: number;
+  age?: number | null;
+  gender?: string | null;
+  occupation?: string | null;
+  stress_level?: number | null;
+  sleep_pattern?: string | null;
+  triggers?: Record<string, boolean> | null;
+  personality_type?: string | null;
+  baseline_emotion?: string | null;
+  exercise_frequency?: string | null;
+  social_support?: string | null;
+  coping_strategies?: string | null;
+}
+
+export interface EmotionPoint {
+  timestamp: string;
+  emotion: string;
+  confidence: number;
+  is_high_risk: boolean;
+}
+
+export interface EmotionDistribution {
+  emotion: string;
+  count: number;
+}
+
+export interface RiskAlert {
+  level: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface DashboardData {
+  emotion_trend: EmotionPoint[];
+  emotion_distribution: EmotionDistribution[];
+  risk_alerts: RiskAlert[];
+  mood_trend: string;
+  escalation_detected: boolean;
+  total_sessions: number;
+}
+
 // -------------------------------------------------------------------------- //
 // Helper — builds an axios instance with the token attached
 // -------------------------------------------------------------------------- //
@@ -44,16 +88,9 @@ function authedParams(): { token: string } {
 }
 
 // -------------------------------------------------------------------------- //
-// API functions
+// Chat API functions
 // -------------------------------------------------------------------------- //
 
-/**
- * Sends a user message to the AI Wellness Buddy.
- *
- * @param message   The user's text.
- * @param sessionId Optional existing session ID to continue a conversation.
- * @returns         The assistant's response with emotion analysis.
- */
 export async function sendMessage(
   message: string,
   sessionId?: string,
@@ -70,11 +107,6 @@ export async function sendMessage(
   return data;
 }
 
-/**
- * Fetches the authenticated user's chat history.
- *
- * @returns Array of chat messages ordered oldest-first.
- */
 export async function getChatHistory(): Promise<ChatMessage[]> {
   const params = authedParams();
   const { data } = await axios.get<ChatMessage[]>(
@@ -83,6 +115,52 @@ export async function getChatHistory(): Promise<ChatMessage[]> {
       params,
       headers: { Authorization: `Bearer ${params.token}` },
     },
+  );
+  return data;
+}
+
+// -------------------------------------------------------------------------- //
+// Profile API functions
+// -------------------------------------------------------------------------- //
+
+export async function getProfile(): Promise<UserProfile> {
+  const params = authedParams();
+  const { data } = await axios.get<UserProfile>(
+    `${API_URL}/api/v1/profile`,
+    { params, headers: { Authorization: `Bearer ${params.token}` } },
+  );
+  return data;
+}
+
+export async function createProfile(profile: UserProfile): Promise<UserProfile> {
+  const params = authedParams();
+  const { data } = await axios.post<UserProfile>(
+    `${API_URL}/api/v1/profile`,
+    profile,
+    { params, headers: { Authorization: `Bearer ${params.token}` } },
+  );
+  return data;
+}
+
+export async function updateProfile(profile: UserProfile): Promise<UserProfile> {
+  const params = authedParams();
+  const { data } = await axios.put<UserProfile>(
+    `${API_URL}/api/v1/profile`,
+    profile,
+    { params, headers: { Authorization: `Bearer ${params.token}` } },
+  );
+  return data;
+}
+
+// -------------------------------------------------------------------------- //
+// Dashboard API functions
+// -------------------------------------------------------------------------- //
+
+export async function getDashboard(): Promise<DashboardData> {
+  const params = authedParams();
+  const { data } = await axios.get<DashboardData>(
+    `${API_URL}/api/v1/dashboard`,
+    { params, headers: { Authorization: `Bearer ${params.token}` } },
   );
   return data;
 }

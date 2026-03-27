@@ -1,0 +1,329 @@
+/**
+ * Onboarding — multi-step profile setup shown after signup.
+ *
+ * Step 1: Basic Info
+ * Step 2: Emotional History
+ * Step 3: Trigger Identification
+ * Step 4: Lifestyle Habits
+ */
+
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import { clsx } from "clsx";
+import { createProfile, UserProfile } from "@/lib/api";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+
+const SLEEP_OPTIONS = ["< 5 hours", "5-6 hours", "6-7 hours", "7-8 hours", "> 8 hours"];
+const EXERCISE_OPTIONS = ["Never", "1-2x/week", "3-4x/week", "5+/week", "Daily"];
+const SUPPORT_OPTIONS = ["None", "Low", "Moderate", "Strong"];
+const PERSONALITY_OPTIONS = ["Introvert", "Extrovert", "Ambivert"];
+const BASELINE_EMOTIONS = ["joy", "neutral", "sadness", "anxiety", "anger", "fear", "stress"];
+const TRIGGER_KEYS = ["work", "relationships", "finances", "health", "social", "academic", "family"];
+
+const STEPS = [
+  { title: "Basic Info", description: "Tell us a bit about yourself" },
+  { title: "Emotional History", description: "Help us understand your emotional baseline" },
+  { title: "Trigger Identification", description: "What tends to affect your mood?" },
+  { title: "Lifestyle Habits", description: "Your daily habits shape your wellbeing" },
+];
+
+const EMPTY: UserProfile = {
+  age: undefined,
+  gender: "",
+  occupation: "",
+  stress_level: 5,
+  sleep_pattern: "",
+  triggers: {},
+  personality_type: "",
+  baseline_emotion: "",
+  exercise_frequency: "",
+  social_support: "",
+  coping_strategies: "",
+};
+
+export default function OnboardingPage() {
+  const router = useRouter();
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState<UserProfile>(EMPTY);
+  const [saving, setSaving] = useState(false);
+
+  const set = (field: keyof UserProfile, value: unknown) =>
+    setForm((prev) => ({ ...prev, [field]: value }));
+
+  const toggleTrigger = (key: string) =>
+    setForm((prev) => ({
+      ...prev,
+      triggers: { ...prev.triggers, [key]: !prev.triggers?.[key] },
+    }));
+
+  const handleNext = () => {
+    if (step < STEPS.length - 1) setStep((s) => s + 1);
+  };
+  const handleBack = () => {
+    if (step > 0) setStep((s) => s - 1);
+  };
+
+  const handleFinish = async () => {
+    setSaving(true);
+    try {
+      await createProfile(form);
+      toast.success("Profile saved! Welcome 🌟");
+      router.replace("/chat");
+    } catch {
+      toast.error("Failed to save profile. You can update it later in Settings.");
+      router.replace("/chat");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSkip = () => {
+    router.replace("/chat");
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
+      {/* Background blobs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute top-0 left-1/4 w-96 h-96 rounded-full bg-brand-600/10 blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full bg-purple-600/10 blur-3xl" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-lg">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <span className="text-5xl">🌟</span>
+          <h1 className="text-2xl font-bold text-gray-100 mt-3">Set Up Your Profile</h1>
+          <p className="text-gray-400 text-sm mt-1">
+            Help us personalize your wellness experience
+          </p>
+        </div>
+
+        {/* Progress indicator */}
+        <div className="flex items-center gap-2 mb-6">
+          {STEPS.map((s, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <div
+                className={clsx(
+                  "h-1.5 w-full rounded-full transition-colors",
+                  i <= step ? "bg-brand-500" : "bg-gray-700"
+                )}
+              />
+              <span className={clsx("text-[10px] hidden sm:block", i === step ? "text-brand-400" : "text-gray-600")}>
+                {s.title}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Card */}
+        <div className="rounded-2xl border border-glass-border bg-glass p-6 backdrop-blur-sm space-y-5">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-100">{STEPS[step].title}</h2>
+            <p className="text-xs text-gray-400">{STEPS[step].description}</p>
+          </div>
+
+          {/* Step 1: Basic Info */}
+          {step === 0 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Age"
+                  type="number"
+                  value={form.age ?? ""}
+                  onChange={(e) => set("age", e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="e.g. 25"
+                />
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Gender</label>
+                  <select
+                    value={form.gender ?? ""}
+                    onChange={(e) => set("gender", e.target.value)}
+                    className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value="">Select</option>
+                    {["Male", "Female", "Non-binary", "Prefer not to say"].map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <Input
+                label="Occupation"
+                value={form.occupation ?? ""}
+                onChange={(e) => set("occupation", e.target.value)}
+                placeholder="e.g. Software Engineer, Student…"
+              />
+            </div>
+          )}
+
+          {/* Step 2: Emotional History */}
+          {step === 1 && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Usual Emotional State</label>
+                <select
+                  value={form.baseline_emotion ?? ""}
+                  onChange={(e) => set("baseline_emotion", e.target.value)}
+                  className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option value="">Select your baseline emotion</option>
+                  {BASELINE_EMOTIONS.map((e) => (
+                    <option key={e} value={e}>{e.charAt(0).toUpperCase() + e.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-2">
+                  Current Stress Level: <span className="text-gray-200">{form.stress_level}/10</span>
+                </label>
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  value={form.stress_level ?? 5}
+                  onChange={(e) => set("stress_level", Number(e.target.value))}
+                  className="w-full accent-brand-500"
+                />
+                <div className="flex justify-between text-xs text-gray-600 mt-1">
+                  <span>Very Low (1)</span><span>Very High (10)</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Personality Type</label>
+                <div className="flex gap-2">
+                  {PERSONALITY_OPTIONS.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => set("personality_type", p)}
+                      className={clsx(
+                        "flex-1 py-2 rounded-xl text-sm border transition-colors",
+                        form.personality_type === p
+                          ? "bg-brand-600/30 border-brand-500/50 text-brand-300"
+                          : "border-glass-border text-gray-400 hover:text-gray-200"
+                      )}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Triggers */}
+          {step === 2 && (
+            <div className="space-y-4">
+              <p className="text-xs text-gray-500">Select all that apply to you.</p>
+              <div className="flex flex-wrap gap-2">
+                {TRIGGER_KEYS.map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => toggleTrigger(key)}
+                    className={clsx(
+                      "px-4 py-2 rounded-full text-sm border transition-colors",
+                      form.triggers?.[key]
+                        ? "bg-brand-600/30 border-brand-500/50 text-brand-300"
+                        : "border-glass-border text-gray-400 hover:text-gray-200"
+                    )}
+                  >
+                    {key.charAt(0).toUpperCase() + key.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Lifestyle */}
+          {step === 3 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Sleep Pattern</label>
+                  <select
+                    value={form.sleep_pattern ?? ""}
+                    onChange={(e) => set("sleep_pattern", e.target.value)}
+                    className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value="">Select</option>
+                    {SLEEP_OPTIONS.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Exercise</label>
+                  <select
+                    value={form.exercise_frequency ?? ""}
+                    onChange={(e) => set("exercise_frequency", e.target.value)}
+                    className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value="">Select</option>
+                    {EXERCISE_OPTIONS.map((ex) => (
+                      <option key={ex} value={ex}>{ex}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Social Support Level</label>
+                <select
+                  value={form.social_support ?? ""}
+                  onChange={(e) => set("social_support", e.target.value)}
+                  className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option value="">Select</option>
+                  {SUPPORT_OPTIONS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Coping Strategies</label>
+                <textarea
+                  value={form.coping_strategies ?? ""}
+                  onChange={(e) => set("coping_strategies", e.target.value)}
+                  rows={3}
+                  placeholder="e.g. meditation, journaling, exercise…"
+                  className="w-full resize-none rounded-xl border border-glass-border bg-white/5 px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex gap-2">
+              {step > 0 && (
+                <Button variant="ghost" onClick={handleBack}>
+                  ← Back
+                </Button>
+              )}
+              <Button variant="ghost" onClick={handleSkip} className="text-gray-500">
+                Skip for now
+              </Button>
+            </div>
+
+            {step < STEPS.length - 1 ? (
+              <Button onClick={handleNext}>
+                Next →
+              </Button>
+            ) : (
+              <Button onClick={handleFinish} loading={saving}>
+                Finish Setup ✓
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <p className="text-center text-xs text-gray-600 mt-4">
+          Step {step + 1} of {STEPS.length}
+        </p>
+      </div>
+    </div>
+  );
+}
