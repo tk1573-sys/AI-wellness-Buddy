@@ -30,7 +30,7 @@ from app.database import init_db
 from app.limiter import limiter
 from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
-from app.routers import auth, chat, health, predict
+from app.routers import auth, chat, health, predict, profile, dashboard
 
 settings = get_settings()
 
@@ -114,6 +114,8 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix=settings.API_PREFIX)
     app.include_router(predict.router, prefix=settings.API_PREFIX)
     app.include_router(chat.router, prefix=settings.API_PREFIX)
+    app.include_router(profile.router, prefix=settings.API_PREFIX)
+    app.include_router(dashboard.router, prefix=settings.API_PREFIX)
 
     return app
 

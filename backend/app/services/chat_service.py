@@ -6,6 +6,7 @@ import logging
 import secrets
 import sys
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat import ChatHistory
@@ -25,6 +26,8 @@ logger = logging.getLogger(__name__)
 # api_service.py, but now keyed by database user_id instead of arbitrary str).
 _pipelines: dict[int, object] = {}
 
+_RECENT_EMOTION_LIMIT = 20
+
 
 def _get_pipeline(user_id: int):
     """Lazily initialise a WellnessAgentPipeline for the given user."""
@@ -32,6 +35,74 @@ def _get_pipeline(user_id: int):
         from agent_pipeline import WellnessAgentPipeline  # noqa: PLC0415
         _pipelines[user_id] = WellnessAgentPipeline()
     return _pipelines[user_id]
+
+
+async def _load_profile_context(db: AsyncSession, user_id: int) -> dict:
+    """Load the user profile and return a context dict for the pipeline."""
+    from app.models.profile import UserProfile  # noqa: PLC0415
+
+    result = await db.execute(
+        select(UserProfile).where(UserProfile.user_id == user_id)
+    )
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        return {}
+
+    ctx: dict = {}
+    if profile.age:
+        ctx["age"] = profile.age
+    if profile.gender:
+        ctx["gender"] = profile.gender
+    if profile.occupation:
+        ctx["occupation"] = profile.occupation
+    if profile.stress_level:
+        ctx["stress_level"] = profile.stress_level
+    if profile.sleep_pattern:
+        ctx["sleep_pattern"] = profile.sleep_pattern
+    if profile.triggers:
+        ctx["triggers"] = profile.triggers
+    if profile.personality_type:
+        ctx["personality_type"] = profile.personality_type
+    if profile.baseline_emotion:
+        ctx["baseline_emotion"] = profile.baseline_emotion
+    return ctx
+
+
+async def _load_recent_emotions(db: AsyncSession, user_id: int) -> list[str]:
+    """Return the last N primary emotions for the user."""
+    result = await db.execute(
+        select(EmotionLog.primary_emotion)
+        .where(EmotionLog.user_id == user_id)
+        .order_by(EmotionLog.created_at.desc())
+        .limit(_RECENT_EMOTION_LIMIT)
+    )
+    emotions = [row[0] for row in result.fetchall()]
+    return list(reversed(emotions))
+
+
+def _build_personalized_context(
+    user_id: int,
+    profile_ctx: dict,
+    recent_emotions: list[str],
+) -> dict:
+    """Merge profile and emotion history into a pipeline context dict."""
+    ctx: dict = {"user_name": str(user_id)}
+    ctx.update(profile_ctx)
+
+    if recent_emotions:
+        ctx["recent_emotions"] = recent_emotions
+        # Detect escalation: 3+ consecutive negatives
+        NEGATIVE = {"sadness", "anger", "fear", "anxiety", "crisis", "stress"}
+        consec = 0
+        for e in reversed(recent_emotions):
+            if e in NEGATIVE:
+                consec += 1
+            else:
+                break
+        ctx["consecutive_negatives"] = consec
+        ctx["escalation_risk"] = consec >= 3
+
+    return ctx
 
 
 async def handle_chat(
@@ -44,9 +115,14 @@ async def handle_chat(
     session_id = req.session_id or secrets.token_hex(16)
     pipeline = _get_pipeline(user_id)
 
+    # Load user context (profile + emotion history)
+    profile_ctx = await _load_profile_context(db, user_id)
+    recent_emotions = await _load_recent_emotions(db, user_id)
+    context = _build_personalized_context(user_id, profile_ctx, recent_emotions)
+
     # Run full agent pipeline (emotion → pattern → response)
     try:
-        result = pipeline.process_turn(req.message, context={"user_name": str(user_id)})
+        result = pipeline.process_turn(req.message, context=context)
     except Exception:
         logger.exception("Pipeline error for user_id=%d", user_id)
         result = {

@@ -46,7 +46,7 @@ export default function SignupPage() {
     try {
       await signupUser(email, username, password);
       toast.success("Account created! Welcome 🎉");
-      router.push("/chat");
+      router.push("/onboarding");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Signup failed.");
     } finally {

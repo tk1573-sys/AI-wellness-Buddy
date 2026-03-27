@@ -14,10 +14,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { LogOut, Send } from "lucide-react";
+import { Send } from "lucide-react";
 
 import { sendMessage, getChatHistory, ChatMessage, ChatResponse } from "@/lib/api";
-import { isAuthenticated, logoutUser } from "@/lib/auth";
+import { isAuthenticated } from "@/lib/auth";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { Button } from "@/components/ui/Button";
@@ -117,33 +117,13 @@ export default function ChatPage() {
     }
   };
 
-  const handleLogout = () => {
-    logoutUser();
-    router.replace("/login");
-  };
-
   return (
-    <div className="flex flex-col h-screen bg-gray-950">
+    <div className="flex flex-col h-full bg-gray-950">
       {/* Background blobs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute top-0 left-1/4 w-80 h-80 rounded-full bg-brand-600/10 blur-3xl" />
         <div className="absolute bottom-0 right-1/4 w-80 h-80 rounded-full bg-purple-600/10 blur-3xl" />
       </div>
-
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between border-b border-glass-border bg-gray-950/80 backdrop-blur-sm px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🌟</span>
-          <div>
-            <h1 className="font-bold text-gray-100 leading-none">AI Wellness Buddy</h1>
-            <p className="text-xs text-gray-500">Your empathetic AI companion</p>
-          </div>
-        </div>
-        <Button variant="ghost" onClick={handleLogout} className="gap-1.5 text-xs">
-          <LogOut className="w-3.5 h-3.5" />
-          Sign Out
-        </Button>
-      </header>
 
       {/* Message area */}
       <main className="relative z-10 flex-1 overflow-y-auto px-4 py-6 space-y-5">
