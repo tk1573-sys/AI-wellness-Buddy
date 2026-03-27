@@ -4,6 +4,7 @@ AI Wellness Buddy — FastAPI Application
 Microservice architecture entry point.
 Exposes:
   GET  /health
+  GET  /metrics          (Prometheus)
   POST /api/v1/auth/signup
   POST /api/v1/auth/login
   GET  /api/v1/auth/me
@@ -15,14 +16,19 @@ Exposes:
 from __future__ import annotations
 
 import logging
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import get_settings
 from app.database import init_db
+from app.limiter import limiter
 from app.middleware.logging import RequestLoggingMiddleware
+from app.middleware.security import SecurityHeadersMiddleware
 from app.routers import auth, chat, health, predict
 
 settings = get_settings()
@@ -64,6 +70,18 @@ def create_app() -> FastAPI:
     )
 
     # ------------------------------------------------------------------ #
+    # Rate limiter state + error handler
+    # ------------------------------------------------------------------ #
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
+
+    # ------------------------------------------------------------------ #
+    # Security headers
+    # ------------------------------------------------------------------ #
+    app.add_middleware(SecurityHeadersMiddleware)
+
+    # ------------------------------------------------------------------ #
     # CORS
     # ------------------------------------------------------------------ #
     app.add_middleware(
@@ -80,6 +98,14 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLoggingMiddleware)
 
     # ------------------------------------------------------------------ #
+    # Prometheus metrics
+    # ------------------------------------------------------------------ #
+    Instrumentator(
+        should_group_status_codes=True,
+        excluded_handlers=["/health", "/metrics"],
+    ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+
+    # ------------------------------------------------------------------ #
     # Routers
     # ------------------------------------------------------------------ #
     app.include_router(health.router)
@@ -91,3 +117,4 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+

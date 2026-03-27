@@ -5,10 +5,14 @@ from __future__ import annotations
 import logging
 import time
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import get_db
+from app.limiter import limiter
 from app.models.emotion import EmotionLog
 from app.routers.auth import get_current_user
 from app.schemas.emotion import PredictRequest, PredictResponse
@@ -16,10 +20,13 @@ from app.services import emotion_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/predict", tags=["Predict"])
+settings = get_settings()
 
 
 @router.post("", response_model=PredictResponse)
+@limiter.limit(settings.RATE_LIMIT_PREDICT)
 async def predict(
+    request: Request,
     req: PredictRequest,
     token: str = "",
     db: AsyncSession = Depends(get_db),
@@ -62,3 +69,4 @@ async def predict(
             logger.warning("Could not persist emotion log (unauthenticated or DB error)")
 
     return result
+

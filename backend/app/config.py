@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------ #
+    # Rate limiting (slowapi / limits syntax)
+    # ------------------------------------------------------------------ #
+    RATELIMIT_ENABLED: bool = True
+    RATE_LIMIT_AUTH: str = "5/minute"      # signup + login
+    RATE_LIMIT_PREDICT: str = "30/minute"  # emotion prediction
+    RATE_LIMIT_CHAT: str = "20/minute"     # chat messages
+
+    # ------------------------------------------------------------------ #
     # Logging
     # ------------------------------------------------------------------ #
     LOG_LEVEL: str = "INFO"
