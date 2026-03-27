@@ -32,7 +32,9 @@ export async function loginUser(email: string, password: string): Promise<void> 
     `${API_URL}/api/v1/auth/login`,
     { email, password },
   );
-  localStorage.setItem(TOKEN_KEY, data.access_token);
+  if (typeof window !== "undefined") {
+    localStorage.setItem(TOKEN_KEY, data.access_token);
+  }
 }
 
 /**
@@ -48,7 +50,9 @@ export async function signupUser(
     `${API_URL}/api/v1/auth/signup`,
     { email, username, password },
   );
-  localStorage.setItem(TOKEN_KEY, data.access_token);
+  if (typeof window !== "undefined") {
+    localStorage.setItem(TOKEN_KEY, data.access_token);
+  }
 }
 
 /** Removes the stored token, effectively signing the user out. */

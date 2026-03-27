@@ -58,12 +58,13 @@ export async function sendMessage(
   message: string,
   sessionId?: string,
 ): Promise<ChatResponse> {
+  const params = authedParams();
   const { data } = await axios.post<ChatResponse>(
     `${API_URL}/api/v1/chat`,
     { message, session_id: sessionId ?? null },
     {
-      params: authedParams(),
-      headers: { Authorization: `Bearer ${getToken()}` },
+      params,
+      headers: { Authorization: `Bearer ${params.token}` },
     },
   );
   return data;
@@ -75,11 +76,12 @@ export async function sendMessage(
  * @returns Array of chat messages ordered oldest-first.
  */
 export async function getChatHistory(): Promise<ChatMessage[]> {
+  const params = authedParams();
   const { data } = await axios.get<ChatMessage[]>(
     `${API_URL}/api/v1/chat/history`,
     {
-      params: authedParams(),
-      headers: { Authorization: `Bearer ${getToken()}` },
+      params,
+      headers: { Authorization: `Bearer ${params.token}` },
     },
   );
   return data;
