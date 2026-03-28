@@ -11,6 +11,7 @@ Exposes:
   POST /api/v1/predict
   POST /api/v1/chat
   GET  /api/v1/chat/history
+  GET  /api/v1/analytics/research
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ from app.database import init_db
 from app.limiter import limiter
 from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
-from app.routers import auth, chat, health, predict, profile, dashboard
+from app.routers import analytics, auth, chat, health, predict, profile, dashboard
 
 settings = get_settings()
 
@@ -116,6 +117,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router, prefix=settings.API_PREFIX)
     app.include_router(profile.router, prefix=settings.API_PREFIX)
     app.include_router(dashboard.router, prefix=settings.API_PREFIX)
+    app.include_router(analytics.router, prefix=settings.API_PREFIX)
 
     return app
 

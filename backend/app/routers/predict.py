@@ -22,6 +22,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/predict", tags=["Predict"])
 settings = get_settings()
 
+# Weights for computing a composite risk_score from emotion probability distributions.
+# Crisis is weighted at 1.0 (fully high-risk); fear/anxiety/sadness/anger contribute less.
+_RISK_WEIGHTS: dict[str, float] = {
+    "crisis": 1.0,
+    "fear": 0.6,
+    "anxiety": 0.5,
+    "sadness": 0.3,
+    "anger": 0.3,
+}
+
 
 @router.post("", response_model=PredictResponse)
 @limiter.limit(settings.RATE_LIMIT_PREDICT)
@@ -55,6 +65,14 @@ async def predict(
     if token:
         try:
             user = await get_current_user(token, db)
+            all_scores_dict = {s.emotion: s.score for s in result.scores}
+            # risk_score: weighted sum of high-risk emotion probabilities, capped at 1.0
+            risk_score = min(
+                1.0,
+                sum(all_scores_dict.get(e, 0.0) * w for e, w in _RISK_WEIGHTS.items()),
+            )
+            # personalization_score: inverse of uncertainty (higher certainty = more personalized)
+            personalization_score = round(1.0 - result.uncertainty, 4)
             db.add(EmotionLog(
                 user_id=user.id,
                 input_text=req.text,
@@ -62,7 +80,9 @@ async def predict(
                 confidence=result.confidence,
                 uncertainty=result.uncertainty,
                 is_high_risk=result.is_high_risk,
-                all_scores={s.emotion: s.score for s in result.scores},
+                all_scores=all_scores_dict,
+                risk_score=round(risk_score, 4),
+                personalization_score=personalization_score,
             ))
         except Exception:
             # Persistence failure must not block the prediction response.

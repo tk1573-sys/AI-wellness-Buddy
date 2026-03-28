@@ -298,3 +298,127 @@ async def test_chat_history_returns_list(client, mocker):
     resp = await client.get("/api/v1/chat/history", params={"token": token})
     assert resp.status_code == 200
     assert isinstance(resp.json(), list)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Analytics — research endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def test_analytics_research_requires_auth(client):
+    """Missing / invalid token must return 401."""
+    resp = await client.get("/api/v1/analytics/research", params={"token": "bad-token"})
+    assert resp.status_code == 401
+
+
+async def test_analytics_research_empty_returns_schema(client):
+    """Endpoint works with zero emotion logs, returning empty arrays."""
+    await _signup(client, email="anon@example.com", username="anonuser")
+    token = (await _login(client, email="anon@example.com")).json()["access_token"]
+
+    resp = await client.get(
+        "/api/v1/analytics/research",
+        params={"token": token, "include_plots": "false"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total_sessions"] == 0
+    assert data["emotion_distribution"] == []
+    assert data["average_confidence"] == 0.0
+    assert data["average_personalization_score"] == 0.0
+    assert data["risk_trend"] == []
+    assert "research_summary" in data
+    assert "key_findings" in data["research_summary"]
+    assert "plot_data" in data
+
+
+async def test_analytics_research_with_emotion_logs(client, db_session):
+    """Endpoint returns correct metrics when emotion logs are present."""
+    from datetime import datetime, timezone
+
+    from app.models.emotion import EmotionLog
+    from app.models.user import User
+    from app.services.auth_service import hash_password
+
+    # Create a dedicated user directly in the DB
+    user = User(
+        email="researcher@example.com",
+        username="researcher",
+        hashed_password=hash_password("Passw0rd!"),
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.flush()
+
+    # Seed emotion logs with varied emotions and risk/personalization scores
+    emotions = ["joy", "sadness", "anxiety", "neutral", "crisis", "sadness", "joy", "anxiety"]
+    for i, emotion in enumerate(emotions):
+        log = EmotionLog(
+            user_id=user.id,
+            input_text=f"Sample text {i}",
+            primary_emotion=emotion,
+            confidence=0.6 + i * 0.03,
+            uncertainty=0.2,
+            is_high_risk=(emotion == "crisis"),
+            all_scores={emotion: 0.8, "neutral": 0.2},
+            risk_score=0.1 * (i + 1),
+            personalization_score=0.8,
+            created_at=datetime.now(timezone.utc),
+        )
+        db_session.add(log)
+    await db_session.commit()
+
+    # Login via HTTP to get a token
+    signup_resp = await client.post(
+        "/api/v1/auth/signup",
+        json={"email": "researcher@example.com", "username": "researcher", "password": "Passw0rd!"},
+    )
+    # User might already exist — accept both 201 and 409
+    assert signup_resp.status_code in (201, 409)
+    login_resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "researcher@example.com", "password": "Passw0rd!"},
+    )
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
+
+    resp = await client.get(
+        "/api/v1/analytics/research",
+        params={"token": token, "include_plots": "false"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+
+    # Structural checks
+    assert data["total_sessions"] >= 0
+    assert isinstance(data["emotion_distribution"], list)
+    assert isinstance(data["average_confidence"], float)
+    assert isinstance(data["average_personalization_score"], float)
+    assert isinstance(data["risk_trend"], list)
+    summary = data["research_summary"]
+    assert isinstance(summary["key_findings"], list)
+    assert isinstance(summary["insights"], list)
+    assert "generated_at" in summary
+
+
+async def test_analytics_research_summary_fields(client):
+    """Research summary contains all required IEEE-paper fields."""
+    await _signup(client, email="summ@example.com", username="summuser")
+    token = (await _login(client, email="summ@example.com")).json()["access_token"]
+
+    resp = await client.get(
+        "/api/v1/analytics/research",
+        params={"token": token, "include_plots": "false"},
+    )
+    assert resp.status_code == 200
+    summary = resp.json()["research_summary"]
+    required_fields = {
+        "total_sessions",
+        "key_findings",
+        "improvement_percentage",
+        "risk_detection_improvement",
+        "confidence_improvement",
+        "insights",
+        "generated_at",
+    }
+    for field in required_fields:
+        assert field in summary, f"Missing field: {field}"
