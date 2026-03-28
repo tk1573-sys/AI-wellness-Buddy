@@ -2,6 +2,7 @@
 User profile management for personalized support
 """
 
+import re
 from datetime import datetime
 import hashlib
 import secrets
@@ -181,6 +182,31 @@ class UserProfile:
         """Return the list of personal trigger words/phrases"""
         return self.profile_data.get('personal_triggers', [])
     
+    def get_trigger_context(self, message: str) -> dict:
+        """Return trigger metadata for *message*.
+
+        Scans *message* for any registered personal triggers and returns a
+        dict suitable for research logging and response personalisation.
+
+        Returns
+        -------
+        dict with keys:
+          - ``triggered`` (bool): True if any trigger was found.
+          - ``matched_triggers`` (list[str]): Subset of triggers present.
+          - ``total_triggers`` (int): Number of registered triggers.
+        """
+        text = message.lower()
+        triggers = self.get_personal_triggers()
+        matched = [
+            t for t in triggers
+            if re.search(r'\b' + re.escape(t) + r'\b', text)
+        ]
+        return {
+            'triggered': bool(matched),
+            'matched_triggers': matched,
+            'total_triggers': len(triggers),
+        }
+
     def get_trauma_history(self):
         """Return the list of recorded trauma entries"""
         return self.profile_data.get('trauma_history', [])

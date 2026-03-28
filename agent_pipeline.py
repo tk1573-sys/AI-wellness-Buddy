@@ -20,9 +20,11 @@ from clinical_indicators import (
     compute_clinical_indicators,
     compute_emotional_risk,
     compute_cdi,
+    detect_escalation,
     DISCLAIMER as CLINICAL_DISCLAIMER,
 )
 from intervention_engine import InterventionEngine
+from emotion_analytics import EmotionAnalyticsLogger
 
 
 class EmotionAnalysisAgent:
@@ -96,29 +98,57 @@ class WellnessAgentPipeline:
 
     ``process_turn()`` returns a research-ready structured dict that
     includes emotion data, pattern summary, forecasting, alerts,
-    clinical indicators, emotional risk index, and the response.
+    clinical indicators, emotional risk index, CDI, escalation, and
+    the response.  When a ``user_profile`` is supplied, personal triggers
+    and demographic context are wired into response generation so that the
+    personalization engine influences the output.
     """
 
-    def __init__(self):
+    def __init__(self, analytics_logger: EmotionAnalyticsLogger | None = None):
         self.emotion_agent = EmotionAnalysisAgent()
         self.pattern_agent = PatternTrackingAgent()
         self.forecast_agent = ForecastingAgent()
         self.alert_agent = AlertDecisionAgent()
         self.response_agent = ResponseGenerationAgent()
         self.intervention_agent = InterventionAgent()
+        self.analytics_logger = analytics_logger or EmotionAnalyticsLogger()
 
     def process_turn(self, user_message, user_profile=None, context=None):
+        # ── Determine pipeline mode for research logging ──────────────────
+        mode = "personalized" if user_profile is not None else "baseline"
+
+        # ── Build user context by merging profile context with caller context ─
+        # When a user_profile is provided we extract personal_triggers and
+        # demographic fields so that ConversationHandler can personalise its
+        # response.  The caller-supplied ``context`` (chat history list) is
+        # preserved under the 'context' key.
+        if user_profile is not None:
+            profile_ctx = user_profile.get_personal_context()
+            merged_context: dict = dict(profile_ctx)
+            merged_context["response_style"] = user_profile.get_response_style()
+            merged_context["user_name"] = user_profile.get_display_name()
+            if context is not None:
+                merged_context["context"] = context
+        else:
+            # Always use a dict so ConversationHandler receives a consistent type.
+            # Wrap a chat-history list under the 'context' key if provided.
+            if isinstance(context, list):
+                merged_context = {"context": context}
+            elif isinstance(context, dict):
+                merged_context = dict(context)
+            else:
+                merged_context = {}
+
         emotion_data = self.emotion_agent.run(user_message)
         pattern_summary = self.pattern_agent.run(emotion_data)
         sentiment_history = list(self.pattern_agent.tracker.sentiment_history)
         forecasting = self.forecast_agent.run(sentiment_history)
         alert = self.alert_agent.run(pattern_summary, user_profile=user_profile)
-        response = self.response_agent.run(user_message, emotion_data, context=context)
+        response = self.response_agent.run(user_message, emotion_data, context=merged_context)
 
         # Clinical indicators + weighted emotional risk index
-        clinical = compute_clinical_indicators(
-            list(self.pattern_agent.tracker.emotion_history)
-        )
+        emotion_history = list(self.pattern_agent.tracker.emotion_history)
+        clinical = compute_clinical_indicators(emotion_history)
         emotional_risk = compute_emotional_risk(
             emotion_data, clinical, pattern_summary,
         )
@@ -126,11 +156,26 @@ class WellnessAgentPipeline:
         # Clinical Distress Index (CDI)
         cdi = compute_cdi(emotion_data, clinical, pattern_summary)
 
+        # Escalation detection
+        escalation = detect_escalation(emotion_history)
+
         # Intervention recommendation
         interventions = self.intervention_agent.run(
             emotional_risk['risk_level'],
             emotion_data.get('primary_emotion', 'neutral'),
             clinical,
+        )
+
+        # ── Research evaluation logging ───────────────────────────────────
+        user_id = getattr(user_profile, 'user_id', None) if user_profile else None
+        self.analytics_logger.log_interaction(
+            user_message=user_message,
+            emotion_data=emotion_data,
+            cdi=cdi,
+            escalation=escalation,
+            response=response if isinstance(response, str) else "",
+            mode=mode,
+            user_id=user_id,
         )
 
         return {
@@ -140,6 +185,7 @@ class WellnessAgentPipeline:
             'risk_score': emotional_risk['risk_score'],
             'risk_level': emotional_risk['risk_level'],
             'cdi': cdi,
+            'escalation': escalation,
             'interventions': interventions,
             'patterns': pattern_summary,
             'forecasting': forecasting,
