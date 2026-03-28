@@ -158,7 +158,7 @@ def _log_prediction(
 
     # Determine response_type from concern_level or emotion
     concern = result.get("concern_level", "")
-    if concern in ("critical", "high") or predicted_emotion in _CRISIS_EMOTIONS:
+    if concern == "critical" or predicted_emotion in _CRISIS_EMOTIONS:
         response_type = "crisis"
     elif concern == "high" or predicted_emotion in _HIGH_EMOTIONS:
         response_type = "high"
