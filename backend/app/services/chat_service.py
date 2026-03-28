@@ -28,6 +28,12 @@ _pipelines: dict[int, object] = {}
 
 _RECENT_EMOTION_LIMIT = 20
 
+# Minimum personalization score for a response to be classified as "personalized".
+# A score of 0.4 requires at least a loaded profile (+0.30) plus some emotional
+# history (+0.30) or a partial trigger match, ensuring generic fallbacks are
+# clearly separated from profile-driven responses.
+_PERSONALIZATION_THRESHOLD = 0.4
+
 
 def _get_pipeline(user_id: int):
     """Lazily initialise a WellnessAgentPipeline for the given user."""
@@ -84,6 +90,7 @@ def _build_personalized_context(
     user_id: int,
     profile_ctx: dict,
     recent_emotions: list[str],
+    matched_triggers: list[str] | None = None,
 ) -> dict:
     """Merge profile and emotion history into a pipeline context dict."""
     ctx: dict = {"user_name": str(user_id)}
@@ -102,7 +109,63 @@ def _build_personalized_context(
         ctx["consecutive_negatives"] = consec
         ctx["escalation_risk"] = consec >= 3
 
+    # Inject empathetic trigger context so the pipeline can adjust tone
+    if matched_triggers:
+        ctx["active_triggers"] = matched_triggers
+        ctx["trigger_empathy_hint"] = (
+            "The user mentioned personal stressors they have previously identified "
+            f"({', '.join(matched_triggers)}). Respond with extra empathy and "
+            "acknowledge their specific challenges."
+        )
+
     return ctx
+
+
+def _match_triggers(message: str, triggers: dict | None) -> list[str]:
+    """Return the subset of active trigger keys that appear in *message*.
+
+    Only triggers whose value is truthy are considered active.  The check is
+    case-insensitive and matches whole or partial words (e.g. "work" matches
+    "overwork").
+    """
+    if not triggers:
+        return []
+
+    msg_lower = message.lower()
+    matched: list[str] = []
+    for key, active in triggers.items():
+        if active and key.lower() in msg_lower:
+            matched.append(key)
+    return matched
+
+
+def _compute_personalization_score(
+    profile_ctx: dict,
+    matched_triggers: list[str],
+    recent_emotions: list[str],
+) -> float:
+    """Compute a [0, 1] personalization score.
+
+    Breakdown:
+    - +0.30 if a non-empty profile is loaded
+    - +0.40 weighted by trigger match rate (matched / total active triggers)
+    - +0.30 if emotional history is available
+    """
+    score = 0.0
+
+    if profile_ctx:
+        score += 0.30
+
+    if profile_ctx.get("triggers"):
+        active = [k for k, v in profile_ctx["triggers"].items() if v]
+        if active:
+            hit_rate = len(matched_triggers) / len(active)
+            score += 0.40 * hit_rate
+
+    if recent_emotions:
+        score += 0.30
+
+    return round(min(score, 1.0), 4)
 
 
 async def handle_chat(
@@ -118,7 +181,22 @@ async def handle_chat(
     # Load user context (profile + emotion history)
     profile_ctx = await _load_profile_context(db, user_id)
     recent_emotions = await _load_recent_emotions(db, user_id)
-    context = _build_personalized_context(user_id, profile_ctx, recent_emotions)
+
+    # ── Personalization layer ─────────────────────────────────────────────
+    matched_triggers = _match_triggers(req.message, profile_ctx.get("triggers"))
+    personalization_score = _compute_personalization_score(
+        profile_ctx, matched_triggers, recent_emotions
+    )
+    response_type = "personalized" if personalization_score >= _PERSONALIZATION_THRESHOLD else "generic"
+
+    logger.info(
+        "personalization user_id=%d triggers_matched=%s score=%.4f type=%s",
+        user_id, matched_triggers, personalization_score, response_type,
+    )
+
+    context = _build_personalized_context(
+        user_id, profile_ctx, recent_emotions, matched_triggers
+    )
 
     # Run full agent pipeline (emotion → pattern → response)
     try:
@@ -187,8 +265,8 @@ async def handle_chat(
     ))
 
     logger.info(
-        "chat user_id=%d session=%s emotion=%s is_high_risk=%s",
-        user_id, session_id, primary, is_high_risk,
+        "chat user_id=%d session=%s emotion=%s is_high_risk=%s response_type=%s",
+        user_id, session_id, primary, is_high_risk, response_type,
     )
 
     return ChatResponse(
@@ -199,4 +277,7 @@ async def handle_chat(
         is_high_risk=is_high_risk,
         escalation_message=escalation_message,
         scores=scores,
+        personalization_score=personalization_score,
+        used_triggers=matched_triggers,
+        response_type=response_type,
     )
