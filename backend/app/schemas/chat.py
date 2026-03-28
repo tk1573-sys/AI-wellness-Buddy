@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -29,3 +31,7 @@ class ChatResponse(BaseModel):
     is_high_risk: bool
     escalation_message: str | None = None
     scores: list[dict] = []
+    # Personalization fields
+    personalization_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    used_triggers: list[str] = []
+    response_type: Literal["generic", "personalized"] = "generic"
