@@ -149,8 +149,8 @@ class VoiceHandler:
 def _strip_markdown(text: str) -> str:
     """Remove Markdown annotations and XAI lines from a response string."""
     import re
-    # Remove XAI annotation lines: _(Analysis: …)_
-    text = re.sub(r'_\(Analysis:.*?\)_', '', text, flags=re.DOTALL)
+    # Remove XAI annotation lines: _(Analysis: …)_  — uses non-backtracking pattern
+    text = re.sub(r'_\(Analysis:[^)]*\)_', '', text)
     # Remove bold **…**
     text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
     # Remove italic _…_ or *…*

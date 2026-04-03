@@ -5,6 +5,7 @@
  * Step 2: Emotional History
  * Step 3: Trigger Identification
  * Step 4: Lifestyle Habits
+ * Step 5: Personal Background (language, family, trauma, safety)
  */
 
 "use client";
@@ -16,6 +17,7 @@ import { clsx } from "clsx";
 import { createProfile, UserProfile } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { langLabel, type LanguagePreference } from "@/lib/i18n";
 
 const SLEEP_OPTIONS = ["< 5 hours", "5-6 hours", "6-7 hours", "7-8 hours", "> 8 hours"];
 const EXERCISE_OPTIONS = ["Never", "1-2x/week", "3-4x/week", "5+/week", "Daily"];
@@ -23,12 +25,18 @@ const SUPPORT_OPTIONS = ["None", "Low", "Moderate", "Strong"];
 const PERSONALITY_OPTIONS = ["Introvert", "Extrovert", "Ambivert"];
 const BASELINE_EMOTIONS = ["joy", "neutral", "sadness", "anxiety", "anger", "fear", "stress"];
 const TRIGGER_KEYS = ["work", "relationships", "finances", "health", "social", "academic", "family"];
+const MARITAL_OPTIONS = ["Single", "In a relationship", "Married", "Separated", "Divorced", "Widowed", "Prefer not to say"];
+const LIVING_OPTIONS = ["Alone", "With family", "With partner", "With roommates", "Dormitory", "Other"];
+const RESPONSIBILITIES_OPTIONS = ["None", "Parent", "Caregiver", "Both", "Other"];
+const RESPONSE_STYLE_OPTIONS = ["Formal", "Casual", "Empathetic", "Direct"];
+const LANG_OPTIONS: LanguagePreference[] = ["english", "tamil", "bilingual"];
 
 const STEPS = [
   { title: "Basic Info", description: "Tell us a bit about yourself" },
   { title: "Emotional History", description: "Help us understand your emotional baseline" },
   { title: "Trigger Identification", description: "What tends to affect your mood?" },
   { title: "Lifestyle Habits", description: "Your daily habits shape your wellbeing" },
+  { title: "Personal Background", description: "Optional context to personalize support" },
 ];
 
 const EMPTY: UserProfile = {
@@ -43,12 +51,24 @@ const EMPTY: UserProfile = {
   exercise_frequency: "",
   social_support: "",
   coping_strategies: "",
+  // Extended
+  marital_status: "",
+  living_situation: "",
+  family_responsibilities: "",
+  family_background: "",
+  trauma_history: [],
+  response_style: "",
+  safety_check: null,
+  personal_triggers: [],
+  language_preference: "english",
 };
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<UserProfile>(EMPTY);
+  const [traumaInput, setTraumaInput] = useState("");
+  const [personalTriggerInput, setPersonalTriggerInput] = useState("");
   const [saving, setSaving] = useState(false);
 
   const set = (field: keyof UserProfile, value: unknown) =>
@@ -70,7 +90,22 @@ export default function OnboardingPage() {
   const handleFinish = async () => {
     setSaving(true);
     try {
-      await createProfile(form);
+      // Merge trauma and personal trigger freetext inputs if any
+      const finalForm: UserProfile = {
+        ...form,
+        trauma_history:
+          traumaInput.trim()
+            ? [...(form.trauma_history ?? []), traumaInput.trim()]
+            : form.trauma_history,
+        personal_triggers:
+          personalTriggerInput.trim()
+            ? [
+                ...(form.personal_triggers ?? []),
+                ...personalTriggerInput.split(",").map((s) => s.trim()).filter(Boolean),
+              ]
+            : form.personal_triggers,
+      };
+      await createProfile(finalForm);
       toast.success("Profile saved! Welcome 🌟");
       router.replace("/chat");
     } catch {
@@ -289,6 +324,172 @@ export default function OnboardingPage() {
                   onChange={(e) => set("coping_strategies", e.target.value)}
                   rows={3}
                   placeholder="e.g. meditation, journaling, exercise…"
+                  className="w-full resize-none rounded-xl border border-glass-border bg-white/5 px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Step 5: Personal Background */}
+          {step === 4 && (
+            <div className="space-y-4">
+              {/* Language preference */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Preferred Language / மொழி</label>
+                <div className="flex gap-2">
+                  {LANG_OPTIONS.map((lang) => (
+                    <button
+                      key={lang}
+                      type="button"
+                      onClick={() => set("language_preference", lang)}
+                      className={clsx(
+                        "flex-1 py-2 rounded-xl text-xs border transition-colors",
+                        form.language_preference === lang
+                          ? "bg-brand-600/30 border-brand-500/50 text-brand-300"
+                          : "border-glass-border text-gray-400 hover:text-gray-200"
+                      )}
+                    >
+                      {langLabel(lang)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Response style */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Preferred Response Style</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {RESPONSE_STYLE_OPTIONS.map((style) => (
+                    <button
+                      key={style}
+                      type="button"
+                      onClick={() => set("response_style", style)}
+                      className={clsx(
+                        "py-2 rounded-xl text-xs border transition-colors",
+                        form.response_style === style
+                          ? "bg-brand-600/30 border-brand-500/50 text-brand-300"
+                          : "border-glass-border text-gray-400 hover:text-gray-200"
+                      )}
+                    >
+                      {style}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Marital + Living */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Relationship Status</label>
+                  <select
+                    value={form.marital_status ?? ""}
+                    onChange={(e) => set("marital_status", e.target.value)}
+                    className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-xs text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value="">Select (optional)</option>
+                    {MARITAL_OPTIONS.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Living Situation</label>
+                  <select
+                    value={form.living_situation ?? ""}
+                    onChange={(e) => set("living_situation", e.target.value)}
+                    className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-xs text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value="">Select (optional)</option>
+                    {LIVING_OPTIONS.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Family responsibilities */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Family Responsibilities</label>
+                <div className="flex flex-wrap gap-2">
+                  {RESPONSIBILITIES_OPTIONS.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => set("family_responsibilities", r)}
+                      className={clsx(
+                        "px-3 py-1.5 rounded-full text-xs border transition-colors",
+                        form.family_responsibilities === r
+                          ? "bg-brand-600/30 border-brand-500/50 text-brand-300"
+                          : "border-glass-border text-gray-400 hover:text-gray-200"
+                      )}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Safety check */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-2">
+                  Do you feel safe with your family / guardians? (optional)
+                </label>
+                <div className="flex gap-3">
+                  {[
+                    { label: "Yes", value: true },
+                    { label: "No", value: false },
+                    { label: "Prefer not to say", value: null },
+                  ].map(({ label, value }) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => set("safety_check", value)}
+                      className={clsx(
+                        "flex-1 py-1.5 rounded-xl text-xs border transition-colors",
+                        form.safety_check === value
+                          ? value === false
+                            ? "bg-red-900/30 border-red-500/50 text-red-300"
+                            : "bg-brand-600/30 border-brand-500/50 text-brand-300"
+                          : "border-glass-border text-gray-400 hover:text-gray-200"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {form.safety_check === false && (
+                  <p className="text-xs text-amber-400 mt-2">
+                    🛡️ Your safety matters. If you&apos;re in an unsafe situation, please call{" "}
+                    <strong>988</strong> (Suicide &amp; Crisis Lifeline) or text <strong>HOME</strong>{" "}
+                    to <strong>741741</strong> (Crisis Text Line, 24/7).
+                  </p>
+                )}
+              </div>
+
+              {/* Personal triggers (free text) */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">
+                  Personal Triggers (optional, comma-separated)
+                </label>
+                <input
+                  type="text"
+                  value={personalTriggerInput}
+                  onChange={(e) => setPersonalTriggerInput(e.target.value)}
+                  placeholder="e.g. exam pressure, loneliness, night shifts…"
+                  className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+
+              {/* Trauma history */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">
+                  Any significant loss or trauma to be aware of? (optional)
+                </label>
+                <textarea
+                  value={traumaInput}
+                  onChange={(e) => setTraumaInput(e.target.value)}
+                  rows={2}
+                  placeholder="This is optional and confidential…"
                   className="w-full resize-none rounded-xl border border-glass-border bg-white/5 px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>

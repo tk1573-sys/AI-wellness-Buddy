@@ -12,6 +12,10 @@ Exposes:
   POST /api/v1/chat
   GET  /api/v1/chat/history
   GET  /api/v1/analytics/research
+  POST /api/v1/voice/transcribe
+  POST /api/v1/voice/tts
+  GET  /api/v1/weekly-report
+  GET  /api/v1/journey
 """
 
 from __future__ import annotations
@@ -31,7 +35,7 @@ from app.database import init_db
 from app.limiter import limiter
 from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
-from app.routers import analytics, auth, chat, health, predict, profile, dashboard
+from app.routers import analytics, auth, chat, health, predict, profile, dashboard, voice, weekly_report, journey
 
 settings = get_settings()
 
@@ -118,6 +122,9 @@ def create_app() -> FastAPI:
     app.include_router(profile.router, prefix=settings.API_PREFIX)
     app.include_router(dashboard.router, prefix=settings.API_PREFIX)
     app.include_router(analytics.router, prefix=settings.API_PREFIX)
+    app.include_router(voice.router, prefix=settings.API_PREFIX)
+    app.include_router(weekly_report.router, prefix=settings.API_PREFIX)
+    app.include_router(journey.router, prefix=settings.API_PREFIX)
 
     return app
 
