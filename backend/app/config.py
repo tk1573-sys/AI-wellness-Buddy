@@ -8,7 +8,6 @@ secrets never appear in source code.
 
 from __future__ import annotations
 
-import secrets
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -34,7 +33,7 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Security / JWT
     # ------------------------------------------------------------------ #
-    SECRET_KEY: str = secrets.token_hex(32)
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
