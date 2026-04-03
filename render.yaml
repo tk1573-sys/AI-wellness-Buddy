@@ -1,0 +1,74 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# AI Wellness Buddy — Render deployment configuration
+#
+# Deploy with: connect this repo to Render and point it at this file.
+# Render dashboard → New → Blueprint → select this repository.
+#
+# Production environment variables that must be set manually in the
+# Render dashboard (marked `sync: false` so they are never stored in Git):
+#
+#   SECRET_KEY                   — JWT signing secret (generate with:
+#                                  python -c "import secrets; print(secrets.token_hex(32))")
+#   ALLOWED_ORIGINS              — JSON array of allowed CORS origins, e.g.
+#                                  ["https://your-app.vercel.app"]
+#   ACCESS_TOKEN_EXPIRE_MINUTES  — (optional) default 60
+#   REFRESH_TOKEN_EXPIRE_DAYS    — (optional) default 7
+#   LOG_LEVEL                    — (optional) default INFO
+# ──────────────────────────────────────────────────────────────────────────────
+
+databases:
+  - name: ai-wellness-db
+    databaseName: wellness_db
+    user: wellness
+    plan: free
+
+services:
+  - type: web
+    name: ai-wellness-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile.backend
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # ── Application ────────────────────────────────────────────────────────
+      - key: APP_NAME
+        value: "AI Wellness Buddy"
+      - key: ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+
+      # ── API ────────────────────────────────────────────────────────────────
+      - key: API_PREFIX
+        value: "/api/v1"
+
+      # ── Security (set these manually in the Render dashboard) ──────────────
+      - key: SECRET_KEY
+        sync: false           # ← set in Render dashboard, never stored in Git
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+
+      # ── CORS (set manually — must include your Vercel frontend URL) ─────────
+      - key: ALLOWED_ORIGINS
+        sync: false           # e.g. ["https://your-app.vercel.app"]
+
+      # ── Database (auto-populated from the Render PostgreSQL service) ────────
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-wellness-db
+          property: connectionString
+
+      # ── Safety ────────────────────────────────────────────────────────────
+      - key: CRISIS_CONFIDENCE_THRESHOLD
+        value: "0.6"
+      - key: HIGH_RISK_ESCALATION_MESSAGE
+        value: "I'm concerned about your wellbeing. Please reach out: 988 Suicide & Crisis Lifeline (call/text 988) or Crisis Text Line (text HOME to 741741)."
+
+      # ── Logging ───────────────────────────────────────────────────────────
+      - key: LOG_LEVEL
+        value: INFO
