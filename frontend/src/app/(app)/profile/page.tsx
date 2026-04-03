@@ -11,6 +11,8 @@ import { getProfile, updateProfile, UserProfile } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { TriggerHistory } from "@/components/dashboard/TriggerHistory";
+import { langLabel, type LanguagePreference } from "@/lib/i18n";
 
 const SLEEP_OPTIONS = ["< 5 hours", "5-6 hours", "6-7 hours", "7-8 hours", "> 8 hours"];
 const EXERCISE_OPTIONS = ["Never", "1-2x/week", "3-4x/week", "5+/week", "Daily"];
@@ -18,6 +20,11 @@ const SUPPORT_OPTIONS = ["None", "Low", "Moderate", "Strong"];
 const PERSONALITY_OPTIONS = ["Introvert", "Extrovert", "Ambivert"];
 const BASELINE_EMOTIONS = ["joy", "neutral", "sadness", "anxiety", "anger", "fear", "stress"];
 const TRIGGER_KEYS = ["work", "relationships", "finances", "health", "social", "academic", "family"];
+const MARITAL_OPTIONS = ["Single", "In a relationship", "Married", "Separated", "Divorced", "Widowed", "Prefer not to say"];
+const LIVING_OPTIONS = ["Alone", "With family", "With partner", "With roommates", "Dormitory", "Other"];
+const RESPONSIBILITIES_OPTIONS = ["None", "Parent", "Caregiver", "Both", "Other"];
+const RESPONSE_STYLE_OPTIONS = ["Formal", "Casual", "Empathetic", "Direct"];
+const LANG_OPTIONS: LanguagePreference[] = ["english", "tamil", "bilingual"];
 
 const EMPTY: UserProfile = {
   age: undefined,
@@ -31,6 +38,15 @@ const EMPTY: UserProfile = {
   exercise_frequency: "",
   social_support: "",
   coping_strategies: "",
+  marital_status: "",
+  living_situation: "",
+  family_responsibilities: "",
+  family_background: "",
+  trauma_history: [],
+  response_style: "",
+  safety_check: null,
+  personal_triggers: [],
+  language_preference: "english",
 };
 
 export default function ProfilePage() {
@@ -91,6 +107,27 @@ export default function ProfilePage() {
             This information helps personalize your wellness experience.
           </p>
         </div>
+
+        {/* Language Preference */}
+        <section className="rounded-xl border border-glass-border bg-glass p-5 backdrop-blur-sm space-y-4">
+          <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">Language / மொழி</h2>
+          <div className="flex gap-2">
+            {LANG_OPTIONS.map((lang) => (
+              <button
+                key={lang}
+                type="button"
+                onClick={() => set("language_preference", lang)}
+                className={`flex-1 py-2 rounded-xl text-xs border transition-colors ${
+                  form.language_preference === lang
+                    ? "bg-brand-600/30 border-brand-500/50 text-brand-300"
+                    : "border-glass-border text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                {langLabel(lang)}
+              </button>
+            ))}
+          </div>
+        </section>
 
         {/* Basic Info */}
         <section className="rounded-xl border border-glass-border bg-glass p-5 backdrop-blur-sm space-y-4">
@@ -193,6 +230,15 @@ export default function ProfilePage() {
           </div>
         </section>
 
+        {/* Personal Trigger History */}
+        <section className="rounded-xl border border-glass-border bg-glass p-5 backdrop-blur-sm space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">Personal Trigger Log</h2>
+            <p className="text-xs text-gray-500 mt-1">Free-text triggers captured from your sessions.</p>
+          </div>
+          <TriggerHistory profile={form} onUpdate={(updated) => setForm({ ...form, ...updated })} />
+        </section>
+
         {/* Lifestyle Habits */}
         <section className="rounded-xl border border-glass-border bg-glass p-5 backdrop-blur-sm space-y-4">
           <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">Lifestyle Habits</h2>
@@ -246,6 +292,119 @@ export default function ProfilePage() {
               placeholder="e.g. meditation, journaling, exercise, talking to friends…"
               className="w-full resize-none rounded-xl border border-glass-border bg-white/5 px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
+          </div>
+        </section>
+
+        {/* Extended Personal Background */}
+        <section className="rounded-xl border border-glass-border bg-glass p-5 backdrop-blur-sm space-y-4">
+          <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">Personal Background</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Relationship Status</label>
+              <select
+                value={form.marital_status ?? ""}
+                onChange={(e) => set("marital_status", e.target.value)}
+                className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-xs text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">Select (optional)</option>
+                {MARITAL_OPTIONS.map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Living Situation</label>
+              <select
+                value={form.living_situation ?? ""}
+                onChange={(e) => set("living_situation", e.target.value)}
+                className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-xs text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">Select (optional)</option>
+                {LIVING_OPTIONS.map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Family Responsibilities</label>
+            <div className="flex flex-wrap gap-2">
+              {RESPONSIBILITIES_OPTIONS.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => set("family_responsibilities", r)}
+                  className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                    form.family_responsibilities === r
+                      ? "bg-brand-600/30 border-brand-500/50 text-brand-300"
+                      : "border-glass-border text-gray-400 hover:text-gray-200"
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Preferred Response Style</label>
+            <div className="grid grid-cols-2 gap-2">
+              {RESPONSE_STYLE_OPTIONS.map((style) => (
+                <button
+                  key={style}
+                  type="button"
+                  onClick={() => set("response_style", style)}
+                  className={`py-1.5 rounded-xl text-xs border transition-colors ${
+                    form.response_style === style
+                      ? "bg-brand-600/30 border-brand-500/50 text-brand-300"
+                      : "border-glass-border text-gray-400 hover:text-gray-200"
+                  }`}
+                >
+                  {style}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Family Background (optional)</label>
+            <textarea
+              value={form.family_background ?? ""}
+              onChange={(e) => set("family_background", e.target.value)}
+              rows={2}
+              placeholder="Any family context that affects your wellbeing…"
+              className="w-full resize-none rounded-xl border border-glass-border bg-white/5 px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-2">
+              Do you feel safe with your family / guardians? (optional)
+            </label>
+            <div className="flex gap-3">
+              {[
+                { label: "Yes", value: true },
+                { label: "No", value: false },
+                { label: "Prefer not to say", value: null },
+              ].map(({ label, value }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => set("safety_check", value)}
+                  className={`flex-1 py-1.5 rounded-xl text-xs border transition-colors ${
+                    form.safety_check === value
+                      ? value === false
+                        ? "bg-red-900/30 border-red-500/50 text-red-300"
+                        : "bg-brand-600/30 border-brand-500/50 text-brand-300"
+                      : "border-glass-border text-gray-400 hover:text-gray-200"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {form.safety_check === false && (
+              <p className="text-xs text-amber-400 mt-2">
+                🛡️ Please reach out to a trusted person or crisis line if you ever feel unsafe.
+              </p>
+            )}
           </div>
         </section>
 

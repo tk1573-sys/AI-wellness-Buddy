@@ -46,6 +46,16 @@ export interface UserProfile {
   exercise_frequency?: string | null;
   social_support?: string | null;
   coping_strategies?: string | null;
+  // Extended personal history
+  marital_status?: string | null;
+  living_situation?: string | null;
+  family_responsibilities?: string | null;
+  family_background?: string | null;
+  trauma_history?: string[] | null;
+  response_style?: string | null;
+  safety_check?: boolean | null;
+  personal_triggers?: string[] | null;
+  language_preference?: string | null;
 }
 
 export interface EmotionPoint {
@@ -94,11 +104,12 @@ function authedParams(): { token: string } {
 export async function sendMessage(
   message: string,
   sessionId?: string,
+  languagePreference?: string,
 ): Promise<ChatResponse> {
   const params = authedParams();
   const { data } = await axios.post<ChatResponse>(
     `${API_URL}/api/v1/chat`,
-    { message, session_id: sessionId ?? null },
+    { message, session_id: sessionId ?? null, language_preference: languagePreference ?? "english" },
     {
       params,
       headers: { Authorization: `Bearer ${params.token}` },
@@ -163,4 +174,134 @@ export async function getDashboard(): Promise<DashboardData> {
     { params, headers: { Authorization: `Bearer ${params.token}` } },
   );
   return data;
+}
+
+// -------------------------------------------------------------------------- //
+// Journey API types and functions
+// -------------------------------------------------------------------------- //
+
+export interface JourneyPoint {
+  timestamp: string;
+  emotion: string;
+  confidence: number;
+  risk_score: number;
+  is_high_risk: boolean;
+}
+
+export interface HeatmapCell {
+  hour: number;
+  emotion: string;
+  intensity: number;
+}
+
+export interface MovingAveragePoint {
+  index: number;
+  avg_risk: number;
+}
+
+export interface JourneyData {
+  journey_points: JourneyPoint[];
+  heatmap: HeatmapCell[];
+  moving_average: MovingAveragePoint[];
+  latest_risk_score: number;
+  stability_index: number;
+  volatility_label: string;
+  cdi_score: number;
+  cdi_level: string;
+  total_points: number;
+}
+
+export async function getJourney(): Promise<JourneyData> {
+  const params = authedParams();
+  const { data } = await axios.get<JourneyData>(
+    `${API_URL}/api/v1/journey`,
+    { params, headers: { Authorization: `Bearer ${params.token}` } },
+  );
+  return data;
+}
+
+// -------------------------------------------------------------------------- //
+// Weekly Report API types and functions
+// -------------------------------------------------------------------------- //
+
+export interface DailyCount {
+  date: string;
+  count: number;
+  dominant_emotion: string;
+  avg_confidence: number;
+}
+
+export interface WeeklySessionSummary {
+  timestamp: string;
+  dominant_emotion: string;
+  confidence: number;
+  is_high_risk: boolean;
+}
+
+export interface WeeklyEmotionCount {
+  emotion: string;
+  count: number;
+}
+
+export interface WeeklyReportData {
+  summary_text: string;
+  daily_breakdown: DailyCount[];
+  session_summaries: WeeklySessionSummary[];
+  emotion_distribution: WeeklyEmotionCount[];
+  total_sessions: number;
+  high_risk_count: number;
+  dominant_emotion_week: string;
+  mood_direction: string;
+}
+
+export async function getWeeklyReport(): Promise<WeeklyReportData> {
+  const params = authedParams();
+  const { data } = await axios.get<WeeklyReportData>(
+    `${API_URL}/api/v1/weekly-report`,
+    { params, headers: { Authorization: `Bearer ${params.token}` } },
+  );
+  return data;
+}
+
+// -------------------------------------------------------------------------- //
+// Voice API functions
+// -------------------------------------------------------------------------- //
+
+export async function transcribeVoice(
+  audioBlob: Blob,
+  languagePreference: string = "english",
+): Promise<string> {
+  const params = authedParams();
+  const form = new FormData();
+  form.append("audio", audioBlob, "recording.wav");
+  form.append("language_preference", languagePreference);
+  const { data } = await axios.post<{ transcript: string; language_used: string }>(
+    `${API_URL}/api/v1/voice/transcribe`,
+    form,
+    {
+      params,
+      headers: {
+        Authorization: `Bearer ${params.token}`,
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+  return data.transcript;
+}
+
+export async function getTts(
+  text: string,
+  languagePreference: string = "english",
+): Promise<Blob> {
+  const params = authedParams();
+  const { data } = await axios.post(
+    `${API_URL}/api/v1/voice/tts`,
+    { text, language_preference: languagePreference },
+    {
+      params,
+      headers: { Authorization: `Bearer ${params.token}` },
+      responseType: "blob",
+    },
+  );
+  return data as Blob;
 }

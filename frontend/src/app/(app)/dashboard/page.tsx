@@ -18,8 +18,9 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { getDashboard, DashboardData } from "@/lib/api";
+import { getDashboard, getJourney, DashboardData, JourneyData } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
+import { MoodTrendExtended } from "@/components/dashboard/MoodTrendExtended";
 
 const EMOTION_COLORS: Record<string, string> = {
   joy: "#22c55e",
@@ -45,6 +46,7 @@ const MOOD_LABELS: Record<string, { label: string; color: string; emoji: string 
 export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [journeyData, setJourneyData] = useState<JourneyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,8 +55,14 @@ export default function DashboardPage() {
       router.replace("/login");
       return;
     }
-    getDashboard()
-      .then(setData)
+    Promise.all([
+      getDashboard(),
+      getJourney().catch(() => null),
+    ])
+      .then(([dash, journey]) => {
+        setData(dash);
+        setJourneyData(journey);
+      })
       .catch((e) => setError(e?.response?.data?.detail ?? "Failed to load dashboard."))
       .finally(() => setLoading(false));
   }, [router]);
@@ -213,6 +221,20 @@ export default function DashboardPage() {
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Extended analytics — stability, CDI, moving average */}
+      {journeyData && journeyData.total_points > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-gray-300">Extended Analytics</h2>
+          <MoodTrendExtended
+            movingAverage={journeyData.moving_average}
+            stabilityIndex={journeyData.stability_index}
+            volatilityLabel={journeyData.volatility_label}
+            cdiScore={journeyData.cdi_score}
+            cdiLevel={journeyData.cdi_level}
+          />
         </div>
       )}
     </div>

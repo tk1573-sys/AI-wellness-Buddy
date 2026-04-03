@@ -1,6 +1,6 @@
 /**
  * App layout with sidebar navigation.
- * Wraps Chat, Dashboard, and Profile pages.
+ * Wraps Chat, Dashboard, Journey, Weekly Report, and Profile pages.
  */
 
 "use client";
@@ -8,12 +8,15 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { clsx } from "clsx";
-import { LayoutDashboard, MessageSquare, User, LogOut } from "lucide-react";
+import { LayoutDashboard, MessageSquare, User, LogOut, TrendingUp, ClipboardList } from "lucide-react";
 import { isAuthenticated, logoutUser } from "@/lib/auth";
+import { CalmModeSidebar } from "@/components/wellness/CalmModeSidebar";
 
 const NAV_ITEMS = [
   { href: "/chat", label: "Chat", icon: MessageSquare },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/journey", label: "Journey", icon: TrendingUp },
+  { href: "/weekly-report", label: "Weekly Report", icon: ClipboardList },
   { href: "/profile", label: "Profile", icon: User },
 ];
 
@@ -46,7 +49,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-2 py-4 space-y-1">
+        <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
             <button
               key={href}
@@ -63,6 +66,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
           ))}
         </nav>
+
+        {/* Calm Mode sidebar controls */}
+        <CalmModeSidebar />
 
         {/* Logout */}
         <div className="px-2 py-4 border-t border-glass-border">
