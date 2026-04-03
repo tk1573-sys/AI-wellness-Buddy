@@ -34,8 +34,6 @@ services:
       # ── Application ────────────────────────────────────────────────────────
       - key: APP_NAME
         value: "AI Wellness Buddy"
-      - key: APP_VERSION
-        value: "2.0.0"
       - key: ENV
         value: production
       - key: DEBUG
