@@ -49,8 +49,12 @@ export function BreathingExercise({ language = "english" }: BreathingExercisePro
     intervalRef.current = setInterval(() => {
       setRemaining((prev) => {
         if (prev <= 1) {
-          setPhaseIndex((pi) => (pi + 1) % PHASES.length);
-          return PHASES[(phaseIndex + 1) % PHASES.length].duration;
+          setPhaseIndex((pi) => {
+            const nextIndex = (pi + 1) % PHASES.length;
+            setRemaining(PHASES[nextIndex].duration);
+            return nextIndex;
+          });
+          return prev; // will be overwritten by the setPhaseIndex callback above
         }
         return prev - 1;
       });

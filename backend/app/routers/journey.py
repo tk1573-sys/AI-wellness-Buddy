@@ -91,7 +91,7 @@ def _stability_index(risk_scores: list[float]) -> float:
     mean = sum(risk_scores) / len(risk_scores)
     variance = sum((x - mean) ** 2 for x in risk_scores) / len(risk_scores)
     std = math.sqrt(variance)
-    # Normalise: std of 0.5 → stability 0; std of 0 → stability 1
+    # Normalize: std of 0.5 → stability 0; std of 0 → stability 1
     return round(max(0.0, 1.0 - std * 2), 4)
 
 

@@ -459,7 +459,9 @@ export default function OnboardingPage() {
                 </div>
                 {form.safety_check === false && (
                   <p className="text-xs text-amber-400 mt-2">
-                    🛡️ Your safety matters. This information will be used to provide additional support resources.
+                    🛡️ Your safety matters. If you&apos;re in an unsafe situation, please call{" "}
+                    <strong>988</strong> (Suicide &amp; Crisis Lifeline) or text <strong>HOME</strong>{" "}
+                    to <strong>741741</strong> (Crisis Text Line, 24/7).
                   </p>
                 )}
               </div>

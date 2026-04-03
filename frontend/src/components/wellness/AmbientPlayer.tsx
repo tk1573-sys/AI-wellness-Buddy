@@ -54,7 +54,7 @@ function createAmbient(
     const carrier = addOsc(80, "sine", 0.4);
     const lfo = ctx.createOscillator();
     const lfoGain = ctx.createGain();
-    lfo.frequency.value = 0.1;    // 0.1 Hz → 10-second wave pulse
+    lfo.frequency.value = 0.1;    // 0.1 Hz (10-second period) → slow wave pulse
     lfoGain.gain.value = 0.3;
     lfo.connect(lfoGain);
     lfoGain.connect((carrier as OscillatorNode & { frequency: AudioParam }).frequency);

@@ -27,7 +27,7 @@ import { VoiceRecorder } from "@/components/chat/VoiceRecorder";
 import { TtsPlayer } from "@/components/chat/TtsPlayer";
 import { BreathingExercise } from "@/components/wellness/BreathingExercise";
 import { Button } from "@/components/ui/Button";
-import { t, langLabel, type LanguagePreference } from "@/lib/i18n";
+import { t, langLabel, langShortLabel, type LanguagePreference } from "@/lib/i18n";
 
 interface Message {
   role: "user" | "assistant";
@@ -166,8 +166,7 @@ export default function ChatPage() {
       </div>
 
       {/* Header bar — dominant emotion flag + language badge */}
-      {(dominantEmotion || true) && (
-        <div className="relative z-10 flex items-center justify-between px-4 py-2 border-b border-glass-border bg-gray-900/60 backdrop-blur-sm">
+      <div className="relative z-10 flex items-center justify-between px-4 py-2 border-b border-glass-border bg-gray-900/60 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             {dominantEmotion && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-glass-border text-xs text-gray-300">
@@ -187,7 +186,7 @@ export default function ChatPage() {
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-glass-border text-xs text-gray-400 hover:text-gray-100 hover:bg-white/5 transition-colors"
             >
               <Globe className="w-3 h-3" />
-              {t("chat.language.label", language)}: <span className="text-brand-400">{langLabel(language).split(" ")[0]}</span>
+              {t("chat.language.label", language)}: <span className="text-brand-400">{langShortLabel(language)}</span>
             </button>
             {showLangMenu && (
               <div className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-glass-border bg-gray-900 shadow-xl z-20 py-1">
@@ -209,7 +208,6 @@ export default function ChatPage() {
             )}
           </div>
         </div>
-      )}
 
       {/* Breathing exercise prompt */}
       {breathingPromptVisible && !showBreathing && (
