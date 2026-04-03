@@ -71,6 +71,8 @@ async def _load_profile_context(db: AsyncSession, user_id: int) -> dict:
         ctx["personality_type"] = profile.personality_type
     if profile.baseline_emotion:
         ctx["baseline_emotion"] = profile.baseline_emotion
+    if profile.language_preference:
+        ctx["language_preference"] = profile.language_preference
     return ctx
 
 
@@ -197,6 +199,9 @@ async def handle_chat(
     context = _build_personalized_context(
         user_id, profile_ctx, recent_emotions, matched_triggers
     )
+    # Allow the per-request language preference to override the profile setting
+    if req.language_preference:
+        context["language_preference"] = req.language_preference
 
     # Run full agent pipeline (emotion → pattern → response)
     try:

@@ -35,6 +35,17 @@ class UserProfile(Base):
     social_support: Mapped[str | None] = mapped_column(String(100), nullable=True)
     coping_strategies: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Extended personal history (Phase 1 additions)
+    marital_status: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    living_situation: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    family_responsibilities: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    family_background: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trauma_history: Mapped[list | None] = mapped_column(JSON, nullable=True)   # list[str]
+    response_style: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    safety_check: Mapped[bool | None] = mapped_column(nullable=True)            # True = safe
+    personal_triggers: Mapped[list | None] = mapped_column(JSON, nullable=True) # list[str]
+    language_preference: Mapped[str | None] = mapped_column(String(50), nullable=True, default="english")
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

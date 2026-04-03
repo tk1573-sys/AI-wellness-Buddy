@@ -19,6 +19,16 @@ class ProfileCreate(BaseModel):
     exercise_frequency: str | None = None
     social_support: str | None = None
     coping_strategies: str | None = None
+    # Extended personal history
+    marital_status: str | None = None
+    living_situation: str | None = None
+    family_responsibilities: str | None = None
+    family_background: str | None = None
+    trauma_history: list[str] | None = None
+    response_style: str | None = None
+    safety_check: bool | None = None
+    personal_triggers: list[str] | None = None
+    language_preference: str | None = Field(default="english")
 
 
 class ProfileUpdate(ProfileCreate):
@@ -39,6 +49,16 @@ class ProfileResponse(BaseModel):
     exercise_frequency: str | None = None
     social_support: str | None = None
     coping_strategies: str | None = None
+    # Extended personal history
+    marital_status: str | None = None
+    living_situation: str | None = None
+    family_responsibilities: str | None = None
+    family_background: str | None = None
+    trauma_history: list[str] | None = None
+    response_style: str | None = None
+    safety_check: bool | None = None
+    personal_triggers: list[str] | None = None
+    language_preference: str | None = "english"
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
