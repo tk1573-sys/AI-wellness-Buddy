@@ -21,6 +21,9 @@ class EmotionLog(Base):
     uncertainty: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     is_high_risk: Mapped[bool] = mapped_column(default=False, nullable=False)
     all_scores: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Research analytics fields
+    risk_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    personalization_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
