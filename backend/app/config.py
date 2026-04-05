@@ -29,6 +29,10 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://localhost:3001",
     ]
+    # Set this to your Vercel (or other) frontend URL so the browser
+    # CORS preflight succeeds.  Example:
+    #   FRONTEND_URL=https://ai-wellness-buddy.vercel.app
+    FRONTEND_URL: str = ""
 
     # ------------------------------------------------------------------ #
     # Security / JWT

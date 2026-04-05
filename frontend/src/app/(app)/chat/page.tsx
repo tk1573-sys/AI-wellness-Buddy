@@ -19,12 +19,13 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Send, Globe } from "lucide-react";
 
-import { sendMessage, getChatHistory, getProfile, ChatMessage, ChatResponse } from "@/lib/api";
+import { sendMessage, getChatHistory, getProfile, getErrorMessage, ChatMessage, ChatResponse, EmotionScore } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
 import { VoiceRecorder } from "@/components/chat/VoiceRecorder";
 import { TtsPlayer } from "@/components/chat/TtsPlayer";
+import { InsightsPanel } from "@/components/chat/InsightsPanel";
 import { BreathingExercise } from "@/components/wellness/BreathingExercise";
 import { Button } from "@/components/ui/Button";
 import { t, langLabel, langShortLabel, type LanguagePreference } from "@/lib/i18n";
@@ -36,6 +37,9 @@ interface Message {
   confidence?: number;
   isHighRisk?: boolean;
   escalationMessage?: string | null;
+  scores?: EmotionScore[];
+  responseType?: "generic" | "personalized";
+  personalizationScore?: number;
 }
 
 const ANXIETY_EMOTIONS = new Set(["anxiety", "fear", "stress", "crisis"]);
@@ -100,6 +104,8 @@ export default function ChatPage() {
     const text = input.trim();
     if (!text || isLoading) return;
 
+    console.log("[Chat] Sending message:", { text, sessionId, language });
+
     setInput("");
     setBreathingPromptVisible(false);
     setMessages((prev) => [...prev, { role: "user", content: text }]);
@@ -107,6 +113,21 @@ export default function ChatPage() {
 
     try {
       const res: ChatResponse = await sendMessage(text, sessionId, language);
+      console.log("[Chat] Response received:", {
+        session_id: res.session_id,
+        primary_emotion: res.primary_emotion,
+        confidence: res.confidence,
+        is_high_risk: res.is_high_risk,
+        reply_length: res.reply?.length ?? 0,
+        scores: res.scores,
+        response_type: res.response_type,
+        personalization_score: res.personalization_score,
+      });
+
+      if (!res.reply) {
+        console.warn("[Chat] Empty reply received from backend:", res);
+      }
+
       if (!sessionId) setSessionId(res.session_id);
 
       setDominantEmotion(res.primary_emotion);
@@ -120,6 +141,9 @@ export default function ChatPage() {
           confidence: res.confidence,
           isHighRisk: res.is_high_risk,
           escalationMessage: res.escalation_message,
+          scores: res.scores,
+          responseType: res.response_type,
+          personalizationScore: res.personalization_score,
         },
       ]);
 
@@ -135,7 +159,11 @@ export default function ChatPage() {
         });
       }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong.");
+      const msg = getErrorMessage(err);
+      console.error("[Chat] Send failed:", err, "→", msg);
+      toast.error(msg);
+      // Restore the user's text so they can retry; remove the optimistic message.
+      setInput(text);
       setMessages((prev) => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
@@ -274,11 +302,18 @@ export default function ChatPage() {
               isHighRisk={msg.isHighRisk}
               escalationMessage={msg.escalationMessage}
             />
-            {/* TTS replay button on assistant messages */}
+            {/* Insights panel + TTS replay on assistant messages */}
             {msg.role === "assistant" && (
-              <div className="flex justify-start pl-4 mt-0.5">
-                <TtsPlayer text={msg.content} language={language} messageKey={i} />
-              </div>
+              <>
+                <InsightsPanel
+                  scores={msg.scores ?? []}
+                  responseType={msg.responseType}
+                  personalizationScore={msg.personalizationScore}
+                />
+                <div className="flex justify-start pl-4 mt-0.5">
+                  <TtsPlayer text={msg.content} language={language} messageKey={i} />
+                </div>
+              </>
             )}
           </div>
         ))}
