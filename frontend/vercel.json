@@ -1,6 +1,4 @@
 {
-  "buildCommand": "npm ci && npm run build",
-  "outputDirectory": ".next",
   "framework": "nextjs",
   "env": {
     "NEXT_PUBLIC_API_URL": "https://ai-wellness-backend-ox4q.onrender.com"

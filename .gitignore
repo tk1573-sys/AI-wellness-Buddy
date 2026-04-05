@@ -70,3 +70,5 @@ wellness-env/
 # Environment files
 .env
 .env.local
+.vercel
+.env*.local
