@@ -11,7 +11,9 @@ python-multipart>=0.0.9
 sqlalchemy[asyncio]>=2.0.29
 aiosqlite>=0.20.0           # SQLite async driver (dev/testing)
 asyncpg>=0.29.0             # PostgreSQL async driver (production)
+psycopg2-binary>=2.9.9
 alembic>=1.13.1             # Database migrations
+
 
 # Auth
 python-jose[cryptography]>=3.3.0
