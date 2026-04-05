@@ -22,6 +22,11 @@ export interface ChatMessage {
   created_at?: string | null;
 }
 
+export interface EmotionScore {
+  emotion: string;
+  score: number;
+}
+
 export interface ChatResponse {
   session_id: string;
   reply: string;
@@ -29,7 +34,11 @@ export interface ChatResponse {
   confidence: number;
   is_high_risk: boolean;
   escalation_message: string | null;
-  scores?: Array<Record<string, unknown>>;
+  scores?: EmotionScore[];
+  // Personalization fields
+  personalization_score: number;
+  used_triggers: string[];
+  response_type: "generic" | "personalized";
 }
 
 export interface UserProfile {
@@ -95,6 +104,24 @@ function authedParams(): { token: string } {
     throw new Error("Not authenticated. Please log in.");
   }
   return { token };
+}
+
+// -------------------------------------------------------------------------- //
+// Helper — extracts a human-readable message from any thrown value.
+// AxiosErrors carry the server's `detail` field; fall back to err.message.
+// -------------------------------------------------------------------------- //
+
+export function getErrorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const detail = err.response?.data?.detail;
+    if (detail) {
+      return Array.isArray(detail)
+        ? detail.map((d: { msg?: string }) => d.msg ?? String(d)).join("; ")
+        : String(detail);
+    }
+    return err.message;
+  }
+  return err instanceof Error ? err.message : "Something went wrong.";
 }
 
 // -------------------------------------------------------------------------- //
