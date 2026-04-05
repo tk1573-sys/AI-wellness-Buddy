@@ -34,7 +34,7 @@ export interface ChatResponse {
   confidence: number;
   is_high_risk: boolean;
   escalation_message: string | null;
-  scores: EmotionScore[];
+  scores?: EmotionScore[];
   // Personalization fields
   personalization_score: number;
   used_triggers: string[];

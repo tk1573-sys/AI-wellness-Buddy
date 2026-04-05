@@ -163,7 +163,8 @@ export default function ChatPage() {
       console.error("[Chat] Send failed:", err, "→", msg);
       toast.error(msg);
       // Restore the user's text so they can retry; remove the optimistic message.
-      setInput(text);
+      // Only restore if the textarea is still empty (user hasn't started a new message).
+      setInput((prev) => (prev === "" ? text : prev));
       setMessages((prev) => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
