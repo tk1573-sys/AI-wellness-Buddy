@@ -3,10 +3,7 @@
   "outputDirectory": "frontend/.next",
   "framework": "nextjs",
   "env": {
-    "NEXT_PUBLIC_API_URL": {
-      "description": "Base URL of the deployed backend API (e.g. https://ai-wellness-backend.onrender.com). Set this in the Vercel dashboard under Project → Settings → Environment Variables.",
-      "required": true
-    }
+    "NEXT_PUBLIC_API_URL": "https://ai-wellness-backend-ox4q.onrender.com"
   },
   "headers": [
     {
