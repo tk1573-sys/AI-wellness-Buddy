@@ -18,7 +18,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { getDashboard, getJourney, DashboardData, JourneyData } from "@/lib/api";
+import { getDashboard, getJourney, getGuardianAlerts, DashboardData, JourneyData, GuardianAlertRecord } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { MoodTrendExtended } from "@/components/dashboard/MoodTrendExtended";
 
@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [journeyData, setJourneyData] = useState<JourneyData | null>(null);
+  const [guardianAlerts, setGuardianAlerts] = useState<GuardianAlertRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,10 +59,12 @@ export default function DashboardPage() {
     Promise.all([
       getDashboard(),
       getJourney().catch(() => null),
+      getGuardianAlerts().catch(() => ({ alerts: [], total: 0 })),
     ])
-      .then(([dash, journey]) => {
+      .then(([dash, journey, ga]) => {
         setData(dash);
         setJourneyData(journey);
+        setGuardianAlerts(ga.alerts);
       })
       .catch((e) => setError(e?.response?.data?.detail ?? "Failed to load dashboard."))
       .finally(() => setLoading(false));
@@ -237,6 +240,72 @@ export default function DashboardPage() {
           />
         </div>
       )}
+
+      {/* Guardian Alert Status Card */}
+      <div className="rounded-xl border border-amber-500/30 bg-amber-900/10 p-4 space-y-3">
+        <h2 className="text-sm font-semibold text-amber-300">🛡️ Guardian Alert Status</h2>
+        {guardianAlerts.length === 0 ? (
+          <p className="text-xs text-gray-400">No guardian alerts have been sent yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {guardianAlerts.slice(0, 5).map((alert) => (
+              <div
+                key={alert.id}
+                className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/5 px-3 py-2.5"
+              >
+                <span className="text-lg mt-0.5">
+                  {alert.channel === "email" ? "📧" : "📱"}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className={`text-xs font-medium uppercase px-1.5 py-0.5 rounded ${
+                        alert.risk_level === "critical"
+                          ? "bg-red-900/50 text-red-300"
+                          : "bg-amber-900/50 text-amber-300"
+                      }`}
+                    >
+                      {alert.risk_level}
+                    </span>
+                    <span className="text-xs text-gray-400 capitalize">{alert.channel}</span>
+                    {alert.is_test && (
+                      <span className="text-xs text-blue-400 bg-blue-900/30 px-1.5 py-0.5 rounded">
+                        test
+                      </span>
+                    )}
+                    <span
+                      className={`text-xs ml-auto ${
+                        alert.delivery_status === "sent"
+                          ? "text-green-400"
+                          : alert.delivery_status === "test"
+                          ? "text-blue-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {alert.delivery_status === "sent"
+                        ? "✅ Sent"
+                        : alert.delivery_status === "test"
+                        ? "🔔 Test"
+                        : "❌ Failed"}
+                    </span>
+                  </div>
+                  {alert.risk_reason && (
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">{alert.risk_reason}</p>
+                  )}
+                  <p className="text-[10px] text-gray-600 mt-0.5">
+                    {new Date(alert.timestamp).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {guardianAlerts.length > 5 && (
+              <p className="text-xs text-gray-500 text-center">
+                +{guardianAlerts.length - 5} more alerts
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

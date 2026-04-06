@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { TriggerHistory } from "@/components/dashboard/TriggerHistory";
 import { langLabel, type LanguagePreference } from "@/lib/i18n";
+import { GuardianConsentModal } from "@/components/guardian/ConsentModal";
 
 const SLEEP_OPTIONS = ["< 5 hours", "5-6 hours", "6-7 hours", "7-8 hours", "> 8 hours"];
 const EXERCISE_OPTIONS = ["Never", "1-2x/week", "3-4x/week", "5+/week", "Daily"];
@@ -47,6 +48,12 @@ const EMPTY: UserProfile = {
   safety_check: null,
   personal_triggers: [],
   language_preference: "english",
+  enable_guardian_alerts: false,
+  guardian_consent_given: false,
+  guardian_name: "",
+  guardian_email: "",
+  guardian_whatsapp: "",
+  guardian_relationship: "",
 };
 
 export default function ProfilePage() {
@@ -55,6 +62,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -417,6 +425,98 @@ export default function ProfilePage() {
             )}
           </div>
         </section>
+
+        {/* Guardian / Emergency Escalation */}
+        <section className="rounded-xl border border-amber-500/30 bg-amber-900/10 p-5 backdrop-blur-sm space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold text-amber-300 uppercase tracking-wide">🛡️ Guardian Alerts</h2>
+            <p className="text-xs text-gray-400 mt-1">
+              Designate a trusted person to be notified during high-risk emotional distress.
+            </p>
+          </div>
+
+          {/* Enable toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-200">Notify my guardian during high-risk emotional distress</p>
+              <p className="text-xs text-gray-500">Requires explicit consent and guardian contact info</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!form.enable_guardian_alerts) {
+                  setShowConsentModal(true);
+                } else {
+                  set("enable_guardian_alerts", false);
+                  set("guardian_consent_given", false);
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                form.enable_guardian_alerts ? "bg-amber-500" : "bg-gray-600"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  form.enable_guardian_alerts ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {form.enable_guardian_alerts && (
+            <div className="space-y-3 pt-1 border-t border-amber-500/20">
+              <p className="text-xs text-amber-300/80">
+                ✅ Consent given — alerts will be sent when high-risk distress is detected.
+              </p>
+              <Input
+                label="Guardian Name"
+                value={form.guardian_name ?? ""}
+                onChange={(e) => set("guardian_name", e.target.value)}
+                placeholder="e.g. Mom, Dr. Smith"
+              />
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Relationship</label>
+                <select
+                  value={form.guardian_relationship ?? ""}
+                  onChange={(e) => set("guardian_relationship", e.target.value)}
+                  className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option value="">Select relationship</option>
+                  {["Parent", "Sibling", "Partner", "Friend", "Therapist", "Doctor", "Other"].map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <Input
+                label="Guardian Email"
+                type="email"
+                value={form.guardian_email ?? ""}
+                onChange={(e) => set("guardian_email", e.target.value)}
+                placeholder="guardian@example.com"
+              />
+              <Input
+                label="Guardian WhatsApp Number"
+                value={form.guardian_whatsapp ?? ""}
+                onChange={(e) => set("guardian_whatsapp", e.target.value)}
+                placeholder="+1234567890 (with country code)"
+              />
+              <p className="text-xs text-gray-500">
+                At least one of Email or WhatsApp is required for alerts to be sent.
+              </p>
+            </div>
+          )}
+        </section>
+
+        {showConsentModal && (
+          <GuardianConsentModal
+            onAccept={() => {
+              set("enable_guardian_alerts", true);
+              set("guardian_consent_given", true);
+              setShowConsentModal(false);
+            }}
+            onDecline={() => setShowConsentModal(false)}
+          />
+        )}
 
         <Button onClick={handleSave} loading={saving} className="w-full">
           Save Profile

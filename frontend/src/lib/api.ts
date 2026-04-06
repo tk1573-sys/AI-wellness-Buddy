@@ -65,6 +65,13 @@ export interface UserProfile {
   safety_check?: boolean | null;
   personal_triggers?: string[] | null;
   language_preference?: string | null;
+  // Guardian / emergency escalation settings
+  enable_guardian_alerts?: boolean;
+  guardian_consent_given?: boolean;
+  guardian_name?: string | null;
+  guardian_email?: string | null;
+  guardian_whatsapp?: string | null;
+  guardian_relationship?: string | null;
 }
 
 export interface EmotionPoint {
@@ -309,4 +316,51 @@ export async function getTts(
     },
   );
   return data as Blob;
+}
+
+// -------------------------------------------------------------------------- //
+// Guardian Alert API types and functions
+// -------------------------------------------------------------------------- //
+
+export interface GuardianAlertRecord {
+  id: number;
+  user_id: number;
+  risk_level: string;
+  risk_reason: string | null;
+  channel: string;
+  delivery_status: string;
+  is_test: boolean;
+  timestamp: string;
+}
+
+export interface GuardianAlertListResponse {
+  alerts: GuardianAlertRecord[];
+  total: number;
+}
+
+export interface GuardianAlertTriggerRequest {
+  risk_level: "high" | "critical";
+  risk_reason?: string | null;
+  channels: Array<"email" | "whatsapp">;
+  // Set to true for test/verification — no real notification is sent
+  is_test?: boolean;
+}
+
+export async function triggerGuardianAlert(
+  req: GuardianAlertTriggerRequest,
+): Promise<GuardianAlertRecord[]> {
+  const { data } = await axios.post<GuardianAlertRecord[]>(
+    `${API_URL}/api/v1/guardian-alert`,
+    req,
+    { headers: authedHeaders() },
+  );
+  return data;
+}
+
+export async function getGuardianAlerts(): Promise<GuardianAlertListResponse> {
+  const { data } = await axios.get<GuardianAlertListResponse>(
+    `${API_URL}/api/v1/guardian-alert`,
+    { headers: authedHeaders() },
+  );
+  return data;
 }

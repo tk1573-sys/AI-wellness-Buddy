@@ -18,6 +18,7 @@ import { createProfile, UserProfile } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { langLabel, type LanguagePreference } from "@/lib/i18n";
+import { GuardianConsentModal } from "@/components/guardian/ConsentModal";
 
 const SLEEP_OPTIONS = ["< 5 hours", "5-6 hours", "6-7 hours", "7-8 hours", "> 8 hours"];
 const EXERCISE_OPTIONS = ["Never", "1-2x/week", "3-4x/week", "5+/week", "Daily"];
@@ -37,6 +38,7 @@ const STEPS = [
   { title: "Trigger Identification", description: "What tends to affect your mood?" },
   { title: "Lifestyle Habits", description: "Your daily habits shape your wellbeing" },
   { title: "Personal Background", description: "Optional context to personalize support" },
+  { title: "Guardian Alerts", description: "Optional safety net during high-risk moments" },
 ];
 
 const EMPTY: UserProfile = {
@@ -61,6 +63,12 @@ const EMPTY: UserProfile = {
   safety_check: null,
   personal_triggers: [],
   language_preference: "english",
+  enable_guardian_alerts: false,
+  guardian_consent_given: false,
+  guardian_name: "",
+  guardian_email: "",
+  guardian_whatsapp: "",
+  guardian_relationship: "",
 };
 
 export default function OnboardingPage() {
@@ -70,6 +78,7 @@ export default function OnboardingPage() {
   const [traumaInput, setTraumaInput] = useState("");
   const [personalTriggerInput, setPersonalTriggerInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showConsentModal, setShowConsentModal] = useState(false);
 
   const set = (field: keyof UserProfile, value: unknown) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -493,6 +502,96 @@ export default function OnboardingPage() {
                   className="w-full resize-none rounded-xl border border-glass-border bg-white/5 px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
                 />
               </div>
+            </div>
+          )}
+
+          {/* Step 6: Guardian Alerts */}
+          {step === 5 && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-amber-500/30 bg-amber-900/10 p-4 text-sm text-amber-200 space-y-1">
+                <p className="font-medium">🛡️ Optional: Emergency Safety Net</p>
+                <p className="text-xs text-gray-400">
+                  You can designate a trusted person to be notified if a high-risk distress
+                  signal is detected. This is entirely optional and requires your explicit consent.
+                </p>
+              </div>
+
+              {/* Enable toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-200">Enable guardian notifications</p>
+                  <p className="text-xs text-gray-500">Consent required before enabling</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!form.enable_guardian_alerts) {
+                      setShowConsentModal(true);
+                    } else {
+                      set("enable_guardian_alerts", false);
+                      set("guardian_consent_given", false);
+                    }
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    form.enable_guardian_alerts ? "bg-amber-500" : "bg-gray-600"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      form.enable_guardian_alerts ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {form.enable_guardian_alerts && (
+                <div className="space-y-3 border-t border-amber-500/20 pt-3">
+                  <p className="text-xs text-amber-300/80">✅ Consent granted</p>
+                  <Input
+                    label="Guardian Name"
+                    value={form.guardian_name ?? ""}
+                    onChange={(e) => set("guardian_name", e.target.value)}
+                    placeholder="e.g. Mom, Dr. Smith"
+                  />
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Relationship</label>
+                    <select
+                      value={form.guardian_relationship ?? ""}
+                      onChange={(e) => set("guardian_relationship", e.target.value)}
+                      className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    >
+                      <option value="">Select relationship</option>
+                      {["Parent", "Sibling", "Partner", "Friend", "Therapist", "Doctor", "Other"].map((r) => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <Input
+                    label="Guardian Email"
+                    type="email"
+                    value={form.guardian_email ?? ""}
+                    onChange={(e) => set("guardian_email", e.target.value)}
+                    placeholder="guardian@example.com"
+                  />
+                  <Input
+                    label="Guardian WhatsApp"
+                    value={form.guardian_whatsapp ?? ""}
+                    onChange={(e) => set("guardian_whatsapp", e.target.value)}
+                    placeholder="+1234567890"
+                  />
+                </div>
+              )}
+
+              {showConsentModal && (
+                <GuardianConsentModal
+                  onAccept={() => {
+                    set("enable_guardian_alerts", true);
+                    set("guardian_consent_given", true);
+                    setShowConsentModal(false);
+                  }}
+                  onDecline={() => setShowConsentModal(false)}
+                />
+              )}
             </div>
           )}
 

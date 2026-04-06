@@ -1,0 +1,37 @@
+"""Schemas for guardian alert endpoints."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class GuardianAlertTriggerRequest(BaseModel):
+    """Manually trigger a guardian alert (e.g. from the API)."""
+
+    risk_level: Literal["high", "critical"] = "high"
+    risk_reason: str | None = Field(default=None, max_length=500)
+    channels: list[Literal["email", "whatsapp"]] = Field(default=["email"])
+    # Set to True for test/verification alerts — no real notification is sent,
+    # delivery_status will be "test", and the cooldown window is not consumed.
+    is_test: bool = False
+
+
+class GuardianAlertResponse(BaseModel):
+    id: int
+    user_id: int
+    risk_level: str
+    risk_reason: str | None = None
+    channel: str
+    delivery_status: str
+    is_test: bool = False
+    timestamp: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class GuardianAlertListResponse(BaseModel):
+    alerts: list[GuardianAlertResponse]
+    total: int

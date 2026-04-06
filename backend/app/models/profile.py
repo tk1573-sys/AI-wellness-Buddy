@@ -46,6 +46,14 @@ class UserProfile(Base):
     personal_triggers: Mapped[list | None] = mapped_column(JSON, nullable=True) # list[str]
     language_preference: Mapped[str | None] = mapped_column(String(50), nullable=True, default="english")
 
+    # Guardian / emergency escalation settings
+    enable_guardian_alerts: Mapped[bool] = mapped_column(default=False, nullable=False)
+    guardian_consent_given: Mapped[bool] = mapped_column(default=False, nullable=False)
+    guardian_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    guardian_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    guardian_whatsapp: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    guardian_relationship: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
