@@ -140,11 +140,10 @@ def _generate_summary(
 
 @router.get("", response_model=WeeklyReportResponse)
 async def get_weekly_report(
-    token: str,
     db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     """Return a 7-day emotional wellness report for the authenticated user."""
-    user = await get_current_user(token, db)
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=7)
     stmt = (

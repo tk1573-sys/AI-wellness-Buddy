@@ -116,7 +116,10 @@ async def test_login_unknown_email_returns_401(client):
 async def test_me_returns_user_info(client):
     await _signup(client, email="me@example.com", username="meuser")
     token = (await _login(client, email="me@example.com")).json()["access_token"]
-    resp = await client.get("/api/v1/auth/me", params={"token": token})
+    resp = await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert data["email"] == "me@example.com"
@@ -124,7 +127,10 @@ async def test_me_returns_user_info(client):
 
 
 async def test_me_invalid_token_returns_401(client):
-    resp = await client.get("/api/v1/auth/me", params={"token": "not-a-valid-token"})
+    resp = await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": "Bearer not-a-valid-token"},
+    )
     assert resp.status_code == 401
 
 
@@ -189,7 +195,7 @@ async def test_chat_requires_token(client):
     resp = await client.post(
         "/api/v1/chat",
         json={"message": "Hello"},
-        params={"token": "bad-token"},
+        headers={"Authorization": "Bearer bad-token"},
     )
     assert resp.status_code == 401
 
@@ -213,7 +219,7 @@ async def test_chat_returns_reply(client, mocker):
     resp = await client.post(
         "/api/v1/chat",
         json={"message": "I feel sad today"},
-        params={"token": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -292,10 +298,13 @@ async def test_chat_history_returns_list(client, mocker):
     await client.post(
         "/api/v1/chat",
         json={"message": "Hello"},
-        params={"token": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
-    resp = await client.get("/api/v1/chat/history", params={"token": token})
+    resp = await client.get(
+        "/api/v1/chat/history",
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert resp.status_code == 200
     assert isinstance(resp.json(), list)
 
@@ -306,7 +315,10 @@ async def test_chat_history_returns_list(client, mocker):
 
 async def test_analytics_research_requires_auth(client):
     """Missing / invalid token must return 401."""
-    resp = await client.get("/api/v1/analytics/research", params={"token": "bad-token"})
+    resp = await client.get(
+        "/api/v1/analytics/research",
+        headers={"Authorization": "Bearer bad-token"},
+    )
     assert resp.status_code == 401
 
 
@@ -317,7 +329,8 @@ async def test_analytics_research_empty_returns_schema(client):
 
     resp = await client.get(
         "/api/v1/analytics/research",
-        params={"token": token, "include_plots": "false"},
+        params={"include_plots": "false"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -383,7 +396,8 @@ async def test_analytics_research_with_emotion_logs(client, db_session):
 
     resp = await client.get(
         "/api/v1/analytics/research",
-        params={"token": token, "include_plots": "false"},
+        params={"include_plots": "false"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -407,7 +421,8 @@ async def test_analytics_research_summary_fields(client):
 
     resp = await client.get(
         "/api/v1/analytics/research",
-        params={"token": token, "include_plots": "false"},
+        params={"include_plots": "false"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
     summary = resp.json()["research_summary"]

@@ -2,8 +2,8 @@
  * Chat API utilities.
  *
  * Wraps the backend /api/v1/chat, /api/v1/profile, and /api/v1/dashboard
- * endpoints. Every request attaches the stored JWT via the `token` query
- * parameter that the backend expects.
+ * endpoints. Every request attaches the stored JWT via the Authorization:
+ * Bearer header — tokens are never passed as URL query parameters.
  */
 
 import axios from "axios";
@@ -95,15 +95,16 @@ export interface DashboardData {
 }
 
 // -------------------------------------------------------------------------- //
-// Helper — builds an axios instance with the token attached
+// Helper — builds axios Authorization header from the stored JWT.
+// Tokens are sent only in the Authorization header, never in the URL.
 // -------------------------------------------------------------------------- //
 
-function authedParams(): { token: string } {
+function authedHeaders(): Record<string, string> {
   const token = getToken();
   if (!token) {
     throw new Error("Not authenticated. Please log in.");
   }
-  return { token };
+  return { Authorization: `Bearer ${token}` };
 }
 
 // -------------------------------------------------------------------------- //
@@ -133,26 +134,18 @@ export async function sendMessage(
   sessionId?: string,
   languagePreference?: string,
 ): Promise<ChatResponse> {
-  const params = authedParams();
   const { data } = await axios.post<ChatResponse>(
     `${API_URL}/api/v1/chat`,
     { message, session_id: sessionId ?? null, language_preference: languagePreference ?? "english" },
-    {
-      params,
-      headers: { Authorization: `Bearer ${params.token}` },
-    },
+    { headers: authedHeaders() },
   );
   return data;
 }
 
 export async function getChatHistory(): Promise<ChatMessage[]> {
-  const params = authedParams();
   const { data } = await axios.get<ChatMessage[]>(
     `${API_URL}/api/v1/chat/history`,
-    {
-      params,
-      headers: { Authorization: `Bearer ${params.token}` },
-    },
+    { headers: authedHeaders() },
   );
   return data;
 }
@@ -162,30 +155,27 @@ export async function getChatHistory(): Promise<ChatMessage[]> {
 // -------------------------------------------------------------------------- //
 
 export async function getProfile(): Promise<UserProfile> {
-  const params = authedParams();
   const { data } = await axios.get<UserProfile>(
     `${API_URL}/api/v1/profile`,
-    { params, headers: { Authorization: `Bearer ${params.token}` } },
+    { headers: authedHeaders() },
   );
   return data;
 }
 
 export async function createProfile(profile: UserProfile): Promise<UserProfile> {
-  const params = authedParams();
   const { data } = await axios.post<UserProfile>(
     `${API_URL}/api/v1/profile`,
     profile,
-    { params, headers: { Authorization: `Bearer ${params.token}` } },
+    { headers: authedHeaders() },
   );
   return data;
 }
 
 export async function updateProfile(profile: UserProfile): Promise<UserProfile> {
-  const params = authedParams();
   const { data } = await axios.put<UserProfile>(
     `${API_URL}/api/v1/profile`,
     profile,
-    { params, headers: { Authorization: `Bearer ${params.token}` } },
+    { headers: authedHeaders() },
   );
   return data;
 }
@@ -195,10 +185,9 @@ export async function updateProfile(profile: UserProfile): Promise<UserProfile> 
 // -------------------------------------------------------------------------- //
 
 export async function getDashboard(): Promise<DashboardData> {
-  const params = authedParams();
   const { data } = await axios.get<DashboardData>(
     `${API_URL}/api/v1/dashboard`,
-    { params, headers: { Authorization: `Bearer ${params.token}` } },
+    { headers: authedHeaders() },
   );
   return data;
 }
@@ -239,10 +228,9 @@ export interface JourneyData {
 }
 
 export async function getJourney(): Promise<JourneyData> {
-  const params = authedParams();
   const { data } = await axios.get<JourneyData>(
     `${API_URL}/api/v1/journey`,
-    { params, headers: { Authorization: `Bearer ${params.token}` } },
+    { headers: authedHeaders() },
   );
   return data;
 }
@@ -282,10 +270,9 @@ export interface WeeklyReportData {
 }
 
 export async function getWeeklyReport(): Promise<WeeklyReportData> {
-  const params = authedParams();
   const { data } = await axios.get<WeeklyReportData>(
     `${API_URL}/api/v1/weekly-report`,
-    { params, headers: { Authorization: `Bearer ${params.token}` } },
+    { headers: authedHeaders() },
   );
   return data;
 }
@@ -298,20 +285,13 @@ export async function transcribeVoice(
   audioBlob: Blob,
   languagePreference: string = "english",
 ): Promise<string> {
-  const params = authedParams();
   const form = new FormData();
   form.append("audio", audioBlob, "recording.wav");
   form.append("language_preference", languagePreference);
   const { data } = await axios.post<{ transcript: string; language_used: string }>(
     `${API_URL}/api/v1/voice/transcribe`,
     form,
-    {
-      params,
-      headers: {
-        Authorization: `Bearer ${params.token}`,
-        "Content-Type": "multipart/form-data",
-      },
-    },
+    { headers: authedHeaders() },
   );
   return data.transcript;
 }
@@ -320,13 +300,11 @@ export async function getTts(
   text: string,
   languagePreference: string = "english",
 ): Promise<Blob> {
-  const params = authedParams();
   const { data } = await axios.post(
     `${API_URL}/api/v1/voice/tts`,
     { text, language_preference: languagePreference },
     {
-      params,
-      headers: { Authorization: `Bearer ${params.token}` },
+      headers: authedHeaders(),
       responseType: "blob",
     },
   );

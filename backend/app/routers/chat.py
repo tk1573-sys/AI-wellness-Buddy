@@ -28,29 +28,26 @@ settings = get_settings()
 async def chat(
     request: Request,
     req: ChatRequest,
-    token: str,
     db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     """
     Send a message to the AI Wellness Buddy.
 
-    Requires Bearer token authentication via the `token` query parameter.
+    Requires Bearer token authentication via the Authorization header.
     Returns the assistant's reply together with emotion analysis.
     """
-    user = await get_current_user(token, db)
     return await chat_service.handle_chat(db, user.id, req)
 
 
 @router.get("/history", response_model=list[ChatMessage])
 async def history(
-    token: str,
     session_id: str | None = None,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     """Return the authenticated user's chat history, optionally filtered by session."""
-    user = await get_current_user(token, db)
-
     stmt = (
         select(ChatHistory)
         .where(ChatHistory.user_id == user.id)

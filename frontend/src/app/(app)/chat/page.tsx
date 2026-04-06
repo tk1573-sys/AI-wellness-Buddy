@@ -124,7 +124,11 @@ export default function ChatPage() {
         personalization_score: res.personalization_score,
       });
 
-      if (!res.reply) {
+      // Guard against empty or missing reply — never render a blank bubble.
+      const replyText = res.reply?.trim()
+        || "I'm here with you. Please try again in a moment.";
+
+      if (!res.reply?.trim()) {
         console.warn("[Chat] Empty reply received from backend:", res);
       }
 
@@ -136,7 +140,7 @@ export default function ChatPage() {
         ...prev,
         {
           role: "assistant",
-          content: res.reply,
+          content: replyText,
           emotion: res.primary_emotion,
           confidence: res.confidence,
           isHighRisk: res.is_high_risk,

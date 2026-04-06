@@ -95,11 +95,10 @@ def _detect_escalation(emotions: list[str]) -> bool:
 
 @router.get("", response_model=DashboardResponse)
 async def get_dashboard(
-    token: str,
     db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     """Return emotion analytics for the authenticated user."""
-    user = await get_current_user(token, db)
 
     stmt = (
         select(EmotionLog)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -20,13 +21,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Auth"])
 settings = get_settings()
 
+# HTTP Bearer schemes — auto_error=True enforces auth; auto_error=False makes it optional.
+_bearer = HTTPBearer(auto_error=True)
+_bearer_optional = HTTPBearer(auto_error=False)
+
 
 # --------------------------------------------------------------------------- #
-# Shared dependency — resolves the current authenticated user
+# Shared dependencies — resolve the current authenticated user from the
+# Authorization: Bearer <token> header.  Never read tokens from query strings.
 # --------------------------------------------------------------------------- #
 
 async def get_current_user(
-    token: str,
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
     db: AsyncSession = Depends(get_db),
 ):
     """Resolve a Bearer token to a User row.  Raises 401 on failure."""
@@ -36,7 +42,7 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        user_id = auth_service.decode_access_token(token)
+        user_id = auth_service.decode_access_token(credentials.credentials)
     except JWTError:
         raise credentials_exception
 
@@ -44,6 +50,21 @@ async def get_current_user(
     if user is None or not user.is_active:
         raise credentials_exception
     return user
+
+
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_optional),
+    db: AsyncSession = Depends(get_db),
+):
+    """Like get_current_user but returns None for unauthenticated requests."""
+    if credentials is None:
+        return None
+    try:
+        user_id = auth_service.decode_access_token(credentials.credentials)
+        user = await auth_service.get_user_by_id(db, user_id)
+        return user if (user and user.is_active) else None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 # --------------------------------------------------------------------------- #
@@ -84,10 +105,6 @@ async def login(request: Request, req: LoginRequest, db: AsyncSession = Depends(
 
 
 @router.get("/me", response_model=UserResponse)
-async def me(
-    token: str,
-    db: AsyncSession = Depends(get_db),
-):
+async def me(user=Depends(get_current_user)):
     """Return the currently authenticated user's profile."""
-    user = await get_current_user(token, db)
     return user

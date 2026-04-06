@@ -136,11 +136,10 @@ def _build_heatmap(logs: list[EmotionLog]) -> list[HeatmapCell]:
 
 @router.get("", response_model=JourneyResponse)
 async def get_journey(
-    token: str,
     db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     """Return the emotional journey data for the authenticated user."""
-    user = await get_current_user(token, db)
 
     stmt = (
         select(EmotionLog)

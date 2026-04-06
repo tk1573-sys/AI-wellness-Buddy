@@ -24,11 +24,19 @@ body {
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
 
-/* Glass utility */
+/* Glass utility — WCAG AA compliant text on dark backgrounds */
 .glass {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(12px);
+  color: rgb(243, 244, 246); /* gray-100 — 4.5:1 contrast on dark bg */
+}
+
+/* Ensure labels inside glass cards meet WCAG AA */
+.glass label,
+.glass p,
+.glass span {
+  color: rgb(209, 213, 219); /* gray-300 — meets 4.5:1 on dark glass bg */
 }
 
 /* Gradient text */

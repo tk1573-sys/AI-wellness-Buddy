@@ -66,10 +66,9 @@ class TtsRequest(BaseModel):
 
 @router.post("/transcribe", response_model=TranscriptResponse)
 async def transcribe_audio(
-    token: str,
     audio: UploadFile = File(..., description="WAV audio recording from the microphone"),
     language_preference: str = Form(default="english"),
-    db: AsyncSession = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """Transcribe uploaded WAV audio to text using Google Speech Recognition.
 
@@ -77,7 +76,6 @@ async def transcribe_audio(
     ``bilingual``.  An empty string is returned when speech cannot be
     recognised or when the STT dependency is not installed.
     """
-    await get_current_user(token, db)
     handler = _get_handler()
 
     lang = language_preference.lower()
@@ -99,15 +97,13 @@ async def transcribe_audio(
 @router.post("/tts")
 async def text_to_speech(
     req: TtsRequest,
-    token: str,
-    db: AsyncSession = Depends(get_db),
+    _user=Depends(get_current_user),
 ):
     """Convert text to MP3 speech using Google TTS.
 
     Returns the raw MP3 bytes with ``Content-Type: audio/mpeg``.
     Returns 503 if TTS is unavailable.
     """
-    await get_current_user(token, db)
     handler = _get_handler()
 
     lang = (req.language_preference or "english").lower()

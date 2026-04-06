@@ -69,6 +69,10 @@ services:
       - key: HIGH_RISK_ESCALATION_MESSAGE
         value: "I'm concerned about your wellbeing. Please reach out: 988 Suicide & Crisis Lifeline (call/text 988) or Crisis Text Line (text HOME to 741741)."
 
+      # ── Frontend URL (must include your Vercel deployment URL) ────────────
+      - key: FRONTEND_URL
+        sync: false           # e.g. https://your-app.vercel.app
+
       # ── Logging ───────────────────────────────────────────────────────────
       - key: LOG_LEVEL
         value: INFO
