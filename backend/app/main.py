@@ -67,7 +67,10 @@ def create_app() -> FastAPI:
             emotion_service._get_analyzer()
             logger.info("EmotionAnalyzer pre-warmed successfully.")
         except Exception:  # noqa: BLE001
-            logger.warning("EmotionAnalyzer pre-warm failed — will load on first request.", exc_info=True)
+            logger.warning(
+                "EmotionAnalyzer pre-warm failed; first request may experience cold-start delay.",
+                exc_info=True,
+            )
         yield
         logger.info("Shutting down.")
 

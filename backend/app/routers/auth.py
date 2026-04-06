@@ -64,6 +64,7 @@ async def get_optional_user(
         user = await auth_service.get_user_by_id(db, user_id)
         return user if (user and user.is_active) else None
     except Exception:  # noqa: BLE001
+        logger.debug("get_optional_user: token validation failed", exc_info=True)
         return None
 
 
