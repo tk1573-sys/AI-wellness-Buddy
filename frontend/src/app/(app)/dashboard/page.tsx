@@ -268,12 +268,25 @@ export default function DashboardPage() {
                       {alert.risk_level}
                     </span>
                     <span className="text-xs text-gray-400 capitalize">{alert.channel}</span>
+                    {alert.is_test && (
+                      <span className="text-xs text-blue-400 bg-blue-900/30 px-1.5 py-0.5 rounded">
+                        test
+                      </span>
+                    )}
                     <span
                       className={`text-xs ml-auto ${
-                        alert.delivery_status === "sent" ? "text-green-400" : "text-red-400"
+                        alert.delivery_status === "sent"
+                          ? "text-green-400"
+                          : alert.delivery_status === "test"
+                          ? "text-blue-400"
+                          : "text-red-400"
                       }`}
                     >
-                      {alert.delivery_status === "sent" ? "✅ Sent" : "❌ Failed"}
+                      {alert.delivery_status === "sent"
+                        ? "✅ Sent"
+                        : alert.delivery_status === "test"
+                        ? "🔔 Test"
+                        : "❌ Failed"}
                     </span>
                   </div>
                   {alert.risk_reason && (

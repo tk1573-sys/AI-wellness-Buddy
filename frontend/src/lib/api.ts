@@ -329,6 +329,7 @@ export interface GuardianAlertRecord {
   risk_reason: string | null;
   channel: string;
   delivery_status: string;
+  is_test: boolean;
   timestamp: string;
 }
 
@@ -341,6 +342,8 @@ export interface GuardianAlertTriggerRequest {
   risk_level: "high" | "critical";
   risk_reason?: string | null;
   channels: Array<"email" | "whatsapp">;
+  // Set to true for test/verification — no real notification is sent
+  is_test?: boolean;
 }
 
 export async function triggerGuardianAlert(

@@ -8,13 +8,24 @@ high-risk or critical distress event is detected.
 
 Trigger conditions
 ------------------
-* risk_level in {"high", "critical"}
-* Self-harm / crisis intent keywords detected in the user's chat
+* risk_level="critical" — always triggers (unconditional)
+* risk_level="high" AND current_risk_score >= GUARDIAN_HIGH_RISK_MIN_SCORE
+* Self-harm / crisis intent keywords detected (with negation-prefix check)
 * Repeated distress sessions exceed GUARDIAN_DISTRESS_SESSION_THRESHOLD
-* Risk score spike > GUARDIAN_RISK_SPIKE_THRESHOLD
+* Risk score spike >= GUARDIAN_RISK_SPIKE_THRESHOLD
 
-All alerts require explicit user consent (guardian_consent_given=True on
-the UserProfile) and a configured guardian email or WhatsApp number.
+Safety guarantees
+-----------------
+* Consent double-gate: both ``enable_guardian_alerts`` and
+  ``guardian_consent_given`` must be True on the UserProfile.
+* Per-user cooldown: at most one alert per GUARDIAN_ALERT_COOLDOWN_MINUTES
+  (test alerts are excluded from cooldown counting/blocking).
+* Channel deduplication: duplicate entries in the ``channels`` list are silently
+  collapsed to avoid sending multiple messages on the same channel.
+* Automatic failover: if the primary channel fails and the other channel is
+  configured and not yet tried, it is attempted automatically.
+* Test alerts: flagged with ``is_test=True`` and ``delivery_status="test"`` so
+  they are visually distinct and never block real-alert cooldowns.
 
 Every dispatched alert (or failed attempt) is persisted in the
 guardian_alerts table via _log_alert().
@@ -24,7 +35,7 @@ from __future__ import annotations
 
 import logging
 import smtplib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -39,7 +50,11 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # ---------------------------------------------------------------------------
-# Crisis / self-harm keyword list (extend as needed)
+# Crisis / self-harm keyword list
+#
+# Kept intentionally specific — multi-word phrases with clear crisis intent.
+# Broad, ambiguous single words (e.g. "worthless", "hopeless", "nobody cares")
+# are intentionally excluded to reduce false positives in everyday speech.
 # ---------------------------------------------------------------------------
 _CRISIS_KEYWORDS: frozenset[str] = frozenset(
     [
@@ -53,11 +68,22 @@ _CRISIS_KEYWORDS: frozenset[str] = frozenset(
         "no reason to live",
         "can't go on",
         "give up on life",
-        "worthless",
-        "hopeless",
-        "nobody cares",
         "disappear forever",
     ]
+)
+
+# Words / phrases that, when appearing within 40 chars before a crisis keyword,
+# indicate the phrase is negated (e.g. "I don't want to die").
+_NEGATION_WORDS: tuple[str, ...] = (
+    "don't ",
+    "didn't ",
+    "won't ",
+    "not ",
+    "never ",
+    "no ",
+    "doesn't ",
+    "i'm not",
+    "i am not",
 )
 
 
@@ -66,21 +92,52 @@ _CRISIS_KEYWORDS: frozenset[str] = frozenset(
 # ---------------------------------------------------------------------------
 
 def is_crisis_keyword_present(text: str) -> bool:
-    """Return True if *text* contains at least one crisis-intent keyword."""
+    """Return True if *text* contains a crisis-intent keyword without a
+    preceding negation phrase.
+
+    Each keyword occurrence is checked for a negation word within the 40
+    characters immediately preceding the match.  This suppresses common
+    false positives such as:
+      - "I don't want to die laughing"     → negated ✓
+      - "I won't hurt myself, I promise"   → negated ✓
+      - "I want to die" / "I'll hurt myself" → not negated → True
+    """
     lower = text.lower()
-    return any(kw in lower for kw in _CRISIS_KEYWORDS)
+    for kw in _CRISIS_KEYWORDS:
+        search_start = 0
+        while True:
+            pos = lower.find(kw, search_start)
+            if pos == -1:
+                break
+            # 40-char context window immediately preceding the keyword
+            prefix = lower[max(0, pos - 40):pos]
+            if not any(neg in prefix for neg in _NEGATION_WORDS):
+                return True
+            search_start = pos + 1
+    return False
 
 
 def should_trigger_alert(
     *,
     risk_level: str,
+    current_risk_score: float = 0.0,
     text: str | None = None,
     distress_session_count: int = 0,
     previous_risk_score: float = 0.0,
-    current_risk_score: float = 0.0,
 ) -> bool:
-    """Return True when at least one escalation condition is met."""
-    if risk_level in ("high", "critical"):
+    """Return True when at least one escalation condition is met.
+
+    Conditions (any one is sufficient):
+    1. risk_level="critical"  — unconditional (most severe classification)
+    2. risk_level="high" AND current_risk_score >= GUARDIAN_HIGH_RISK_MIN_SCORE
+       (guards against marginal/borderline "high" classifications)
+    3. Crisis-intent keyword detected in *text* (with negation check)
+    4. Consecutive distress sessions >= GUARDIAN_DISTRESS_SESSION_THRESHOLD
+    5. Risk-score spike >= GUARDIAN_RISK_SPIKE_THRESHOLD
+    """
+    if risk_level == "critical":
+        return True
+    if risk_level == "high" and current_risk_score >= settings.GUARDIAN_HIGH_RISK_MIN_SCORE:
         return True
     if text and is_crisis_keyword_present(text):
         return True
@@ -104,12 +161,19 @@ async def dispatch_guardian_alert(
     risk_level: str,
     risk_reason: str | None,
     channels: list[str],
+    is_test: bool = False,
 ) -> list[GuardianAlert]:
     """
     Dispatch alerts on the requested channels and persist a log record for
     each one.  Returns the list of persisted GuardianAlert rows.
+
+    Safety guarantees applied here:
+    * Double-consent gate (enable_guardian_alerts + guardian_consent_given)
+    * Per-user cooldown (real alerts only; test alerts bypass cooldown)
+    * Channel deduplication
+    * Automatic failover to the other channel if primary fails
     """
-    # Load user profile — we need guardian contact info and consent flag
+    # Load user profile — we need guardian contact info and consent flags
     profile = await _get_profile(db, user_id)
 
     if profile is None:
@@ -130,12 +194,43 @@ async def dispatch_guardian_alert(
         )
         return []
 
-    logs: list[GuardianAlert] = []
+    # Cooldown check — only for real (non-test) alerts
+    if not is_test and await _is_on_cooldown(db, user_id):
+        logger.info(
+            "dispatch_guardian_alert: cooldown active for user_id=%d — skipping",
+            user_id,
+        )
+        return []
 
-    for channel in channels:
+    # Deduplicate channels while preserving order
+    seen: set[str] = set()
+    unique_channels: list[str] = []
+    for ch in channels:
+        if ch not in seen:
+            seen.add(ch)
+            unique_channels.append(ch)
+
+    logs: list[GuardianAlert] = []
+    tried_channels: set[str] = set()
+
+    # Use a mutable list so failover can append to it mid-iteration
+    channels_to_try = list(unique_channels)
+    idx = 0
+    while idx < len(channels_to_try):
+        channel = channels_to_try[idx]
+        idx += 1
+
+        if channel in tried_channels:
+            continue
+        tried_channels.add(channel)
+
         status = "failed"
+        should_log = True
         try:
-            if channel == "email" and profile.guardian_email:
+            if is_test:
+                # Test alerts are always logged but never actually sent
+                status = "test"
+            elif channel == "email" and profile.guardian_email:
                 status = _send_email_alert(
                     guardian_name=profile.guardian_name or "Guardian",
                     guardian_email=profile.guardian_email,
@@ -155,7 +250,7 @@ async def dispatch_guardian_alert(
                     "dispatch_guardian_alert: channel=%s has no contact — skipping",
                     channel,
                 )
-                continue
+                should_log = False
         except Exception:  # noqa: BLE001
             logger.exception(
                 "dispatch_guardian_alert: error dispatching channel=%s user_id=%d",
@@ -163,15 +258,35 @@ async def dispatch_guardian_alert(
                 user_id,
             )
 
-        log = await _log_alert(
-            db,
-            user_id=user_id,
-            risk_level=risk_level,
-            risk_reason=risk_reason,
-            channel=channel,
-            delivery_status=status,
-        )
-        logs.append(log)
+        if should_log:
+            log = await _log_alert(
+                db,
+                user_id=user_id,
+                risk_level=risk_level,
+                risk_reason=risk_reason,
+                channel=channel,
+                delivery_status=status,
+                is_test=is_test,
+            )
+            logs.append(log)
+
+            # Automatic failover: if this (real) channel failed, try the other
+            # channel if it has a contact configured and hasn't been tried yet.
+            if status == "failed" and not is_test:
+                fallback = "whatsapp" if channel == "email" else "email"
+                if fallback not in tried_channels and fallback not in channels_to_try:
+                    has_contact = (
+                        (fallback == "email" and profile.guardian_email)
+                        or (fallback == "whatsapp" and profile.guardian_whatsapp)
+                    )
+                    if has_contact:
+                        logger.info(
+                            "dispatch_guardian_alert: failing over %s→%s for user_id=%d",
+                            channel,
+                            fallback,
+                            user_id,
+                        )
+                        channels_to_try.append(fallback)
 
     return logs
 
@@ -312,6 +427,29 @@ async def _get_profile(db: AsyncSession, user_id: int) -> UserProfile | None:
     return result.scalar_one_or_none()
 
 
+async def _is_on_cooldown(db: AsyncSession, user_id: int) -> bool:
+    """Return True if a *real* (non-test) alert was successfully sent within
+    the configured cooldown window.
+
+    Test alerts are intentionally excluded so that running a test never
+    blocks subsequent real alerts.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(
+        minutes=settings.GUARDIAN_ALERT_COOLDOWN_MINUTES
+    )
+    result = await db.execute(
+        select(GuardianAlert)
+        .where(
+            GuardianAlert.user_id == user_id,
+            GuardianAlert.delivery_status == "sent",
+            GuardianAlert.is_test.is_(False),
+            GuardianAlert.timestamp >= cutoff,
+        )
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
 async def _log_alert(
     db: AsyncSession,
     *,
@@ -320,6 +458,7 @@ async def _log_alert(
     risk_reason: str | None,
     channel: str,
     delivery_status: str,
+    is_test: bool = False,
 ) -> GuardianAlert:
     alert = GuardianAlert(
         user_id=user_id,
@@ -327,16 +466,18 @@ async def _log_alert(
         risk_reason=risk_reason,
         channel=channel,
         delivery_status=delivery_status,
+        is_test=is_test,
     )
     db.add(alert)
     await db.commit()
     await db.refresh(alert)
     logger.info(
-        "_log_alert: user_id=%d risk=%s channel=%s status=%s",
+        "_log_alert: user_id=%d risk=%s channel=%s status=%s is_test=%s",
         user_id,
         risk_level,
         channel,
         delivery_status,
+        is_test,
     )
     return alert
 

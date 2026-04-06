@@ -14,6 +14,9 @@ class GuardianAlertTriggerRequest(BaseModel):
     risk_level: Literal["high", "critical"] = "high"
     risk_reason: str | None = Field(default=None, max_length=500)
     channels: list[Literal["email", "whatsapp"]] = Field(default=["email"])
+    # Set to True for test/verification alerts — no real notification is sent,
+    # delivery_status will be "test", and the cooldown window is not consumed.
+    is_test: bool = False
 
 
 class GuardianAlertResponse(BaseModel):
@@ -23,6 +26,7 @@ class GuardianAlertResponse(BaseModel):
     risk_reason: str | None = None
     channel: str
     delivery_status: str
+    is_test: bool = False
     timestamp: datetime
 
     model_config = {"from_attributes": True}

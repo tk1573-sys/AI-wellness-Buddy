@@ -101,6 +101,13 @@ class Settings(BaseSettings):
     GUARDIAN_DISTRESS_SESSION_THRESHOLD: int = 3
     # Minimum risk-score spike (0-1 scale) that triggers an auto-alert
     GUARDIAN_RISK_SPIKE_THRESHOLD: float = 0.4
+    # Minimum risk score required for a "high" risk_level to auto-trigger an alert.
+    # Prevents marginal "high" emotion classifications from firing alerts.
+    # "critical" always triggers regardless of score.
+    GUARDIAN_HIGH_RISK_MIN_SCORE: float = 0.65
+    # Minimum minutes that must pass between two successfully sent alerts for the
+    # same user.  Prevents alert storms and duplicate notifications.
+    GUARDIAN_ALERT_COOLDOWN_MINUTES: int = 30
 
     model_config = SettingsConfigDict(
         env_file=".env",

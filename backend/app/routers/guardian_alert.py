@@ -48,6 +48,7 @@ async def trigger_guardian_alert(
         risk_level=req.risk_level,
         risk_reason=req.risk_reason,
         channels=req.channels,
+        is_test=req.is_test,
     )
 
     if not logs:

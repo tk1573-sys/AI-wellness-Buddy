@@ -1375,7 +1375,15 @@ distress signal is detected in your session.
 
             # Choose colours
             level_color = '#ef4444' if risk_level == 'critical' else '#f97316'
-            status_color = '#4ade80' if status == 'sent' else '#ef4444'
+            if status == 'sent':
+                status_color = '#4ade80'
+                status_label = '✅ Sent'
+            elif status == 'test':
+                status_color = '#60a5fa'
+                status_label = '🔔 Test'
+            else:
+                status_color = '#ef4444'
+                status_label = '❌ Failed'
             channel_icon = '📧' if channel == 'email' else '📱'
 
             st.markdown(
@@ -1389,7 +1397,7 @@ distress signal is detected in your session.
                  padding:0.1rem 0.5rem;border-radius:4px;">{risk_level}</span>
     <span style="font-size:0.75rem;color:#9ca3af;text-transform:capitalize;">{channel}</span>
     <span style="margin-left:auto;font-size:0.75rem;color:{status_color};">
-      {'✅ Sent' if status == 'sent' else '❌ Failed'}</span>
+      {status_label}</span>
   </div>
   {"<p style='font-size:0.75rem;color:#9ca3af;margin:0.25rem 0 0;'>" + reason + "</p>" if reason else ""}
   <p style="font-size:0.65rem;color:#6b7280;margin:0.15rem 0 0;">{ts}</p>
@@ -1415,16 +1423,16 @@ distress signal is detected in your session.
             test_record = {
                 'risk_level': 'high',
                 'channel': test_channel,
-                'delivery_status': 'sent',
+                'delivery_status': 'test',
                 'risk_reason': 'Manual test alert from Guardian Alerts settings.',
                 'timestamp': datetime.now(),
             }
             if 'guardian_alert_history' not in st.session_state:
                 st.session_state.guardian_alert_history = []
             st.session_state.guardian_alert_history.append(test_record)
-            st.success(f"✅ Test alert logged for channel: {test_channel}")
-            st.caption(
-                "Note: In production, this sends a real notification via the configured channel."
+            st.info(
+                "🔔 **Test alert recorded** (local simulation only — no real notification was sent).\n\n"
+                "In production, connect the backend API to dispatch actual Email/WhatsApp messages."
             )
 
 
