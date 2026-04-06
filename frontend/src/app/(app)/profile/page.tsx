@@ -54,6 +54,7 @@ export default function ProfilePage() {
   const [form, setForm] = useState<UserProfile>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -62,7 +63,7 @@ export default function ProfilePage() {
     }
     getProfile()
       .then((p) => setForm({ ...EMPTY, ...p }))
-      .catch(() => {/* no profile yet — use empty form */})
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -98,6 +99,10 @@ export default function ProfilePage() {
     );
   }
 
+  if (loadError) {
+    // Show a non-fatal warning; user can still fill and save the form below.
+  }
+
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="max-w-2xl mx-auto space-y-8">
@@ -107,6 +112,11 @@ export default function ProfilePage() {
             This information helps personalize your wellness experience.
           </p>
         </div>
+        {loadError && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-900/20 px-4 py-3 text-sm text-amber-200">
+            ⚠️ Could not load your existing profile. You can fill in your details below and save.
+          </div>
+        )}
 
         {/* Language Preference */}
         <section className="rounded-xl border border-glass-border bg-glass p-5 backdrop-blur-sm space-y-4">

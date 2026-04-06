@@ -8,13 +8,13 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: wellness
-      POSTGRES_PASSWORD: wellness_secret
-      POSTGRES_DB: wellness_db
+      POSTGRES_USER: ${DB_USER:-wellness}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required — set it in a .env file}
+      POSTGRES_DB: ${DB_NAME:-wellness_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U wellness -d wellness_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-wellness} -d ${DB_NAME:-wellness_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,8 +30,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://wellness:wellness_secret@db:5432/wellness_db
-      SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-wellness}:${DB_PASSWORD}@db:5432/${DB_NAME:-wellness_db}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required — set it in a .env file}
       LOG_LEVEL: INFO
       DEBUG: "false"
       ALLOWED_ORIGINS: '["http://localhost:3000"]'

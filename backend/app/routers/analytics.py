@@ -87,9 +87,9 @@ class ResearchAnalyticsResponse(BaseModel):
 @limiter.limit("10/minute")
 async def get_research_analytics(
     request: Request,
-    token: str,
     include_plots: bool = True,
     db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
 ) -> Any:
     """Return research-grade analytics for the authenticated user's emotion logs.
 
@@ -105,8 +105,6 @@ async def get_research_analytics(
       ``include_plots=false`` to skip generation).
     - **total_sessions**: Number of emotion logs analysed.
     """
-    user = await get_current_user(token, db)
-
     stmt = (
         select(EmotionLog)
         .where(EmotionLog.user_id == user.id)

@@ -23,8 +23,9 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -60,6 +61,16 @@ def create_app() -> FastAPI:
         logger.info("Starting up %s v%s", settings.APP_NAME, settings.APP_VERSION)
         await init_db()
         logger.info("Database tables created / verified.")
+        # Pre-warm the ML model so the first real request is not delayed.
+        try:
+            from app.services import emotion_service
+            emotion_service._get_analyzer()
+            logger.info("EmotionAnalyzer pre-warmed successfully.")
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "EmotionAnalyzer pre-warm failed; first request may experience cold-start delay.",
+                exc_info=True,
+            )
         yield
         logger.info("Shutting down.")
 
@@ -84,6 +95,17 @@ def create_app() -> FastAPI:
     app.add_middleware(SlowAPIMiddleware)
 
     # ------------------------------------------------------------------ #
+    # Global exception handler — returns a consistent JSON error shape
+    # ------------------------------------------------------------------ #
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception("Unhandled error on %s %s", request.method, request.url)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "An internal server error occurred. Please try again later."},
+        )
+
+    # ------------------------------------------------------------------ #
     # Security headers
     # ------------------------------------------------------------------ #
     app.add_middleware(SecurityHeadersMiddleware, env=settings.ENV)
@@ -98,7 +120,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "OPTIONS"],
         allow_headers=["*"],
     )
 
@@ -133,4 +155,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

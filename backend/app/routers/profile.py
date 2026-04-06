@@ -16,22 +16,20 @@ router = APIRouter(prefix="/profile", tags=["Profile"])
 @router.post("", response_model=ProfileResponse, status_code=201)
 async def create_profile(
     data: ProfileCreate,
-    token: str,
     db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     """Create or overwrite the authenticated user's profile."""
-    user = await get_current_user(token, db)
     profile = await profile_service.upsert_profile(db, user.id, data)
     return ProfileResponse.model_validate(profile)
 
 
 @router.get("", response_model=ProfileResponse)
 async def get_profile(
-    token: str,
     db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     """Return the authenticated user's profile."""
-    user = await get_current_user(token, db)
     profile = await profile_service.get_profile(db, user.id)
     if profile is None:
         from fastapi import HTTPException, status
@@ -42,10 +40,9 @@ async def get_profile(
 @router.put("", response_model=ProfileResponse)
 async def update_profile(
     data: ProfileUpdate,
-    token: str,
     db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     """Update the authenticated user's profile (partial update supported)."""
-    user = await get_current_user(token, db)
     profile = await profile_service.upsert_profile(db, user.id, data)
     return ProfileResponse.model_validate(profile)

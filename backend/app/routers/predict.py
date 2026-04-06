@@ -14,7 +14,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.limiter import limiter
 from app.models.emotion import EmotionLog
-from app.routers.auth import get_current_user
+from app.routers.auth import get_optional_user
 from app.schemas.emotion import PredictRequest, PredictResponse
 from app.services import emotion_service
 
@@ -38,15 +38,15 @@ _RISK_WEIGHTS: dict[str, float] = {
 async def predict(
     request: Request,
     req: PredictRequest,
-    token: str = "",
     db: AsyncSession = Depends(get_db),
+    user=Depends(get_optional_user),
 ):
     """
     Detect emotion in a piece of text using the hybrid AI model.
 
     - Returns the primary emotion, confidence score, and full distribution.
     - Flags high-risk inputs and returns an escalation message when appropriate.
-    - Prediction is persisted for authenticated users (pass `token` query param).
+    - Prediction is persisted for authenticated users (pass Authorization: Bearer header).
     """
     t0 = time.perf_counter()
     try:
@@ -62,9 +62,8 @@ async def predict(
     logger.info("predict latency_ms=%.1f emotion=%s", latency_ms, result.primary_emotion)
 
     # Persist if the caller is authenticated
-    if token:
+    if user is not None:
         try:
-            user = await get_current_user(token, db)
             all_scores_dict = {s.emotion: s.score for s in result.scores}
             # risk_score: weighted sum of high-risk emotion probabilities, capped at 1.0
             risk_score = min(
@@ -86,7 +85,7 @@ async def predict(
             ))
         except Exception:
             # Persistence failure must not block the prediction response.
-            logger.warning("Could not persist emotion log (unauthenticated or DB error)")
+            logger.warning("Could not persist emotion log (DB error)")
 
     return result
 

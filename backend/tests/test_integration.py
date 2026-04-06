@@ -50,7 +50,7 @@ async def test_full_pipeline_integration(client, mocker):
     resp = await client.post(
         "/api/v1/chat",
         json={"message": "I'm feeling anxious about work", "session_id": "integration-session"},
-        params={"token": token},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
     chat_data = resp.json()
@@ -58,7 +58,10 @@ async def test_full_pipeline_integration(client, mocker):
     assert "reply" in chat_data
 
     # ── 4. Chat history ────────────────────────────────────────────────────
-    resp = await client.get("/api/v1/chat/history", params={"token": token})
+    resp = await client.get(
+        "/api/v1/chat/history",
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert resp.status_code == 200
     messages = resp.json()
     # At least the user turn and assistant turn should be stored
