@@ -77,6 +77,31 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     LOG_LEVEL: str = "INFO"
 
+    # ------------------------------------------------------------------ #
+    # Guardian Alert — email (SMTP / SendGrid-ready)
+    # ------------------------------------------------------------------ #
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USE_TLS: bool = True
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = "no-reply@ai-wellness-buddy.app"
+
+    # ------------------------------------------------------------------ #
+    # Guardian Alert — WhatsApp (Twilio-ready)
+    # ------------------------------------------------------------------ #
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_WHATSAPP_FROM: str = ""   # e.g. "+14155238886" (Twilio sandbox)
+
+    # ------------------------------------------------------------------ #
+    # Guardian Alert — escalation thresholds
+    # ------------------------------------------------------------------ #
+    # Minimum number of consecutive distress sessions before auto-alerting
+    GUARDIAN_DISTRESS_SESSION_THRESHOLD: int = 3
+    # Minimum risk-score spike (0-1 scale) that triggers an auto-alert
+    GUARDIAN_RISK_SPIKE_THRESHOLD: float = 0.4
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

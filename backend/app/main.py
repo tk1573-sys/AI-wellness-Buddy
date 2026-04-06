@@ -16,6 +16,8 @@ Exposes:
   POST /api/v1/voice/tts
   GET  /api/v1/weekly-report
   GET  /api/v1/journey
+  POST /api/v1/guardian-alert
+  GET  /api/v1/guardian-alert
 """
 
 from __future__ import annotations
@@ -36,7 +38,7 @@ from app.database import init_db
 from app.limiter import limiter
 from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
-from app.routers import analytics, auth, chat, health, predict, profile, dashboard, voice, weekly_report, journey
+from app.routers import analytics, auth, chat, health, predict, profile, dashboard, voice, weekly_report, journey, guardian_alert
 
 settings = get_settings()
 
@@ -150,6 +152,7 @@ def create_app() -> FastAPI:
     app.include_router(voice.router, prefix=settings.API_PREFIX)
     app.include_router(weekly_report.router, prefix=settings.API_PREFIX)
     app.include_router(journey.router, prefix=settings.API_PREFIX)
+    app.include_router(guardian_alert.router, prefix=settings.API_PREFIX)
 
     return app
 

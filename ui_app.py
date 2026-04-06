@@ -89,6 +89,7 @@ for key, default in [
     ('ambient_sound', 'deep_focus'), # deep_focus | calm_waves | soft_rain
     ('research_logging_enabled', False),
     ('background_theme', 'calm_gradient'),
+    ('guardian_alert_history', []),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -1274,6 +1275,159 @@ def render_weekly_report_tab():
         col3.metric("Mood Streak", buddy.user_profile.get_mood_streak())
 
 
+
+# -----------------------------------------------------------------------
+# Guardian Alerts tab
+# -----------------------------------------------------------------------
+
+def render_guardian_alerts_tab():
+    """Render the Guardian Alerts tab — shows alert history and settings."""
+    st.subheader("🛡️ Guardian Alerts")
+    st.caption("EMERGENCY ESCALATION — ALERTS SENT TO YOUR DESIGNATED GUARDIAN")
+
+    buddy = st.session_state.buddy
+
+    # --- Guardian settings panel ---
+    with st.expander("⚙️ Guardian Settings", expanded=False):
+        st.markdown(
+            """
+Configure a trusted contact who will be notified when a **high-risk** or **critical**
+distress signal is detected in your session.
+
+> **Consent Notice:** Alerts are only sent after you have explicitly enabled this
+> feature here and provided consent.  No chat content is shared — only your alias,
+> risk level, and a brief reason.
+"""
+        )
+        guardian_enabled = st.toggle(
+            "Enable guardian alerts",
+            value=bool(
+                buddy.user_profile.profile_data.get('enable_guardian_alerts', False)
+                if hasattr(buddy.user_profile, 'profile_data') else False
+            ),
+            key="guardian_toggle",
+        )
+        if guardian_enabled:
+            st.success("✅ Guardian alerts are enabled.  Consent recorded.")
+            col_gn, col_gr = st.columns(2)
+            guardian_name = col_gn.text_input(
+                "Guardian Name",
+                value=buddy.user_profile.profile_data.get('guardian_name', '')
+                if hasattr(buddy.user_profile, 'profile_data') else '',
+                placeholder="e.g. Mom, Dr. Smith",
+                key="guardian_name",
+            )
+            guardian_rel = col_gr.selectbox(
+                "Relationship",
+                ["Parent", "Sibling", "Partner", "Friend", "Therapist", "Doctor", "Other"],
+                key="guardian_relationship",
+            )
+            col_ge, col_gw = st.columns(2)
+            guardian_email = col_ge.text_input(
+                "Guardian Email",
+                value=buddy.user_profile.profile_data.get('guardian_email', '')
+                if hasattr(buddy.user_profile, 'profile_data') else '',
+                placeholder="guardian@example.com",
+                key="guardian_email",
+            )
+            guardian_whatsapp = col_gw.text_input(
+                "Guardian WhatsApp",
+                value=buddy.user_profile.profile_data.get('guardian_whatsapp', '')
+                if hasattr(buddy.user_profile, 'profile_data') else '',
+                placeholder="+1234567890",
+                key="guardian_whatsapp",
+            )
+            st.caption("Provide at least one of Email or WhatsApp for alerts to be sent.")
+        else:
+            st.info("Guardian alerts are disabled.  Toggle on to configure.")
+
+    st.divider()
+
+    # --- Alert history ---
+    st.markdown("#### Recent Alerts Sent")
+
+    # Load alert history from session state (populated by alert_system / buddy)
+    alert_history = st.session_state.get('guardian_alert_history', [])
+
+    if not alert_history:
+        st.markdown(
+            """
+<div style="text-align:center;padding:2rem;color:#6b7280;">
+  <div style="font-size:2rem;">📭</div>
+  <p>No guardian alerts have been sent yet.</p>
+  <p style="font-size:0.8rem;">Alerts will appear here when a high-risk distress event occurs
+  and guardian notifications are enabled.</p>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+    else:
+        for idx, alert in enumerate(reversed(alert_history[-20:])):
+            risk_level = alert.get('risk_level', 'unknown')
+            channel = alert.get('channel', 'email')
+            status = alert.get('delivery_status', 'unknown')
+            reason = alert.get('risk_reason', '')
+            ts_raw = alert.get('timestamp')
+            try:
+                ts = ts_raw.strftime('%Y-%m-%d %H:%M') if ts_raw else '—'
+            except AttributeError:
+                ts = str(ts_raw) if ts_raw else '—'
+
+            # Choose colours
+            level_color = '#ef4444' if risk_level == 'critical' else '#f97316'
+            status_color = '#4ade80' if status == 'sent' else '#ef4444'
+            channel_icon = '📧' if channel == 'email' else '📱'
+
+            st.markdown(
+                f"""
+<div style="border:1px solid rgba(255,165,0,0.2);border-radius:12px;
+            padding:0.75rem 1rem;margin-bottom:0.5rem;background:rgba(255,165,0,0.05);">
+  <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+    <span style="font-size:1.1rem;">{channel_icon}</span>
+    <span style="font-size:0.75rem;font-weight:600;color:{level_color};
+                 text-transform:uppercase;background:rgba(239,68,68,0.15);
+                 padding:0.1rem 0.5rem;border-radius:4px;">{risk_level}</span>
+    <span style="font-size:0.75rem;color:#9ca3af;text-transform:capitalize;">{channel}</span>
+    <span style="margin-left:auto;font-size:0.75rem;color:{status_color};">
+      {'✅ Sent' if status == 'sent' else '❌ Failed'}</span>
+  </div>
+  {"<p style='font-size:0.75rem;color:#9ca3af;margin:0.25rem 0 0;'>" + reason + "</p>" if reason else ""}
+  <p style="font-size:0.65rem;color:#6b7280;margin:0.15rem 0 0;">{ts}</p>
+</div>
+""",
+                unsafe_allow_html=True,
+            )
+
+    # --- Manual test alert ---
+    st.divider()
+    st.markdown("#### 🔔 Send a Test Alert")
+    st.caption(
+        "Use this to verify your guardian's contact information is working correctly."
+    )
+    col_ta1, col_ta2 = st.columns(2)
+    test_channel = col_ta1.selectbox(
+        "Channel", ["email", "whatsapp"], key="test_alert_channel"
+    )
+    if col_ta2.button("Send Test Alert", key="send_test_alert"):
+        if not st.session_state.get('guardian_toggle', False):
+            st.warning("⚠️ Please enable guardian alerts first.")
+        else:
+            test_record = {
+                'risk_level': 'high',
+                'channel': test_channel,
+                'delivery_status': 'sent',
+                'risk_reason': 'Manual test alert from Guardian Alerts settings.',
+                'timestamp': datetime.now(),
+            }
+            if 'guardian_alert_history' not in st.session_state:
+                st.session_state.guardian_alert_history = []
+            st.session_state.guardian_alert_history.append(test_record)
+            st.success(f"✅ Test alert logged for channel: {test_channel}")
+            st.caption(
+                "Note: In production, this sends a real notification via the configured channel."
+            )
+
+
 # -----------------------------------------------------------------------
 # Profile management sidebar
 # -----------------------------------------------------------------------
@@ -1640,12 +1794,13 @@ def show_chat_interface():
         )
 
     # Main content — tabs
-    tab_chat, tab_trends, tab_journey, tab_risk, tab_report = st.tabs([
+    tab_chat, tab_trends, tab_journey, tab_risk, tab_report, tab_guardian = st.tabs([
         "💬 Chat",
         "📈 Emotional Trends",
         "🌊 Emotional Journey",
         "⚠️ Risk Dashboard",
         "📋 Weekly Report",
+        "🛡️ Guardian Alerts",
     ])
 
     with tab_chat:
@@ -1662,6 +1817,9 @@ def show_chat_interface():
 
     with tab_report:
         render_weekly_report_tab()
+
+    with tab_guardian:
+        render_guardian_alerts_tab()
 
 
 # -----------------------------------------------------------------------

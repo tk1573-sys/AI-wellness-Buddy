@@ -40,3 +40,6 @@ class User(Base):
     profile: Mapped["UserProfile | None"] = relationship(  # noqa: F821
         back_populates="user", cascade="all, delete-orphan", lazy="select", uselist=False
     )
+    guardian_alerts: Mapped[list["GuardianAlert"]] = relationship(  # noqa: F821
+        back_populates="user", cascade="all, delete-orphan", lazy="select"
+    )

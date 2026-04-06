@@ -29,6 +29,13 @@ class ProfileCreate(BaseModel):
     safety_check: bool | None = None
     personal_triggers: list[str] | None = None
     language_preference: str | None = Field(default="english")
+    # Guardian / emergency escalation settings
+    enable_guardian_alerts: bool = False
+    guardian_consent_given: bool = False
+    guardian_name: str | None = None
+    guardian_email: str | None = None
+    guardian_whatsapp: str | None = None
+    guardian_relationship: str | None = None
 
 
 class ProfileUpdate(ProfileCreate):
@@ -59,6 +66,13 @@ class ProfileResponse(BaseModel):
     safety_check: bool | None = None
     personal_triggers: list[str] | None = None
     language_preference: str | None = "english"
+    # Guardian / emergency escalation settings
+    enable_guardian_alerts: bool = False
+    guardian_consent_given: bool = False
+    guardian_name: str | None = None
+    guardian_email: str | None = None
+    guardian_whatsapp: str | None = None
+    guardian_relationship: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
