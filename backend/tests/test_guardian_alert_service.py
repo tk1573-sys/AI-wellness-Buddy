@@ -63,6 +63,8 @@ def test_removed_high_fp_words_do_not_trigger(text: str):
     "No, I don't want to die",
     "I'm not thinking about suicide",
     "I am not going to hurt myself",
+    "I'm not thinking about self harm",
+    "I am not going to end my life",
 ])
 def test_negated_crisis_phrases_not_detected(text: str):
     assert is_crisis_keyword_present(text) is False

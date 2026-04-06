@@ -74,6 +74,8 @@ _CRISIS_KEYWORDS: frozenset[str] = frozenset(
 
 # Words / phrases that, when appearing within 40 chars before a crisis keyword,
 # indicate the phrase is negated (e.g. "I don't want to die").
+# All entries include a trailing space so they match whole words/phrases only
+# (prevents "nobody" from triggering on "no ", "knowing" on "not ", etc.)
 _NEGATION_WORDS: tuple[str, ...] = (
     "don't ",
     "didn't ",
@@ -82,8 +84,8 @@ _NEGATION_WORDS: tuple[str, ...] = (
     "never ",
     "no ",
     "doesn't ",
-    "i'm not",
-    "i am not",
+    "i'm not ",
+    "i am not ",
 )
 
 
