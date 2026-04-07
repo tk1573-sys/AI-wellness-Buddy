@@ -619,62 +619,9 @@ def render_chat_tab():
                                      help="Listen to this response"):
                             _play_tts(message["content"])
 
-    # ---- AI Insights: premium analysis card + emotion probability bar ----
-    _meta = st.session_state.get('last_response_meta') or {}
-    _probs = _meta.get('emotion_probabilities', {})
-    _expl = _meta.get('explanation', '')
-    _det_emotion = _meta.get('emotion', '')
-    _xai = _meta.get('xai_explanation', {})
-    _concern = _meta.get('concern_level', '')
-    _emo_conf = _meta.get('emotion_confidence', 0.0)
-    if _probs and _det_emotion:
-        _conf = _xai.get('confidence', _probs.get(_det_emotion, 0))
-        _indicators = _xai.get('key_indicators', [])
-        _sent = _xai.get('sentiment_contribution', {})
-        _sent_label = _sent.get('influence', '')
-        _src = _xai.get('model_source', '')
-        # Distress keywords as supplementary indicators (backward compat)
-        _distress_kw = _meta.get('distress_keywords', [])
-        if _distress_kw and not _indicators:
-            _indicators = _distress_kw
-
-        insight_col, chart_col = st.columns([3, 2])
-        with insight_col:
-            st.markdown(
-                render_ai_insights_card(
-                    emotion=_det_emotion,
-                    confidence=_emo_conf or _conf,
-                    explanation=_expl,
-                    key_indicators=_indicators,
-                    concern_level=_concern,
-                    model_source=_src,
-                    sentiment_label=_sent_label,
-                ),
-                unsafe_allow_html=True,
-            )
-        with chart_col:
-            st.markdown(
-                '<div class="section-header-premium">📊 Emotion Probabilities</div>',
-                unsafe_allow_html=True,
-            )
-            st.plotly_chart(
-                create_emotion_probability_bar(_probs),
-                width="stretch",
-            )
-
-    # ---- Session Emotion Timeline ----
-    _session_emo_hist = st.session_state.get('emotion_history', [])
-    if len(_session_emo_hist) >= 2:
-        st.markdown(
-            '<div class="section-header-premium">📈 Session Emotion Timeline</div>',
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(
-            create_session_emotion_timeline(_session_emo_hist),
-            width="stretch",
-        )
-
     # ---- Crisis resources: show immediately when crisis detected ----
+    _meta = st.session_state.get('last_response_meta') or {}
+    _det_emotion = _meta.get('emotion', '')
     if _det_emotion == 'crisis':
         st.error(
             "🆘 **Crisis Resources — Please reach out now**\n\n"
@@ -684,28 +631,7 @@ def render_chat_tab():
             "You are not alone. Help is available right now. 💙"
         )
 
-    # ---- Escalation warning ----
-    _emo_labels = [
-        e['emotion'] for e in st.session_state.get('emotion_history', [])
-        if isinstance(e, dict) and e.get('emotion')
-    ]
-    _is_escalating = detect_escalation(_emo_labels)
-    _esc_score = escalation_score(_emo_labels)
-    if _is_escalating:
-        st.warning("⚠️ Emotional escalation detected")
-    if _emo_labels:
-        st.metric("Escalation risk", f"{_esc_score:.1f}")
-
-    # ---- Emotion prediction insight ----
-    if _emo_labels:
-        _next_emotion = predict_next_emotion(_emo_labels)
-        _trend = detect_trend(_emo_labels)
-        st.info(
-            f"🔮 **Predicted next emotion:** {_next_emotion.capitalize()} "
-            f" | 📈 **Trend:** {_trend.capitalize()}"
-        )
-
-    # ---- Intervention recommendations ----
+    # ---- Intervention recommendations (contextual, shown inline) ----
     _interventions = _meta.get('interventions', {})
     _intervention_level = _interventions.get('level', '')
     if _intervention_level in ('moderate', 'high', 'critical'):
@@ -742,13 +668,34 @@ def render_chat_tab():
             st.markdown(ambient_stop_html(), unsafe_allow_html=True)
             st.rerun()
 
-    # Inline voice mic near chat input
-    feedback_col, mic_col = st.columns([11, 1])
-    with mic_col:
-        voice_transcript = _handle_voice_input()
+    # ---- Dedicated Voice Controls section ----
+    with st.expander("🎤 Voice Controls", expanded=False):
+        _vc1, _vc2 = st.columns(2)
+        with _vc1:
+            voice_transcript = _handle_voice_input()
+        with _vc2:
+            vh_ctrl: VoiceHandler = st.session_state.voice_handler
+            if vh_ctrl and vh_ctrl.tts_available:
+                _tts_on = st.toggle(
+                    "🔊 Text-to-Speech",
+                    value=st.session_state.get('tts_enabled', False),
+                    key="tts_toggle_chat",
+                )
+                st.session_state.tts_enabled = _tts_on
+            _SOUND_MAP = {label: key for key, label in SOUND_LABELS.items()}
+            _cur_sound_label = SOUND_LABELS.get(
+                st.session_state.get('ambient_sound', 'deep_focus'), 'Deep Focus'
+            )
+            sound_choice = st.selectbox(
+                "🎵 Ambient sound",
+                options=list(SOUND_LABELS.values()),
+                index=list(SOUND_LABELS.values()).index(_cur_sound_label)
+                      if _cur_sound_label in SOUND_LABELS.values() else 0,
+                key="ambient_sound_select_chat",
+            )
+            st.session_state.ambient_sound = _SOUND_MAP.get(sound_choice, 'deep_focus')
+
     if voice_transcript and voice_transcript != st.session_state.last_user_input:
-        with feedback_col:
-            st.caption(f"🎤 *{voice_transcript}*")
         _add_chat_message("user", voice_transcript)
         # Typing indicator (cleared after response)
         typing_placeholder = st.empty()
@@ -769,7 +716,6 @@ def render_chat_tab():
         # Tag the user message with the detected emotion for badge display
         _tag_last_user_emotion(st.session_state.last_response_meta)
         _track_session_metadata(st.session_state.last_response_meta)
-        # Do NOT auto-enable calm mode; breathing button shown separately
         st.session_state.last_user_input = voice_transcript
         _play_tts(response)
         st.rerun()
@@ -1436,6 +1382,97 @@ distress signal is detected in your session.
             )
 
 
+
+# -----------------------------------------------------------------------
+# Emotional Insights tab — AI analysis widgets separated from chat area
+# -----------------------------------------------------------------------
+
+def render_emotional_insights_tab():
+    """Render the Emotional Insights tab with AI analysis, emotion timeline,
+    and escalation metrics — kept separate from the chat response area."""
+    st.subheader("🔍 Emotional Insights")
+    st.caption("AI-POWERED ANALYSIS FROM YOUR CURRENT SESSION")
+
+    _meta = st.session_state.get('last_response_meta') or {}
+    _probs = _meta.get('emotion_probabilities', {})
+    _expl = _meta.get('explanation', '')
+    _det_emotion = _meta.get('emotion', '')
+    _xai = _meta.get('xai_explanation', {})
+    _concern = _meta.get('concern_level', '')
+    _emo_conf = _meta.get('emotion_confidence', 0.0)
+
+    if not _det_emotion:
+        st.info("Start a conversation to see emotional insights.")
+        return
+
+    # ---- AI Insights card + Emotion Probability bar ----
+    if _probs and _det_emotion:
+        _conf = _xai.get('confidence', _probs.get(_det_emotion, 0))
+        _indicators = _xai.get('key_indicators', [])
+        _sent = _xai.get('sentiment_contribution', {})
+        _sent_label = _sent.get('influence', '')
+        _src = _xai.get('model_source', '')
+        _distress_kw = _meta.get('distress_keywords', [])
+        if _distress_kw and not _indicators:
+            _indicators = _distress_kw
+
+        insight_col, chart_col = st.columns([3, 2])
+        with insight_col:
+            st.markdown(
+                render_ai_insights_card(
+                    emotion=_det_emotion,
+                    confidence=_emo_conf or _conf,
+                    explanation=_expl,
+                    key_indicators=_indicators,
+                    concern_level=_concern,
+                    model_source=_src,
+                    sentiment_label=_sent_label,
+                ),
+                unsafe_allow_html=True,
+            )
+        with chart_col:
+            st.markdown(
+                '<div class="section-header-premium">📊 Emotion Probabilities</div>',
+                unsafe_allow_html=True,
+            )
+            st.plotly_chart(
+                create_emotion_probability_bar(_probs),
+                width="stretch",
+            )
+
+    # ---- Session Emotion Timeline ----
+    _session_emo_hist = st.session_state.get('emotion_history', [])
+    if len(_session_emo_hist) >= 2:
+        st.markdown(
+            '<div class="section-header-premium">📈 Session Emotion Timeline</div>',
+            unsafe_allow_html=True,
+        )
+        st.plotly_chart(
+            create_session_emotion_timeline(_session_emo_hist),
+            width="stretch",
+        )
+
+    # ---- Escalation metrics ----
+    _emo_labels = [
+        e['emotion'] for e in _session_emo_hist
+        if isinstance(e, dict) and e.get('emotion')
+    ]
+    if _emo_labels:
+        _is_escalating = detect_escalation(_emo_labels)
+        _esc_score = escalation_score(_emo_labels)
+        _next_emotion = predict_next_emotion(_emo_labels)
+        _trend = detect_trend(_emo_labels)
+
+        st.markdown("#### 📊 Escalation & Prediction")
+        _ei1, _ei2, _ei3 = st.columns(3)
+        _ei1.metric("Escalation Risk", f"{_esc_score:.2f}", help="0 = stable · 1 = maximum risk")
+        _ei2.metric("🔮 Predicted Emotion", _next_emotion.capitalize() if _next_emotion else "—")
+        _ei3.metric("📈 Trend", (_trend or "stable").title())
+
+        if _is_escalating:
+            st.warning("⚠️ Emotional escalation pattern detected in this session.")
+
+
 # -----------------------------------------------------------------------
 # Profile management sidebar
 # -----------------------------------------------------------------------
@@ -1802,8 +1839,9 @@ def show_chat_interface():
         )
 
     # Main content — tabs
-    tab_chat, tab_trends, tab_journey, tab_risk, tab_report, tab_guardian = st.tabs([
+    tab_chat, tab_insights, tab_trends, tab_journey, tab_risk, tab_report, tab_guardian = st.tabs([
         "💬 Chat",
+        "🔍 Emotional Insights",
         "📈 Emotional Trends",
         "🌊 Emotional Journey",
         "⚠️ Risk Dashboard",
@@ -1813,6 +1851,9 @@ def show_chat_interface():
 
     with tab_chat:
         render_chat_tab()
+
+    with tab_insights:
+        render_emotional_insights_tab()
 
     with tab_trends:
         render_trends_tab()

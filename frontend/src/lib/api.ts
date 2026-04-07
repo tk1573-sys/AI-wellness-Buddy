@@ -136,17 +136,34 @@ export function getErrorMessage(err: unknown): string {
 // Chat API functions
 // -------------------------------------------------------------------------- //
 
+// -------------------------------------------------------------------------- //
+// Normalise the reply field — the backend may return the assistant text
+// under any of the following keys depending on version or model adapter.
+// -------------------------------------------------------------------------- //
+
+function normalizeChatResponse(raw: Record<string, unknown>): ChatResponse {
+  const reply = (
+    (raw.reply as string | undefined) ||
+    (raw.response as string | undefined) ||
+    (raw.message as string | undefined) ||
+    (raw.bot_response as string | undefined) ||
+    (raw.response_text as string | undefined) ||
+    ""
+  );
+  return { ...(raw as unknown as ChatResponse), reply };
+}
+
 export async function sendMessage(
   message: string,
   sessionId?: string,
   languagePreference?: string,
 ): Promise<ChatResponse> {
-  const { data } = await axios.post<ChatResponse>(
+  const { data } = await axios.post<Record<string, unknown>>(
     `${API_URL}/api/v1/chat`,
     { message, session_id: sessionId ?? null, language_preference: languagePreference ?? "english" },
     { headers: authedHeaders() },
   );
-  return data;
+  return normalizeChatResponse(data);
 }
 
 export async function getChatHistory(): Promise<ChatMessage[]> {
