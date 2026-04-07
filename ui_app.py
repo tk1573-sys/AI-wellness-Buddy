@@ -696,6 +696,9 @@ def render_chat_tab():
             st.session_state.ambient_sound = _SOUND_MAP.get(sound_choice, 'deep_focus')
 
     if voice_transcript and voice_transcript != st.session_state.last_user_input:
+        # Deduplicate immediately so a Streamlit rerun before the block completes
+        # cannot cause the same transcript to be processed a second time.
+        st.session_state.last_user_input = voice_transcript
         _add_chat_message("user", voice_transcript)
         # Typing indicator (cleared after response)
         typing_placeholder = st.empty()
@@ -716,7 +719,6 @@ def render_chat_tab():
         # Tag the user message with the detected emotion for badge display
         _tag_last_user_emotion(st.session_state.last_response_meta)
         _track_session_metadata(st.session_state.last_response_meta)
-        st.session_state.last_user_input = voice_transcript
         _play_tts(response)
         st.rerun()
 

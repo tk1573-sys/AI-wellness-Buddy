@@ -355,7 +355,10 @@ export default function ChatPage() {
         </div>
 
         {/* ── Right panel: analysis sidebar (30%) — desktop only ── */}
-        <aside className="hidden lg:flex flex-col flex-[3] min-w-0 overflow-y-auto border-l border-glass-border bg-gray-900/40 backdrop-blur-sm px-4 py-5 space-y-4">
+        <aside
+          aria-label="Session Analysis Sidebar"
+          className="hidden lg:flex flex-col flex-[3] min-w-0 overflow-y-auto border-l border-glass-border bg-gray-900/40 backdrop-blur-sm px-4 py-5 space-y-4"
+        >
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
             Session Analysis
           </p>

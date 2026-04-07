@@ -150,7 +150,20 @@ function normalizeChatResponse(raw: Record<string, unknown>): ChatResponse {
     (raw.response_text as string | undefined) ||
     ""
   );
-  return { ...(raw as unknown as ChatResponse), reply };
+  return {
+    session_id:           String(raw.session_id           ?? ""),
+    reply,
+    primary_emotion:      String(raw.primary_emotion      ?? "neutral"),
+    confidence:           Number(raw.confidence           ?? 0),
+    is_high_risk:         Boolean(raw.is_high_risk        ?? false),
+    escalation_message:   (raw.escalation_message as string | null) ?? null,
+    scores:               (raw.scores                    ?? []) as ChatResponse["scores"],
+    personalization_score: Number(raw.personalization_score ?? 0),
+    used_triggers:        (raw.used_triggers             ?? []) as string[],
+    response_type:        ((raw.response_type as string) === "personalized"
+                            ? "personalized"
+                            : "generic"),
+  };
 }
 
 export async function sendMessage(
