@@ -1,7 +1,8 @@
 /**
- * Chat page — the main ChatGPT-style interface.
+ * Chat page — split-pane healthcare interface.
  *
  * Features:
+ *  - 70/30 desktop split: chat window (left) + analysis sidebar (right)
  *  - Conversation history loaded from API on mount
  *  - Real-time message exchange with typing indicator
  *  - Emotion badge on every assistant message
@@ -9,7 +10,9 @@
  *  - Voice input (STT) + per-message TTS replay
  *  - Language preference selector (English / Tamil / Bilingual)
  *  - Contextual breathing exercise prompt on anxiety/high-risk
- *  - Mobile-responsive layout
+ *  - Guardian-alert / onboarding compatible (uses latest API types)
+ *  - Response normalization: reply | response | message | bot_response | response_text
+ *  - Dark healthcare theme
  */
 
 "use client";
@@ -17,17 +20,18 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { Send, Globe } from "lucide-react";
+import { Globe } from "lucide-react";
 
 import { sendMessage, getChatHistory, getProfile, getErrorMessage, ChatMessage, ChatResponse, EmotionScore } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { ChatBubble } from "@/components/chat/ChatBubble";
 import { TypingIndicator } from "@/components/chat/TypingIndicator";
-import { VoiceRecorder } from "@/components/chat/VoiceRecorder";
 import { TtsPlayer } from "@/components/chat/TtsPlayer";
 import { InsightsPanel } from "@/components/chat/InsightsPanel";
+import { RiskDashboard } from "@/components/chat/RiskDashboard";
+import { EmotionAnalysis } from "@/components/chat/EmotionAnalysis";
+import { InputFooter } from "@/components/chat/InputFooter";
 import { BreathingExercise } from "@/components/wellness/BreathingExercise";
-import { Button } from "@/components/ui/Button";
 import { t, langLabel, langShortLabel, type LanguagePreference } from "@/lib/i18n";
 
 interface Message {
@@ -200,47 +204,49 @@ export default function ChatPage() {
 
       {/* Header bar — dominant emotion flag + language badge */}
       <div className="relative z-10 flex items-center justify-between px-4 py-2 border-b border-glass-border bg-gray-900/60 backdrop-blur-sm">
-          <div className="flex items-center gap-2">
-            {dominantEmotion && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-glass-border text-xs text-gray-300">
-                <span className="w-2 h-2 rounded-full"
-                  style={{ background: dominantEmotion === "crisis" ? "#dc2626" : "#818cf8" }}
-                />
-                {dominantEmotion.charAt(0).toUpperCase() + dominantEmotion.slice(1)}
-              </span>
-            )}
-          </div>
-
-          {/* Language selector */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowLangMenu((s) => !s)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-glass-border text-xs text-gray-400 hover:text-gray-100 hover:bg-white/5 transition-colors"
-            >
-              <Globe className="w-3 h-3" />
-              {t("chat.language.label", language)}: <span className="text-brand-400">{langShortLabel(language)}</span>
-            </button>
-            {showLangMenu && (
-              <div className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-glass-border bg-gray-900 shadow-xl z-20 py-1">
-                {LANG_OPTIONS.map((lang) => (
-                  <button
-                    key={lang}
-                    type="button"
-                    onClick={() => { setLanguage(lang); setShowLangMenu(false); }}
-                    className={`w-full text-left px-3 py-2 text-xs transition-colors ${
-                      language === lang
-                        ? "text-brand-400 bg-brand-600/10"
-                        : "text-gray-400 hover:text-gray-100 hover:bg-white/5"
-                    }`}
-                  >
-                    {langLabel(lang)}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+        <div className="flex items-center gap-2">
+          {dominantEmotion && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-glass-border text-xs text-gray-300">
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ background: dominantEmotion === "crisis" ? "#dc2626" : "#818cf8" }}
+              />
+              {dominantEmotion.charAt(0).toUpperCase() + dominantEmotion.slice(1)}
+            </span>
+          )}
         </div>
+
+        {/* Language selector */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowLangMenu((s) => !s)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-glass-border text-xs text-gray-400 hover:text-gray-100 hover:bg-white/5 transition-colors"
+          >
+            <Globe className="w-3 h-3" />
+            {t("chat.language.label", language)}:{" "}
+            <span className="text-brand-400">{langShortLabel(language)}</span>
+          </button>
+          {showLangMenu && (
+            <div className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-glass-border bg-gray-900 shadow-xl z-20 py-1">
+              {LANG_OPTIONS.map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => { setLanguage(lang); setShowLangMenu(false); }}
+                  className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                    language === lang
+                      ? "text-brand-400 bg-brand-600/10"
+                      : "text-gray-400 hover:text-gray-100 hover:bg-white/5"
+                  }`}
+                >
+                  {langLabel(lang)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Breathing exercise prompt */}
       {breathingPromptVisible && !showBreathing && (
@@ -283,84 +289,83 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* Message area */}
-      <main className="relative z-10 flex-1 overflow-y-auto px-4 py-6 space-y-5">
-        {messages.length === 0 && !isLoading && (
-          <div className="flex flex-col items-center justify-center h-full space-y-3 text-center animate-fade-in">
-            <span className="text-5xl">💬</span>
-            <h2 className="text-xl font-semibold text-gray-200">
-              {t("chat.welcome.title", language)}
-            </h2>
-            <p className="text-gray-500 text-sm max-w-xs">
-              {t("chat.welcome.subtitle", language)}
-            </p>
-          </div>
-        )}
+      {/* ------------------------------------------------------------------ */}
+      {/* 70 / 30 split — chat window (left) + analysis sidebar (right)       */}
+      {/* The sidebar is hidden on mobile and shown as a fixed column on lg+. */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="relative z-10 flex flex-1 overflow-hidden">
 
-        {messages.map((msg, i) => (
-          <div key={i} className="flex flex-col">
-            <ChatBubble
-              role={msg.role}
-              content={msg.content}
-              emotion={msg.emotion}
-              confidence={msg.confidence}
-              isHighRisk={msg.isHighRisk}
-              escalationMessage={msg.escalationMessage}
-            />
-            {/* Insights panel + TTS replay on assistant messages */}
-            {msg.role === "assistant" && (
-              <>
-                <InsightsPanel
-                  scores={msg.scores ?? []}
-                  responseType={msg.responseType}
-                  personalizationScore={msg.personalizationScore}
-                />
-                <div className="flex justify-start pl-4 mt-0.5">
-                  <TtsPlayer text={msg.content} language={language} messageKey={i} />
-                </div>
-              </>
+        {/* ── Left panel: chat messages (70%) ── */}
+        <div className="flex flex-col flex-[7] min-w-0 overflow-hidden">
+          <main className="flex-1 overflow-y-auto px-4 py-6 space-y-5">
+            {messages.length === 0 && !isLoading && (
+              <div className="flex flex-col items-center justify-center h-full space-y-3 text-center animate-fade-in">
+                <span className="text-5xl">💬</span>
+                <h2 className="text-xl font-semibold text-gray-200">
+                  {t("chat.welcome.title", language)}
+                </h2>
+                <p className="text-gray-500 text-sm max-w-xs">
+                  {t("chat.welcome.subtitle", language)}
+                </p>
+              </div>
             )}
-          </div>
-        ))}
 
-        {isLoading && <TypingIndicator />}
+            {messages.map((msg, i) => (
+              <div key={i} className="flex flex-col">
+                <ChatBubble
+                  role={msg.role}
+                  content={msg.content}
+                  emotion={msg.emotion}
+                  confidence={msg.confidence}
+                  isHighRisk={msg.isHighRisk}
+                  escalationMessage={msg.escalationMessage}
+                />
+                {/* Per-message insights + TTS replay (assistant only) */}
+                {msg.role === "assistant" && (
+                  <>
+                    <InsightsPanel
+                      scores={msg.scores ?? []}
+                      responseType={msg.responseType}
+                      personalizationScore={msg.personalizationScore}
+                    />
+                    <div className="flex justify-start pl-4 mt-0.5">
+                      <TtsPlayer text={msg.content} language={language} messageKey={i} />
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
 
-        <div ref={bottomRef} />
-      </main>
+            {isLoading && <TypingIndicator />}
 
-      {/* Input area */}
-      <footer className="relative z-10 border-t border-glass-border bg-gray-950/80 backdrop-blur-sm px-4 py-3">
-        <div className="mx-auto max-w-3xl flex items-end gap-2">
-          {/* Voice recorder button */}
-          <VoiceRecorder
+            <div ref={bottomRef} />
+          </main>
+
+          {/* Input footer (part of the left column) */}
+          <InputFooter
             language={language}
-            onTranscript={handleVoiceTranscript}
-            disabled={isLoading}
-          />
-          <textarea
-            ref={textareaRef}
-            rows={1}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+            input={input}
+            isLoading={isLoading}
+            textareaRef={textareaRef}
+            onInputChange={setInput}
             onKeyDown={handleKeyDown}
-            placeholder={t("chat.placeholder", language)}
-            disabled={isLoading}
-            className="flex-1 resize-none rounded-xl border border-glass-border bg-white/5 px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 max-h-40 overflow-y-auto"
+            onSend={handleSend}
+            onVoiceTranscript={handleVoiceTranscript}
           />
-          <Button
-            onClick={handleSend}
-            loading={isLoading}
-            disabled={!input.trim()}
-            className="h-10 w-10 p-0 flex-shrink-0"
-            aria-label={t("chat.send", language)}
-          >
-            <Send className="w-4 h-4" />
-          </Button>
         </div>
-        <p className="text-center text-xs text-gray-600 mt-2">
-          AI Wellness Buddy is not a substitute for professional mental health care.
-        </p>
-      </footer>
+
+        {/* ── Right panel: analysis sidebar (30%) — desktop only ── */}
+        <aside
+          aria-label="Session Analysis Sidebar"
+          className="hidden lg:flex flex-col flex-[3] min-w-0 overflow-y-auto border-l border-glass-border bg-gray-900/40 backdrop-blur-sm px-4 py-5 space-y-4"
+        >
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
+            Session Analysis
+          </p>
+          <RiskDashboard messages={messages} />
+          <EmotionAnalysis messages={messages} />
+        </aside>
+      </div>
     </div>
   );
 }
