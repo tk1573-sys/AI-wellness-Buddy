@@ -73,16 +73,16 @@ def _theme_vars(dark: bool, theme: str, background_theme: str = 'calm_gradient')
         )
     return dict(
         bg_gradient=_LIGHT_THEMES.get(theme, _LIGHT_THEMES['calm']),
-        card_bg='rgba(255,255,255,0.65)',
-        card_border='rgba(255,255,255,0.35)',
-        text_primary='#475569',
-        text_secondary='#64748B',
+        card_bg='rgba(255,255,255,0.92)',
+        card_border='rgba(71,85,105,0.28)',
+        text_primary='#1f2937',
+        text_secondary='#475569',
         text_heading='#1e293b',
-        sidebar_bg='linear-gradient(180deg, rgba(91,140,255,0.05) 0%, rgba(155,140,255,0.05) 50%, rgba(77,208,225,0.03) 100%)',
-        form_bg='rgba(255,255,255,0.60)',
-        input_bg='rgba(255,255,255,0.75)',
+        sidebar_bg='linear-gradient(180deg, rgba(91,140,255,0.12) 0%, rgba(155,140,255,0.10) 50%, rgba(77,208,225,0.08) 100%)',
+        form_bg='rgba(255,255,255,0.88)',
+        input_bg='rgba(255,255,255,0.94)',
         particle_color='rgba(91,140,255,0.04)',
-        h4_color='#334155',
+        h4_color='#1e293b',
         bg_overlay=overlay,
     )
 
@@ -230,7 +230,7 @@ p, li, span {{ color: {text_primary}; }}
     background: {card_bg};
     backdrop-filter: blur(28px);
     -webkit-backdrop-filter: blur(28px);
-    border: 1px solid {card_border};
+    border: 1.5px solid {card_border};
     box-shadow: 0 4px 28px {glow_color}, inset 0 1px 0 rgba(255,255,255,0.12);
     margin-bottom: 1rem;
     animation: fadeSlideIn 0.45s cubic-bezier(0.22,1,0.36,1);
@@ -343,6 +343,15 @@ p, li, span {{ color: {text_primary}; }}
 section[data-testid="stSidebar"] > div:first-child {{
     padding-top: 1.5rem;
     background: {sidebar_bg};
+    border-right: 1px solid {card_border};
+}}
+section[data-testid="stSidebar"] {{
+    min-width: 320px !important;
+    max-width: 320px !important;
+    width: 320px !important;
+}}
+section[data-testid="stSidebar"] + div {{
+    margin-left: 320px;
 }}
 section[data-testid="stSidebar"] .stMarkdown p {{
     font-size: 0.9rem;
@@ -351,13 +360,17 @@ section[data-testid="stSidebar"] .stMarkdown p {{
 
 /* ---- Tab labels with slide transition ---- */
 .stTabs [data-baseweb="tab-list"] {{
-    gap: 0.25rem;
+    gap: 0.5rem;
+    padding: 0.25rem 0.15rem 0.35rem;
 }}
 .stTabs [data-baseweb="tab"] {{
-    font-weight: 600;
-    font-size: 0.95rem;
-    border-radius: 0.5rem 0.5rem 0 0;
-    padding: 0.6rem 1rem;
+    font-weight: 700;
+    font-size: 0.98rem;
+    border-radius: 0.75rem;
+    padding: 0.7rem 1.1rem;
+    border: 1px solid {card_border};
+    background: rgba(255,255,255,0.74);
+    color: {text_primary};
     transition: color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
     letter-spacing: 0.01em;
 }}
@@ -368,7 +381,10 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     transform: translateY(-1px);
 }}
 .stTabs [data-baseweb="tab"][aria-selected="true"] {{
-    box-shadow: 0 -2px 14px rgba(91,140,255,0.14);
+    color: #1e293b;
+    background: rgba(91,140,255,0.14);
+    border-color: rgba(91,140,255,0.55);
+    box-shadow: 0 0 0 1px rgba(91,140,255,0.25), 0 -2px 14px rgba(91,140,255,0.14);
 }}
 /* Tab content slide */
 .stTabs [data-baseweb="tab-panel"] {{
@@ -386,7 +402,7 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     -webkit-backdrop-filter: blur(16px);
     border-radius: 1rem;
     padding: 1rem 1.1rem;
-    border: 1px solid {card_border};
+    border: 1.5px solid {card_border};
     box-shadow: 0 2px 18px rgba(0,0,0,0.04);
     transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s ease;
 }}
@@ -465,6 +481,10 @@ section[data-testid="stSidebar"] .stMarkdown p {{
 .main .block-container {{
     border-top: 3px solid {border_color};
     transition: border-color 0.5s ease;
+    max-width: none !important;
+    padding-top: 1.2rem;
+    padding-left: 2.4rem;
+    padding-right: 2.4rem;
 }}
 
 /* ---- Critical pulsing warning bar ---- */
@@ -500,6 +520,9 @@ section[data-testid="stSidebar"] .stMarkdown p {{
 [data-testid="stPlotlyChart"] {{
     border-radius: 0.75rem;
     overflow: hidden;
+    border: 1.5px solid {card_border};
+    background: {card_bg};
+    padding: 0.35rem;
     animation: shimmerIn 0.6s ease-out;
 }}
 @keyframes shimmerIn {{
@@ -645,7 +668,7 @@ section[data-testid="stSidebar"] .stMarkdown p {{
 
 /* ---- Section header with fade-out rule ---- */
 .section-header-premium {{
-    font-size: 0.78rem;
+    font-size: 0.84rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -1183,13 +1206,13 @@ section[data-testid="stSidebar"] .stMarkdown p {{
 }}
 .wellness-sidebar-card {{
     background: {card_bg};
-    border: 1px solid {card_border};
+    border: 1.5px solid {card_border};
     border-radius: 0.9rem;
-    padding: 0.75rem 0.8rem;
+    padding: 0.9rem 0.95rem;
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     box-shadow: 0 6px 20px rgba(91,140,255,0.08);
-    margin: 0.45rem 0;
+    margin: 0.6rem 0;
     transition: box-shadow 0.25s ease, transform 0.25s ease;
 }}
 .wellness-sidebar-card:hover {{
@@ -1254,7 +1277,7 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     margin-top: 7px;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid;
+    border: 1.5px solid;
     letter-spacing: 0.01em;
     animation: badgePop 0.45s cubic-bezier(0.22,1,0.36,1);
     vertical-align: middle;
@@ -1281,29 +1304,64 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    font-size: 0.78rem;
-    font-weight: 600;
-    padding: 0.15rem 0.55rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.2rem 0.62rem;
     border-radius: 999px;
     letter-spacing: 0.02em;
     vertical-align: middle;
     animation: badgePop 0.45s cubic-bezier(0.22,1,0.36,1);
+    border: 1.5px solid transparent;
 }}
 .concern-low {{
-    background: rgba(76,175,80,0.12);
-    color: #388E3C;
+    background: rgba(34,197,94,0.18);
+    color: #14532d;
+    border-color: rgba(34,197,94,0.48);
 }}
 .concern-medium {{
-    background: rgba(255,193,7,0.14);
-    color: #F57F17;
+    background: rgba(250,204,21,0.22);
+    color: #713f12;
+    border-color: rgba(250,204,21,0.58);
 }}
 .concern-high {{
-    background: rgba(255,152,0,0.14);
-    color: #E65100;
+    background: rgba(249,115,22,0.2);
+    color: #7c2d12;
+    border-color: rgba(249,115,22,0.55);
 }}
 .concern-critical {{
-    background: rgba(239,83,80,0.14);
-    color: #C62828;
+    background: rgba(239,68,68,0.23);
+    color: #7f1d1d;
+    border-color: rgba(220,38,38,0.62);
+}}
+
+/* ---- Consistent card spacing ---- */
+.main .block-container > div[data-testid="stVerticalBlock"] > div[data-testid="element-container"] {{
+    margin-bottom: 0.7rem;
+}}
+
+/* ---- Floating voice action button ---- */
+div[data-testid="stElementContainer"]:has(#floating-voice-container) {{
+    position: fixed;
+    right: 1.35rem;
+    bottom: 1.25rem;
+    z-index: 1200;
+    width: auto;
+    margin: 0 !important;
+}}
+div[data-testid="stElementContainer"]:has(#floating-voice-container) [data-testid="stPopover"] > button {{
+    width: 58px;
+    height: 58px;
+    border-radius: 999px;
+    border: 2px solid rgba(91,140,255,0.65) !important;
+    background: linear-gradient(135deg, rgba(91,140,255,0.95), rgba(155,140,255,0.95)) !important;
+    color: #ffffff !important;
+    font-size: 1.25rem;
+    font-weight: 700;
+    box-shadow: 0 8px 24px rgba(91,140,255,0.38);
+}}
+div[data-testid="stElementContainer"]:has(#floating-voice-container) [data-testid="stPopover"] > button:hover {{
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 12px 30px rgba(91,140,255,0.45);
 }}
 
 @media (max-width: 980px) {{
@@ -1312,10 +1370,26 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     .illustration-panel-large {{ margin-top: 0.5rem; }}
 }}
 @media (max-width: 720px) {{
+    section[data-testid="stSidebar"] {{
+        min-width: auto !important;
+        max-width: none !important;
+        width: auto !important;
+    }}
+    section[data-testid="stSidebar"] + div {{
+        margin-left: 0;
+    }}
+    .main .block-container {{
+        padding-left: 0.85rem;
+        padding-right: 0.85rem;
+    }}
     .stTabs [data-baseweb="tab-list"] {{ flex-wrap: wrap; }}
     .stTabs [data-baseweb="tab"] {{ flex: 1 1 45%; min-width: 130px; }}
     .chat-header-bar {{ padding: 0.55rem 0.75rem; }}
     .header-title {{ font-size: 0.95rem; }}
+    div[data-testid="stElementContainer"]:has(#floating-voice-container) {{
+        right: 0.95rem;
+        bottom: 0.95rem;
+    }}
 }}
 </style>
 """

@@ -165,13 +165,18 @@ def render_user_avatar(user_id: str) -> str:
 def render_risk_badge(risk_level: str = 'low') -> str:
     """Colour-coded risk badge."""
     r_icon, r_color, r_bg, r_shadow = _BADGE_STYLE.get(risk_level, _BADGE_STYLE['low'])
+    label_bg = 'rgba(255,255,255,0.72)' if risk_level in ('low', 'medium') else 'rgba(255,255,255,0.9)'
+    label_text = '#1f2937'
     return (
-        f'<div style="text-align:center;padding:0.6rem 0.75rem;border-radius:0.75rem;'
-        f'background:{r_bg};border:1px solid {r_color};margin-bottom:0.75rem;'
-        f'box-shadow:0 2px 12px {r_shadow};backdrop-filter:blur(6px);'
+        f'<div style="text-align:center;padding:0.7rem 0.8rem;border-radius:0.85rem;'
+        f'background:{r_bg};border:2px solid {r_color};margin-bottom:0.75rem;'
+        f'box-shadow:0 3px 14px {r_shadow};backdrop-filter:blur(6px);'
         f'transition:all 0.3s ease;">'
-        f'<span style="font-size:1.15rem;font-weight:600;">{r_icon} Risk: '
-        f'<strong style="color:{r_color};">{risk_level.upper()}</strong></span></div>'
+        f'<span style="font-size:1.02rem;font-weight:700;color:{label_text};">{r_icon} Risk:</span> '
+        f'<span style="display:inline-flex;align-items:center;justify-content:center;'
+        f'padding:0.14rem 0.52rem;border-radius:999px;background:{label_bg};'
+        f'border:1.5px solid {r_color};color:{r_color};font-size:0.86rem;font-weight:800;'
+        f'letter-spacing:0.03em;">{risk_level.upper()}</span></div>'
     )
 
 

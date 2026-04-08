@@ -29,16 +29,21 @@ export interface EmotionScore {
 
 export interface ChatResponse {
   session_id: string;
-  reply: string;
+  reply?: string;
+  response?: string;
+  message?: string;
+  bot_response?: string;
+  response_text?: string;
+  text?: string;
   primary_emotion: string;
   confidence: number;
   is_high_risk: boolean;
   escalation_message: string | null;
   scores?: EmotionScore[];
   // Personalization fields
-  personalization_score: number;
-  used_triggers: string[];
-  response_type: "generic" | "personalized";
+  personalization_score?: number;
+  used_triggers?: string[];
+  response_type?: "generic" | "personalized";
 }
 
 export interface UserProfile {
@@ -132,6 +137,23 @@ export function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong.";
 }
 
+/**
+ * Extracts bot reply text from ChatResponse, supporting multiple possible keys.
+ */
+function extractBotReply(data: ChatResponse): string {
+  // Try all possible response keys in order of preference
+  const reply =
+    data.reply ??
+    data.response ??
+    data.message ??
+    data.bot_response ??
+    data.response_text ??
+    data.text ??
+    "I'm here with you. Please try again.";
+
+  return reply;
+}
+
 // -------------------------------------------------------------------------- //
 // Chat API functions
 // -------------------------------------------------------------------------- //
@@ -146,7 +168,29 @@ export async function sendMessage(
     { message, session_id: sessionId ?? null, language_preference: languagePreference ?? "english" },
     { headers: authedHeaders() },
   );
-  return data;
+  
+  // Log the raw API response for debugging
+  console.log("CHAT API RESPONSE:", data);
+  
+  // Ensure we have a valid reply
+  if (
+    !data.reply &&
+    !data.response &&
+    !data.message &&
+    !data.bot_response &&
+    !data.response_text &&
+    !data.text
+  ) {
+    console.warn("No valid response text found in API response. Available fields:", Object.keys(data));
+  }
+  
+  // Extract the bot reply using the helper function
+  const reply = extractBotReply(data);
+  
+  return {
+    ...data,
+    reply, // Normalize to 'reply' key
+  };
 }
 
 export async function getChatHistory(): Promise<ChatMessage[]> {

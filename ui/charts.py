@@ -14,8 +14,8 @@ import plotly.graph_objects as go
 # Shared palette & layout helpers
 # -----------------------------------------------------------------------
 
-_FONT = dict(family='Inter')
-_HOVER = dict(bgcolor='#fff', font_size=12, font_family='Inter')
+_FONT = dict(family='Inter', size=14, color='#1f2937')
+_HOVER = dict(bgcolor='#ffffff', font_size=13, font_family='Inter')
 _TRANSPARENT = 'rgba(0,0,0,0)'
 _TRANSITION_DURATION = 500
 _TRANSITION_EASING = 'cubic-in-out'
@@ -45,11 +45,36 @@ def _base_layout(height=320, **overrides):
     props = dict(
         template='plotly_white',
         height=height,
-        margin=dict(l=40, r=20, t=20, b=40),
+        margin=dict(l=56, r=26, t=28, b=52),
         paper_bgcolor=_TRANSPARENT,
         plot_bgcolor=_TRANSPARENT,
         font=_FONT,
         hoverlabel=_HOVER,
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='center',
+            x=0.5,
+            font=dict(size=12, color='#1f2937', family='Inter'),
+            bgcolor='rgba(255,255,255,0.72)',
+            bordercolor='rgba(148,163,184,0.45)',
+            borderwidth=1,
+        ),
+        xaxis=dict(
+            title_font=dict(size=14, color='#334155', family='Inter'),
+            tickfont=dict(size=12, color='#334155', family='Inter'),
+            gridcolor='rgba(51,65,85,0.12)',
+            zerolinecolor='rgba(51,65,85,0.2)',
+            automargin=True,
+        ),
+        yaxis=dict(
+            title_font=dict(size=14, color='#334155', family='Inter'),
+            tickfont=dict(size=12, color='#334155', family='Inter'),
+            gridcolor='rgba(51,65,85,0.12)',
+            zerolinecolor='rgba(51,65,85,0.2)',
+            automargin=True,
+        ),
     )
     props.update(overrides)
     return props
@@ -103,7 +128,7 @@ def create_emotion_donut(emotions: list, counts: list,
         marker=dict(colors=colors, line=dict(color='#ffffff', width=2)),
         textinfo='label+percent',
         textposition='outside',
-        textfont=dict(size=12),
+        textfont=dict(size=13, color='#1f2937'),
         hoverinfo='label+value+percent',
         pull=[0.03] * len(emotions),
     ))
@@ -112,7 +137,7 @@ def create_emotion_donut(emotions: list, counts: list,
         margin=dict(l=20, r=20, t=20, b=20),
         annotations=[dict(
             text='Emotions', x=0.5, y=0.5,
-            font=dict(size=14, color='#64748B'),
+            font=dict(size=15, color='#334155'),
             showarrow=False,
         )],
     ))
@@ -138,15 +163,17 @@ def create_emotion_probability_bar(probabilities: dict) -> go.Figure:
         marker=dict(color=colors, line=dict(color='#ffffff', width=1)),
         text=[f'{v:.0%}' for v in values],
         textposition='outside',
-        textfont=dict(size=11),
+        textfont=dict(size=12, color='#1f2937'),
         hovertemplate='%{y}: %{x:.2%}<extra></extra>',
     ))
     fig.update_layout(**_base_layout(
         height=max(160, 28 * len(labels)),
         xaxis=dict(range=[0, 1.12], showgrid=False, zeroline=False,
                    showticklabels=False),
-        yaxis=dict(autorange='reversed', showgrid=False),
-        margin=dict(l=80, r=40, t=10, b=10),
+        yaxis=dict(autorange='reversed', showgrid=False,
+                   title_font=dict(size=14, color='#334155'),
+                   tickfont=dict(size=12, color='#1f2937')),
+        margin=dict(l=92, r=44, t=16, b=16),
     ))
     return fig
 
@@ -171,7 +198,7 @@ def create_risk_gauge(risk_score: float, risk_level: str = 'low') -> go.Figure:
                 'tickcolor': '#94a3b8',
                 'tickvals': [0, 0.25, 0.5, 0.75, 1.0],
                 'ticktext': ['Safe', 'Low', 'Med', 'High', 'Crit'],
-                'tickfont': {'size': 10, 'color': '#94a3b8'},
+                'tickfont': {'size': 12, 'color': '#475569'},
             },
             'bar': {'color': bar_color, 'thickness': _GAUGE_BAR_THICKNESS},
             'bgcolor': _TRANSPARENT,
@@ -191,7 +218,7 @@ def create_risk_gauge(risk_score: float, risk_level: str = 'low') -> go.Figure:
     ))
     fig.update_layout(
         height=280,
-        margin=dict(l=30, r=30, t=50, b=10),
+        margin=dict(l=38, r=38, t=58, b=18),
         paper_bgcolor=_TRANSPARENT,
         font=_FONT,
     )
@@ -229,8 +256,8 @@ def create_history_chart(hist_data: list,
     fig.update_layout(**_base_layout(
         xaxis_title='Session', yaxis_title='Avg Mood',
         showlegend=True,
-        legend=dict(orientation='h', yanchor='bottom', y=1.02,
-                    xanchor='right', x=1),
+        legend=dict(orientation='h', yanchor='bottom', y=1.03,
+                    xanchor='center', x=0.5),
     ))
     return fig
 
@@ -391,14 +418,14 @@ def create_emotion_heatmap(emotion_timeline: list[dict]) -> go.Figure:
         hovertemplate='%{y}: %{z:.2f}<br>%{x}<extra></extra>',
         showscale=True,
         colorbar=dict(
-            title=dict(text='Intensity', font=dict(size=11, family='Inter')),
-            tickfont=dict(size=10, family='Inter'),
+            title=dict(text='Intensity', font=dict(size=13, color='#334155', family='Inter')),
+            tickfont=dict(size=12, color='#334155', family='Inter'),
             len=0.8,
         ),
     ))
     fig.update_layout(**_base_layout(
         height=280,
-        margin=dict(l=80, r=20, t=20, b=40),
+        margin=dict(l=92, r=24, t=24, b=46),
         xaxis_title='Conversation Timeline',
     ))
     return fig
@@ -431,7 +458,7 @@ def create_cdi_gauge(cdi_score: float, cdi_level: str = 'low') -> go.Figure:
                 'tickcolor': '#94a3b8',
                 'tickvals': [0, 0.3, 0.5, 0.7, 1.0],
                 'ticktext': ['Low', 'Mod', 'High', 'Crit', ''],
-                'tickfont': {'size': 10, 'color': '#94a3b8'},
+                'tickfont': {'size': 12, 'color': '#475569'},
             },
             'bar': {'color': bar_color, 'thickness': _GAUGE_BAR_THICKNESS},
             'bgcolor': _TRANSPARENT,
@@ -451,7 +478,7 @@ def create_cdi_gauge(cdi_score: float, cdi_level: str = 'low') -> go.Figure:
     ))
     fig.update_layout(
         height=280,
-        margin=dict(l=30, r=30, t=50, b=10),
+        margin=dict(l=38, r=38, t=58, b=18),
         paper_bgcolor=_TRANSPARENT,
         font=_FONT,
     )
@@ -503,7 +530,7 @@ def create_session_emotion_timeline(emotion_history: list) -> go.Figure:
         name='Emotion',
         text=labels,
         textposition='top center',
-        textfont=dict(size=10, family='Inter', color='#475569'),
+        textfont=dict(size=11, family='Inter', color='#334155'),
         marker=dict(
             size=13,
             color=colors,
@@ -515,22 +542,26 @@ def create_session_emotion_timeline(emotion_history: list) -> go.Figure:
     ))
 
     fig.update_layout(**_base_layout(
-        height=210,
+        height=240,
         xaxis=dict(
             title='Message',
             tickvals=x_vals,
             showgrid=False,
             zeroline=False,
+            title_font=dict(size=14, color='#334155', family='Inter'),
+            tickfont=dict(size=12, color='#334155', family='Inter'),
         ),
         yaxis=dict(
             title='Confidence',
             range=[0, 1.25],
             tickformat='.0%',
             showgrid=True,
-            gridcolor='rgba(0,0,0,0.04)',
+            gridcolor='rgba(51,65,85,0.12)',
             zeroline=False,
+            title_font=dict(size=14, color='#334155', family='Inter'),
+            tickfont=dict(size=12, color='#334155', family='Inter'),
         ),
-        margin=dict(l=50, r=20, t=30, b=30),
+        margin=dict(l=56, r=24, t=34, b=34),
         transition=dict(duration=_TRANSITION_DURATION, easing=_TRANSITION_EASING),
     ))
     return fig

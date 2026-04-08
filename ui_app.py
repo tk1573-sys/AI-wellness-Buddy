@@ -486,7 +486,7 @@ def _play_tts(text: str):
         st.audio(audio_bytes, format="audio/mp3", autoplay=False)
 
 
-def _handle_voice_input():
+def _handle_voice_input(show_status: bool = True, recorder_key: str = "voice_recorder"):
     """Render compact inline voice recorder and return transcribed text or None.
 
     Uses session-state deduplication (``last_voice_bytes``) to ensure each
@@ -496,12 +496,14 @@ def _handle_voice_input():
     try:
         from audio_recorder_streamlit import audio_recorder
     except ImportError:
-        st.caption("🎤 voice unavailable")
+        if show_status:
+            st.caption("🎤 voice unavailable")
         return None
 
     vh: VoiceHandler = st.session_state.voice_handler
     if vh is None or not vh.stt_available:
-        st.caption("🎤 mic unavailable")
+        if show_status:
+            st.caption("🎤 mic unavailable")
         return None
 
     # Minimum bytes for a viable audio sample (~1 second at 16-bit 8kHz mono)
@@ -513,7 +515,7 @@ def _handle_voice_input():
         neutral_color="#9B8CFF",
         icon_size="2x",
         pause_threshold=2.0,
-        key="voice_recorder",
+        key=recorder_key,
     )
 
     # Deduplicate: only process if this is a *new* recording
@@ -532,6 +534,33 @@ def _handle_voice_input():
         else:
             st.warning("Could not transcribe audio. Please try again or type your message.")
     return None
+
+
+def _handle_user_prompt(prompt_text: str):
+    """Process a user prompt and append assistant reply + metadata."""
+    if not prompt_text or prompt_text == st.session_state.last_user_input:
+        return
+
+    _add_chat_message("user", prompt_text)
+    with st.spinner("Analysing your message…"):
+        response = st.session_state.buddy.respond(
+            prompt_text,
+            context=st.session_state.chat_history,
+            options={
+                'calm_mode_active': st.session_state.get('calm_music_enabled', False),
+                'research_logging': st.session_state.get('research_logging_enabled', False),
+            },
+        )
+
+    _add_chat_message("assistant", response)
+    st.session_state.last_response = response
+    st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
+    _tag_last_user_emotion(st.session_state.last_response_meta)
+    _track_session_metadata(st.session_state.last_response_meta)
+    st.session_state.last_user_input = prompt_text
+
+    if st.session_state.get('tts_enabled', False):
+        _play_tts(response)
 
 
 # -----------------------------------------------------------------------
@@ -619,159 +648,23 @@ def render_chat_tab():
                                      help="Listen to this response"):
                             _play_tts(message["content"])
 
-    # ---- AI Insights: premium analysis card + emotion probability bar ----
-    _meta = st.session_state.get('last_response_meta') or {}
-    _probs = _meta.get('emotion_probabilities', {})
-    _expl = _meta.get('explanation', '')
-    _det_emotion = _meta.get('emotion', '')
-    _xai = _meta.get('xai_explanation', {})
-    _concern = _meta.get('concern_level', '')
-    _emo_conf = _meta.get('emotion_confidence', 0.0)
-    if _probs and _det_emotion:
-        _conf = _xai.get('confidence', _probs.get(_det_emotion, 0))
-        _indicators = _xai.get('key_indicators', [])
-        _sent = _xai.get('sentiment_contribution', {})
-        _sent_label = _sent.get('influence', '')
-        _src = _xai.get('model_source', '')
-        # Distress keywords as supplementary indicators (backward compat)
-        _distress_kw = _meta.get('distress_keywords', [])
-        if _distress_kw and not _indicators:
-            _indicators = _distress_kw
+    # Floating voice action button (bottom-right)
+    st.markdown('<div id="floating-voice-anchor"></div>', unsafe_allow_html=True)
+    with st.container():
+        st.markdown('<div id="floating-voice-container"></div>', unsafe_allow_html=True)
+        voice_transcript = None
+        with st.popover("🎤", help="Voice input"):
+            st.caption("Tap to record. Release and wait for transcription.")
+            voice_transcript = _handle_voice_input(show_status=True, recorder_key="voice_recorder_fab")
+            if voice_transcript:
+                st.success("Voice captured")
 
-        insight_col, chart_col = st.columns([3, 2])
-        with insight_col:
-            st.markdown(
-                render_ai_insights_card(
-                    emotion=_det_emotion,
-                    confidence=_emo_conf or _conf,
-                    explanation=_expl,
-                    key_indicators=_indicators,
-                    concern_level=_concern,
-                    model_source=_src,
-                    sentiment_label=_sent_label,
-                ),
-                unsafe_allow_html=True,
-            )
-        with chart_col:
-            st.markdown(
-                '<div class="section-header-premium">📊 Emotion Probabilities</div>',
-                unsafe_allow_html=True,
-            )
-            st.plotly_chart(
-                create_emotion_probability_bar(_probs),
-                width="stretch",
-            )
-
-    # ---- Session Emotion Timeline ----
-    _session_emo_hist = st.session_state.get('emotion_history', [])
-    if len(_session_emo_hist) >= 2:
-        st.markdown(
-            '<div class="section-header-premium">📈 Session Emotion Timeline</div>',
-            unsafe_allow_html=True,
-        )
-        st.plotly_chart(
-            create_session_emotion_timeline(_session_emo_hist),
-            width="stretch",
-        )
-
-    # ---- Crisis resources: show immediately when crisis detected ----
-    if _det_emotion == 'crisis':
-        st.error(
-            "🆘 **Crisis Resources — Please reach out now**\n\n"
-            "- **988 Suicide & Crisis Lifeline**: Call or text **988** (24/7)\n"
-            "- **Crisis Text Line**: Text **HOME** to **741741**\n"
-            "- **Emergency**: Call **911**\n\n"
-            "You are not alone. Help is available right now. 💙"
-        )
-
-    # ---- Escalation warning ----
-    _emo_labels = [
-        e['emotion'] for e in st.session_state.get('emotion_history', [])
-        if isinstance(e, dict) and e.get('emotion')
-    ]
-    _is_escalating = detect_escalation(_emo_labels)
-    _esc_score = escalation_score(_emo_labels)
-    if _is_escalating:
-        st.warning("⚠️ Emotional escalation detected")
-    if _emo_labels:
-        st.metric("Escalation risk", f"{_esc_score:.1f}")
-
-    # ---- Emotion prediction insight ----
-    if _emo_labels:
-        _next_emotion = predict_next_emotion(_emo_labels)
-        _trend = detect_trend(_emo_labels)
-        st.info(
-            f"🔮 **Predicted next emotion:** {_next_emotion.capitalize()} "
-            f" | 📈 **Trend:** {_trend.capitalize()}"
-        )
-
-    # ---- Intervention recommendations ----
-    _interventions = _meta.get('interventions', {})
-    _intervention_level = _interventions.get('level', '')
-    if _intervention_level in ('moderate', 'high', 'critical'):
-        _inter_msg = _interventions.get('supportive_message', '')
-        if _inter_msg:
-            st.info(f"💡 {_inter_msg}")
-
-    # ---- Breathing exercise: triggered by anxiety emotion or high risk ----
-    _risk_level = _meta.get('risk_level', 'low')
-    _should_offer = (
-        (_det_emotion == 'anxiety' or _risk_level == 'high')
-        and _det_emotion != 'crisis'
-        and not st.session_state.get('breathing_active', False)
-    )
-    if _should_offer:
-        st.info(
-            "😌 Anxiety or elevated risk detected. Would you like to try a calming breathing exercise?"
-        )
-        if st.button("🫁 Start Breathing Exercise", key="start_breathing"):
-            st.session_state.breathing_active = True
-            st.rerun()
-
-    if st.session_state.get('breathing_active', False):
-        components.html(breathing_exercise_html(), height=_BREATHING_WIDGET_HEIGHT)
-        _vol = st.session_state.get('_calm_volume', 0.03)
-        _sound = st.session_state.get('ambient_sound', 'deep_focus')
-        st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
-        # Calming audio (st.audio for browsers that block Web Audio autoplay)
-        _tone = _generate_calming_tone()
-        if _tone:
-            st.audio(_tone, format="audio/wav")
-        if st.button("✖ Stop Breathing Exercise", key="stop_breathing"):
-            st.session_state.breathing_active = False
-            st.markdown(ambient_stop_html(), unsafe_allow_html=True)
-            st.rerun()
-
-    # Inline voice mic near chat input
-    feedback_col, mic_col = st.columns([11, 1])
-    with mic_col:
-        voice_transcript = _handle_voice_input()
     if voice_transcript and voice_transcript != st.session_state.last_user_input:
-        with feedback_col:
-            st.caption(f"🎤 *{voice_transcript}*")
-        _add_chat_message("user", voice_transcript)
-        # Typing indicator (cleared after response)
         typing_placeholder = st.empty()
         with typing_placeholder.chat_message("assistant"):
             st.markdown(TYPING_INDICATOR_HTML, unsafe_allow_html=True)
-        response = st.session_state.buddy.respond(
-            voice_transcript,
-            context=st.session_state.chat_history,
-            options={
-                'calm_mode_active': st.session_state.get('calm_music_enabled', False),
-                'research_logging': st.session_state.get('research_logging_enabled', False),
-            },
-        )
+        _handle_user_prompt(voice_transcript)
         typing_placeholder.empty()
-        _add_chat_message("assistant", response)
-        st.session_state.last_response = response
-        st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
-        # Tag the user message with the detected emotion for badge display
-        _tag_last_user_emotion(st.session_state.last_response_meta)
-        _track_session_metadata(st.session_state.last_response_meta)
-        # Do NOT auto-enable calm mode; breathing button shown separately
-        st.session_state.last_user_input = voice_transcript
-        _play_tts(response)
         st.rerun()
 
     # Text chat input
@@ -781,29 +674,8 @@ def render_chat_tab():
     }.get(lang_pref, 'Share how you\'re feeling…')
 
     if prompt := st.chat_input(placeholder):
-        if prompt != st.session_state.last_user_input:
-            _add_chat_message("user", prompt)
-            with st.spinner("Analysing your message…"):
-                response = st.session_state.buddy.respond(
-                    prompt,
-                    context=st.session_state.chat_history,
-                    options={
-                        'calm_mode_active': st.session_state.get('calm_music_enabled', False),
-                        'research_logging': st.session_state.get('research_logging_enabled', False),
-                    },
-                )
-            _add_chat_message("assistant", response)
-            st.session_state.last_response = response
-            st.session_state.last_response_meta = st.session_state.buddy.get_last_response_metadata()
-            # Tag the user message with the detected emotion for badge display
-            _tag_last_user_emotion(st.session_state.last_response_meta)
-            _track_session_metadata(st.session_state.last_response_meta)
-            # Do NOT auto-enable calm mode; only mark that breathing was suggested
-            # so the UI can present the opt-in button
-            st.session_state.last_user_input = prompt
-            if st.session_state.get('tts_enabled', False):
-                _play_tts(response)
-            st.rerun()
+        _handle_user_prompt(prompt)
+        st.rerun()
 
 
 def _add_chat_message(role, content, emotion=None):
@@ -901,10 +773,11 @@ def _persist_chat_history():
 # Emotional trends tab (tab 2)
 # -----------------------------------------------------------------------
 
-def render_trends_tab():
+def render_trends_tab(show_header: bool = True):
     """Render the Emotional Trends tab with Plotly charts"""
-    st.subheader("📈 Emotional Trends")
-    st.caption("REAL-TIME SENTIMENT TRACKING AND HISTORICAL MOOD ANALYSIS")
+    if show_header:
+        st.subheader("📈 Emotional Trends")
+        st.caption("REAL-TIME SENTIMENT TRACKING AND HISTORICAL MOOD ANALYSIS")
 
     buddy = st.session_state.buddy
     summary = buddy.pattern_tracker.get_pattern_summary()
@@ -1037,15 +910,16 @@ def render_trends_tab():
             )
 
 
-def render_emotional_journey_tab():
+def render_emotional_journey_tab(show_header: bool = True):
     """Render the Emotional Journey insights panel.
 
     If no timeline exists yet, a contextual prompt is shown. Otherwise this
     tab displays a journey trend line, stress intensity gauge, heatmap
     timeline, and compact session metrics.
     """
-    st.subheader("🌊 Emotional Journey")
-    st.caption("EMOTION TRAJECTORY, HEATMAP TIMELINE, STRESS INTENSITY, AND SESSION SNAPSHOT")
+    if show_header:
+        st.subheader("🌊 Emotional Journey")
+        st.caption("EMOTION TRAJECTORY, HEATMAP TIMELINE, STRESS INTENSITY, AND SESSION SNAPSHOT")
 
     timeline = st.session_state.buddy.get_emotion_timeline()
     if not timeline:
@@ -1212,10 +1086,11 @@ def render_risk_tab():
 # Weekly Report tab (tab 4)
 # -----------------------------------------------------------------------
 
-def render_weekly_report_tab():
+def render_weekly_report_tab(show_header: bool = True):
     """Render the Weekly Report tab with Plotly charts"""
-    st.subheader("📋 Weekly Wellness Report")
-    st.caption("7-DAY AGGREGATED WELLNESS SUMMARY WITH PREDICTIONS AND SUGGESTIONS")
+    if show_header:
+        st.subheader("📋 Weekly Wellness Report")
+        st.caption("7-DAY AGGREGATED WELLNESS SUMMARY WITH PREDICTIONS AND SUGGESTIONS")
 
     buddy = st.session_state.buddy
     report_text = buddy.generate_weekly_summary()
@@ -1434,6 +1309,147 @@ distress signal is detected in your session.
                 "🔔 **Test alert recorded** (local simulation only — no real notification was sent).\n\n"
                 "In production, connect the backend API to dispatch actual Email/WhatsApp messages."
             )
+
+
+def render_ai_insights_tab():
+    """Render AI Insights separate from chat messages."""
+    st.subheader("📊 AI Insights")
+    st.caption("MODEL EXPLANATION, ESCALATION SIGNALS, AND SUPPORT RECOMMENDATIONS")
+
+    _meta = st.session_state.get('last_response_meta') or {}
+    _probs = _meta.get('emotion_probabilities', {})
+    _expl = _meta.get('explanation', '')
+    _det_emotion = _meta.get('emotion', '')
+    _xai = _meta.get('xai_explanation', {})
+    _concern = _meta.get('concern_level', '')
+    _emo_conf = _meta.get('emotion_confidence', 0.0)
+
+    if _probs and _det_emotion:
+        _conf = _xai.get('confidence', _probs.get(_det_emotion, 0))
+        _indicators = _xai.get('key_indicators', [])
+        _sent = _xai.get('sentiment_contribution', {})
+        _sent_label = _sent.get('influence', '')
+        _src = _xai.get('model_source', '')
+        _distress_kw = _meta.get('distress_keywords', [])
+        if _distress_kw and not _indicators:
+            _indicators = _distress_kw
+
+        st.markdown(
+            render_ai_insights_card(
+                emotion=_det_emotion,
+                confidence=_emo_conf or _conf,
+                explanation=_expl,
+                key_indicators=_indicators,
+                concern_level=_concern,
+                model_source=_src,
+                sentiment_label=_sent_label,
+            ),
+            unsafe_allow_html=True,
+        )
+    else:
+        st.info("Send a message in Chat to generate AI insight details.")
+
+    _emo_labels = [
+        e['emotion'] for e in st.session_state.get('emotion_history', [])
+        if isinstance(e, dict) and e.get('emotion')
+    ]
+    if _emo_labels:
+        _col1, _col2, _col3 = st.columns(3)
+        _col1.metric("Predicted Next Emotion", (predict_next_emotion(_emo_labels) or "unknown").capitalize())
+        _col2.metric("Trend", (detect_trend(_emo_labels) or "stable").title())
+        _esc_score = escalation_score(_emo_labels)
+        _col3.metric("Escalation Score", f"{_esc_score:.2f}")
+        if detect_escalation(_emo_labels):
+            st.warning("⚠️ Emotional escalation detected")
+
+    _interventions = _meta.get('interventions', {})
+    _intervention_level = _interventions.get('level', '')
+    if _intervention_level in ('moderate', 'high', 'critical'):
+        _inter_msg = _interventions.get('supportive_message', '')
+        if _inter_msg:
+            st.info(f"💡 {_inter_msg}")
+
+    if _det_emotion == 'crisis':
+        st.error(
+            "🆘 **Crisis Resources — Please reach out now**\n\n"
+            "- **988 Suicide & Crisis Lifeline**: Call or text **988** (24/7)\n"
+            "- **Crisis Text Line**: Text **HOME** to **741741**\n"
+            "- **Emergency**: Call **911**\n\n"
+            "You are not alone. Help is available right now. 💙"
+        )
+
+
+def render_emotion_analysis_tab():
+    """Render charts for emotion probabilities and trend analysis."""
+    st.subheader("📈 Emotion Analysis")
+    st.caption("EMOTION PROBABILITIES, SESSION TIMELINE, TRENDS, AND JOURNEY")
+
+    _meta = st.session_state.get('last_response_meta') or {}
+    _probs = _meta.get('emotion_probabilities', {})
+    if _probs:
+        st.markdown(
+            '<div class="section-header-premium">📊 Emotion Probabilities</div>',
+            unsafe_allow_html=True,
+        )
+        st.plotly_chart(
+            create_emotion_probability_bar(_probs),
+            width="stretch",
+        )
+
+    _session_emo_hist = st.session_state.get('emotion_history', [])
+    if len(_session_emo_hist) >= 2:
+        st.markdown(
+            '<div class="section-header-premium">📈 Session Emotion Timeline</div>',
+            unsafe_allow_html=True,
+        )
+        st.plotly_chart(
+            create_session_emotion_timeline(_session_emo_hist),
+            width="stretch",
+        )
+
+    st.markdown("---")
+    render_trends_tab(show_header=False)
+    st.markdown("---")
+    render_emotional_journey_tab(show_header=False)
+
+
+def render_wellness_tools_tab():
+    """Render breathing tools and weekly wellness summary."""
+    st.subheader("🫁 Wellness Tools")
+    st.caption("GUIDED BREATHING, CALM SUPPORT, AND WEEKLY WELLNESS SUMMARY")
+
+    _meta = st.session_state.get('last_response_meta') or {}
+    _det_emotion = _meta.get('emotion', '')
+    _risk_level = _meta.get('risk_level', 'low')
+    _should_offer = (
+        (_det_emotion == 'anxiety' or _risk_level == 'high')
+        and _det_emotion != 'crisis'
+        and not st.session_state.get('breathing_active', False)
+    )
+
+    if _should_offer:
+        st.info("😌 Anxiety or elevated risk detected. You can start a calming breathing exercise below.")
+
+    if not st.session_state.get('breathing_active', False):
+        if st.button("🫁 Start Breathing Exercise", key="start_breathing_wellness"):
+            st.session_state.breathing_active = True
+            st.rerun()
+
+    if st.session_state.get('breathing_active', False):
+        components.html(breathing_exercise_html(), height=_BREATHING_WIDGET_HEIGHT)
+        _vol = st.session_state.get('_calm_volume', 0.03)
+        _sound = st.session_state.get('ambient_sound', 'deep_focus')
+        st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
+        _tone = _generate_calming_tone()
+        if _tone:
+            st.audio(_tone, format="audio/wav")
+        if st.button("✖ Stop Breathing Exercise", key="stop_breathing_wellness"):
+            st.session_state.breathing_active = False
+            st.markdown(ambient_stop_html(), unsafe_allow_html=True)
+            st.rerun()
+
+    st.markdown("---")
+    render_weekly_report_tab(show_header=False)
 
 
 # -----------------------------------------------------------------------
@@ -1802,29 +1818,29 @@ def show_chat_interface():
         )
 
     # Main content — tabs
-    tab_chat, tab_trends, tab_journey, tab_risk, tab_report, tab_guardian = st.tabs([
+    tab_chat, tab_ai, tab_emotion, tab_risk, tab_wellness, tab_guardian = st.tabs([
         "💬 Chat",
-        "📈 Emotional Trends",
-        "🌊 Emotional Journey",
+        "📊 AI Insights",
+        "📈 Emotion Analysis",
         "⚠️ Risk Dashboard",
-        "📋 Weekly Report",
+        "🫁 Wellness Tools",
         "🛡️ Guardian Alerts",
     ])
 
     with tab_chat:
         render_chat_tab()
 
-    with tab_trends:
-        render_trends_tab()
+    with tab_ai:
+        render_ai_insights_tab()
 
-    with tab_journey:
-        render_emotional_journey_tab()
+    with tab_emotion:
+        render_emotion_analysis_tab()
 
     with tab_risk:
         render_risk_tab()
 
-    with tab_report:
-        render_weekly_report_tab()
+    with tab_wellness:
+        render_wellness_tools_tab()
 
     with tab_guardian:
         render_guardian_alerts_tab()

@@ -15,11 +15,12 @@ interface VoiceRecorderProps {
   language: LanguagePreference;
   onTranscript: (text: string) => void;
   disabled?: boolean;
+  className?: string;
 }
 
 type State = "idle" | "recording" | "transcribing";
 
-export function VoiceRecorder({ language, onTranscript, disabled }: VoiceRecorderProps) {
+export function VoiceRecorder({ language, onTranscript, disabled, className }: VoiceRecorderProps) {
   const [state, setState] = useState<State>("idle");
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -85,9 +86,9 @@ export function VoiceRecorder({ language, onTranscript, disabled }: VoiceRecorde
       title={label}
       className={`h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-xl border transition-colors disabled:opacity-40 ${
         state === "recording"
-          ? "bg-red-600/30 border-red-500/50 text-red-400 animate-pulse"
-          : "border-glass-border text-gray-400 hover:text-gray-100 hover:bg-white/5"
-      }`}
+          ? "bg-red-700/45 border-red-400/70 text-red-200 animate-pulse"
+          : "border-brand-500/50 text-brand-200 bg-brand-600/15 hover:text-white hover:bg-brand-600/30"
+      } ${className ?? ""}`}
     >
       {state === "transcribing" ? (
         <Loader2 className="w-4 h-4 animate-spin" />
