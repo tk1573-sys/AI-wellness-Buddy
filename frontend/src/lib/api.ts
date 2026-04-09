@@ -198,33 +198,7 @@ export async function sendMessage(
     { message, session_id: sessionId ?? null, language_preference: languagePreference ?? "english" },
     { headers: authedHeaders() },
   );
-<<<<<<< HEAD
-  
-  // Log the raw API response for debugging
-  console.log("CHAT API RESPONSE:", data);
-  
-  // Ensure we have a valid reply
-  if (
-    !data.reply &&
-    !data.response &&
-    !data.message &&
-    !data.bot_response &&
-    !data.response_text &&
-    !data.text
-  ) {
-    console.warn("No valid response text found in API response. Available fields:", Object.keys(data));
-  }
-  
-  // Extract the bot reply using the helper function
-  const reply = extractBotReply(data);
-  
-  return {
-    ...data,
-    reply, // Normalize to 'reply' key
-  };
-=======
   return normalizeChatResponse(data);
->>>>>>> 4362f5eb8d9a4933237299b50fce9fb5d12654d1
 }
 
 export async function getChatHistory(): Promise<ChatMessage[]> {
