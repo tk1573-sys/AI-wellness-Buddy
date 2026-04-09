@@ -158,16 +158,47 @@ function extractBotReply(data: ChatResponse): string {
 // Chat API functions
 // -------------------------------------------------------------------------- //
 
+// -------------------------------------------------------------------------- //
+// Normalise the reply field — the backend may return the assistant text
+// under any of the following keys depending on version or model adapter.
+// -------------------------------------------------------------------------- //
+
+function normalizeChatResponse(raw: Record<string, unknown>): ChatResponse {
+  const reply = (
+    (raw.reply as string | undefined) ||
+    (raw.response as string | undefined) ||
+    (raw.message as string | undefined) ||
+    (raw.bot_response as string | undefined) ||
+    (raw.response_text as string | undefined) ||
+    ""
+  );
+  return {
+    session_id:           String(raw.session_id           ?? ""),
+    reply,
+    primary_emotion:      String(raw.primary_emotion      ?? "neutral"),
+    confidence:           Number(raw.confidence           ?? 0),
+    is_high_risk:         Boolean(raw.is_high_risk        ?? false),
+    escalation_message:   (raw.escalation_message as string | null) ?? null,
+    scores:               (raw.scores                    ?? []) as ChatResponse["scores"],
+    personalization_score: Number(raw.personalization_score ?? 0),
+    used_triggers:        (raw.used_triggers             ?? []) as string[],
+    response_type:        ((raw.response_type as string) === "personalized"
+                            ? "personalized"
+                            : "generic"),
+  };
+}
+
 export async function sendMessage(
   message: string,
   sessionId?: string,
   languagePreference?: string,
 ): Promise<ChatResponse> {
-  const { data } = await axios.post<ChatResponse>(
+  const { data } = await axios.post<Record<string, unknown>>(
     `${API_URL}/api/v1/chat`,
     { message, session_id: sessionId ?? null, language_preference: languagePreference ?? "english" },
     { headers: authedHeaders() },
   );
+<<<<<<< HEAD
   
   // Log the raw API response for debugging
   console.log("CHAT API RESPONSE:", data);
@@ -191,6 +222,9 @@ export async function sendMessage(
     ...data,
     reply, // Normalize to 'reply' key
   };
+=======
+  return normalizeChatResponse(data);
+>>>>>>> 4362f5eb8d9a4933237299b50fce9fb5d12654d1
 }
 
 export async function getChatHistory(): Promise<ChatMessage[]> {
