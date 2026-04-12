@@ -48,6 +48,9 @@ scikit-learn>=1.4.0
 numpy>=1.26.4
 matplotlib>=3.8.0
 
+# ─── Guardian alerts (WhatsApp via Twilio) ───────────
+twilio>=8.0.0
+
 # ─── Voice features ──────────────────────────────────
 gTTS>=2.5.0
 SpeechRecognition>=3.14.0
