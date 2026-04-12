@@ -137,23 +137,6 @@ export function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong.";
 }
 
-/**
- * Extracts bot reply text from ChatResponse, supporting multiple possible keys.
- */
-function extractBotReply(data: ChatResponse): string {
-  // Try all possible response keys in order of preference
-  const reply =
-    data.reply ??
-    data.response ??
-    data.message ??
-    data.bot_response ??
-    data.response_text ??
-    data.text ??
-    "I'm here with you. Please try again.";
-
-  return reply;
-}
-
 // -------------------------------------------------------------------------- //
 // Chat API functions
 // -------------------------------------------------------------------------- //

@@ -141,7 +141,7 @@ export function AmbientPlayer({
       stopAmbient();
     }
     return stopAmbient;
-  }, [playing, soundscape]);
+  }, [playing, soundscape, startAmbient, stopAmbient]);
 
   // Volume change without restart
   useEffect(() => {

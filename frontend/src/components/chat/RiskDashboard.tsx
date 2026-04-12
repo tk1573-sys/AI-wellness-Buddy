@@ -135,7 +135,7 @@ export function RiskDashboard({
       {/* Safety Notice */}
       <div className="rounded-lg bg-slate-800/65 border border-slate-600/60 p-3">
         <p className="text-xs text-slate-300 leading-relaxed">
-          ℹ️ If you're in crisis, please contact emergency services or a mental health professional immediately.
+          ℹ️ If you&apos;re in crisis, please contact emergency services or a mental health professional immediately.
         </p>
       </div>
     </div>
