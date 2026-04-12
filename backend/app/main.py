@@ -40,7 +40,21 @@ from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
 from app.routers import analytics, auth, chat, health, predict, profile, dashboard, voice, weekly_report, journey, guardian_alert
 
-settings = get_settings()
+try:
+    settings = get_settings()
+except Exception as _cfg_err:  # noqa: BLE001
+    import sys
+    # Print to stderr immediately so the error is visible in deployment logs
+    # before the logging subsystem is configured.
+    print(
+        f"FATAL: Failed to load application settings — {_cfg_err}\n"
+        "  Ensure all required environment variables are set "
+        "(SECRET_KEY is mandatory).\n"
+        "  Hint: copy backend/.env.example → backend/.env and fill in values.",
+        file=sys.stderr,
+        flush=True,
+    )
+    sys.exit(1)
 
 # --------------------------------------------------------------------------- #
 # Logging configuration
@@ -61,6 +75,13 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         logger.info("Starting up %s v%s", settings.APP_NAME, settings.APP_VERSION)
+        logger.info(
+            "Config: env=%s debug=%s db=%s frontend_url=%r",
+            settings.ENV,
+            settings.DEBUG,
+            settings.DATABASE_URL.split("://")[0] if "://" in settings.DATABASE_URL else "unknown",   # driver only — no creds
+            settings.FRONTEND_URL or "(not set)",
+        )
         await init_db()
         logger.info("Database tables created / verified.")
         # Pre-warm the ML model so the first real request is not delayed.

@@ -477,14 +477,26 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     letter-spacing: 0.02em;
 }}
 
-/* ---- Risk-level atmospheric border ---- */
-.main .block-container {{
+/* ---- Risk-level atmospheric border + full-width override (all Streamlit versions) ---- */
+.main .block-container,
+.stMainBlockContainer,
+[data-testid="stMainBlockContainer"],
+[data-testid="block-container"] {{
     border-top: 3px solid {border_color};
     transition: border-color 0.5s ease;
     max-width: none !important;
+    width: 100% !important;
     padding-top: 1.2rem;
     padding-left: 2.4rem;
     padding-right: 2.4rem;
+    box-sizing: border-box;
+}}
+
+/* ---- Ensure tab content uses full available width ---- */
+[data-testid="stTabsContent"],
+[data-testid="stVerticalBlock"] {{
+    width: 100% !important;
+    max-width: none !important;
 }}
 
 /* ---- Critical pulsing warning bar ---- */
@@ -552,7 +564,9 @@ section[data-testid="stSidebar"] .stMarkdown p {{
 }}
 
 /* ---- Page transitions ---- */
-.main .block-container {{
+.main .block-container,
+.stMainBlockContainer,
+[data-testid="stMainBlockContainer"] {{
     animation: pageTransition 0.5s ease-out;
 }}
 @keyframes pageTransition {{
@@ -572,6 +586,8 @@ section[data-testid="stSidebar"] .stMarkdown p {{
     border: 1px solid rgba(155,140,255,0.22);
     padding: 1rem 1.25rem;
     margin: 0.6rem 0;
+    width: 100%;
+    box-sizing: border-box;
     box-shadow: 0 4px 20px rgba(91,140,255,0.07), inset 0 1px 0 rgba(255,255,255,0.08);
     animation: fadeSlideIn 0.4s cubic-bezier(0.22,1,0.36,1);
     transition: box-shadow 0.3s ease, transform 0.3s ease;
@@ -1378,7 +1394,9 @@ div[data-testid="stElementContainer"]:has(#floating-voice-container) [data-testi
     section[data-testid="stSidebar"] + div {{
         margin-left: 0;
     }}
-    .main .block-container {{
+    .main .block-container,
+    .stMainBlockContainer,
+    [data-testid="stMainBlockContainer"] {{
         padding-left: 0.85rem;
         padding-right: 0.85rem;
     }}
