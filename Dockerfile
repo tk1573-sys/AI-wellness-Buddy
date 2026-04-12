@@ -1,3 +1,5 @@
+# This Dockerfile is for the legacy standalone Streamlit / api_service deployment.
+# Production backend uses Dockerfile.backend (FastAPI on python:3.11-slim).
 FROM python:3.12-slim
 
 WORKDIR /app
