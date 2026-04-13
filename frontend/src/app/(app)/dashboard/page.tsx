@@ -49,7 +49,6 @@ export default function DashboardPage() {
   const [journeyData, setJourneyData] = useState<JourneyData | null>(null);
   const [guardianAlerts, setGuardianAlerts] = useState<GuardianAlertRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -57,16 +56,16 @@ export default function DashboardPage() {
       return;
     }
     Promise.all([
-      getDashboard(),
+      getDashboard().catch(() => null),
       getJourney().catch(() => null),
       getGuardianAlerts().catch(() => ({ alerts: [], total: 0 })),
     ])
       .then(([dash, journey, ga]) => {
         setData(dash);
         setJourneyData(journey);
-        setGuardianAlerts(ga.alerts);
+        setGuardianAlerts(ga?.alerts ?? []);
       })
-      .catch((e) => setError(e?.response?.data?.detail ?? "Failed to load dashboard."))
+      .catch(() => {/* individual catches handle failures above */})
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -76,17 +75,6 @@ export default function DashboardPage() {
         <div className="animate-pulse text-center space-y-2">
           <div className="text-4xl">📊</div>
           <p>Loading dashboard…</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-full text-red-400">
-        <div className="text-center space-y-2">
-          <div className="text-4xl">⚠️</div>
-          <p>{error}</p>
         </div>
       </div>
     );
