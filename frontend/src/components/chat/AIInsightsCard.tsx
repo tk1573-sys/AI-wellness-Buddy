@@ -56,7 +56,9 @@ export function AIInsightsCard({
   const displayScore =
     typeof personalizationScore === "number"
       ? personalizationScore
-      : insightsData?.personalization_score ?? null;
+      : (typeof insightsData?.personalization_score === "number"
+          ? insightsData.personalization_score
+          : null);
   const displayTriggers =
     usedTriggers.length > 0 ? usedTriggers : (insightsData?.trigger_signals ?? []);
 

@@ -41,7 +41,7 @@ class InsightsResponse(BaseModel):
     personalization_score: float
     trigger_signals: list[str]
     risk_level: str          # "low" | "moderate" | "high" | "critical"
-    recent_pattern: dict[str, int]
+    recent_pattern: dict[str, float]
     trend: str               # "improving" | "stable" | "declining"
 
 
@@ -153,7 +153,7 @@ async def get_insights(
         # Recent pattern — percentage distribution across all emotion labels
         total = len(logs)
         recent_pattern = {
-            emotion: round(count / total * 100)
+            emotion: round(count / total * 100, 1)
             for emotion, count in sorted(
                 emotion_counter.items(), key=lambda x: x[1], reverse=True
             )
@@ -177,7 +177,11 @@ async def get_insights(
             if profile is not None:
                 profile_triggers = profile.triggers
         except Exception:  # noqa: BLE001
-            logger.debug("Could not load profile for trigger signals", exc_info=True)
+            logger.debug(
+            "Could not load profile for trigger signals user_id=%d",
+            user.id,
+            exc_info=True,
+        )
 
         trigger_signals = _extract_trigger_signals(logs, profile_triggers)
 

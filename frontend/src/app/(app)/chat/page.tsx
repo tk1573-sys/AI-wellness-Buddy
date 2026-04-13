@@ -148,7 +148,7 @@ export default function ChatPage() {
   const refreshInsights = useCallback(() => {
     getInsights()
       .then(setInsightsData)
-      .catch(() => {/* insights are non-critical; silently ignore */});
+      .catch((err) => console.debug("[Insights] Failed to fetch insights:", err));
   }, []);
 
   useEffect(() => {

@@ -328,7 +328,7 @@ export interface InsightsData {
   personalization_score: number;
   trigger_signals: string[];
   risk_level: string;
-  recent_pattern: Record<string, number>;
+  recent_pattern: Record<string, number>;  // emotion -> percentage (0–100, 1 decimal)
   trend: string;
 }
 

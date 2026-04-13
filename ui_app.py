@@ -747,7 +747,7 @@ def render_chat_tab():
             if _p and hasattr(_p, 'triggers') and _p.triggers:
                 _trigger_sigs = [k for k, v in _p.triggers.items() if v]
         # Add dominant negative emotion as a signal when it appears ≥2 times
-        _neg_counts: dict = {}
+        _neg_counts: dict[str, int] = {}
         for _snap in _emo_hist:
             _ed = _snap.get('emotion_data', {}) or {}
             _en = _ed.get('primary_emotion') or _ed.get('emotion', '')
