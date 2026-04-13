@@ -9,6 +9,7 @@ import { useEffect, useRef } from "react";
 import { ChatBubble } from "./ChatBubble";
 import { TypingIndicator } from "./TypingIndicator";
 import { LanguagePreference, t } from "@/lib/i18n";
+import type { EmotionScore } from "@/lib/api";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -17,6 +18,9 @@ export interface ChatMessage {
   confidence?: number;
   isHighRisk?: boolean;
   escalationMessage?: string | null;
+  scores?: EmotionScore[];
+  responseType?: "generic" | "personalized";
+  personalizationScore?: number;
 }
 
 interface ChatWindowProps {
@@ -76,6 +80,9 @@ export function ChatWindow({ messages, isLoading, language = "english" }: ChatWi
           <ChatBubble
             role={msg.role}
             content={msg.content}
+            scores={msg.scores}
+            responseType={msg.responseType}
+            personalizationScore={msg.personalizationScore}
           />
         </div>
       ))}

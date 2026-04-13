@@ -730,17 +730,71 @@ def render_chat_tab():
                 st.session_state.ambient_sound = _SOUND_MAP.get(sound_choice, 'deep_focus')
 
     with insight_col:
-        # Quick insight panel: current emotion, risk, and session stats
+        # AI Insights panel — mirrors /api/v1/insights response fields
         _meta_ins = st.session_state.get('last_response_meta') or {}
-        _cur_emo = _meta_ins.get('emotion', _dom_emotion)
+        _cur_emo = _meta_ins.get('emotion', _dom_emotion) or 'neutral'
         _cur_risk = _meta_ins.get('risk_score', 0.0) or 0.0
         _cur_conf = _meta_ins.get('confidence', 0.0) or 0.0
         _msg_count = len([m for m in st.session_state.get('messages', []) if m.get('role') == 'user'])
         _emo_icon = EMO_ICONS.get(_cur_emo, '💬')
-        st.markdown("**📊 Quick Stats**")
+
+        # Compute trigger signals from profile triggers + repeated negative emotions
+        _emo_hist = st.session_state.get('emotion_history', [])
+        _neg_emotions = {'sadness', 'anger', 'fear', 'anxiety', 'crisis', 'stress'}
+        _trigger_sigs = []
+        if st.session_state.buddy and hasattr(st.session_state.buddy, 'user_profile'):
+            _p = st.session_state.buddy.user_profile
+            if _p and hasattr(_p, 'triggers') and _p.triggers:
+                _trigger_sigs = [k for k, v in _p.triggers.items() if v]
+        # Add dominant negative emotion as a signal when it appears ≥2 times
+        _neg_counts: dict[str, int] = {}
+        for _snap in _emo_hist:
+            _ed = _snap.get('emotion_data', {}) or {}
+            _en = _ed.get('primary_emotion') or _ed.get('emotion', '')
+            if _en in _neg_emotions:
+                _neg_counts[_en] = _neg_counts.get(_en, 0) + 1
+        for _neg_e, _neg_c in _neg_counts.items():
+            if _neg_c >= 2 and _neg_e not in _trigger_sigs:
+                _trigger_sigs.append(_neg_e)
+        _trigger_sigs = _trigger_sigs[:5]
+
+        # Compute mood trend from last 8 emotions
+        _all_emos = [
+            ((_snap.get('emotion_data') or {}).get('primary_emotion') or
+             (_snap.get('emotion_data') or {}).get('emotion', 'neutral'))
+            for _snap in _emo_hist[-8:]
+        ]
+        _trend = 'stable'
+        if len(_all_emos) >= 4:
+            _mid = len(_all_emos) // 2
+            _early_neg = sum(1 for _e in _all_emos[:_mid] if _e in _neg_emotions)
+            _late_neg = sum(1 for _e in _all_emos[_mid:] if _e in _neg_emotions)
+            if _late_neg < _early_neg:
+                _trend = 'improving'
+            elif _late_neg > _early_neg:
+                _trend = 'declining'
+
+        # Risk level
+        _risk_level = 'low'
+        if _cur_risk >= 0.75 or _cur_emo == 'crisis':
+            _risk_level = 'critical'
+        elif _cur_risk >= 0.5:
+            _risk_level = 'high'
+        elif _cur_risk >= 0.25:
+            _risk_level = 'moderate'
+
+        # Personalization score from meta
+        _pers_score = _meta_ins.get('personalization_score', 0.0) or 0.0
+
+        st.markdown("**🧠 AI Insights**")
         st.metric("Emotion", f"{_emo_icon} {_cur_emo.capitalize()}")
-        st.metric("Risk", f"{_cur_risk:.0%}" if isinstance(_cur_risk, float) else "—")
+        st.metric("Risk Level", _risk_level.capitalize())
         st.metric("Confidence", f"{_cur_conf:.0%}" if isinstance(_cur_conf, float) else "—")
+        st.metric("Mood Trend", {'improving': '📈', 'declining': '📉', 'stable': '➡️'}.get(_trend, '➡️') + f' {_trend.capitalize()}')
+        if _pers_score:
+            st.metric("Personalization", f"{_pers_score:.0%}")
+        if _trigger_sigs:
+            st.markdown(f"**Trigger Signals:** {', '.join(_trigger_sigs)}")
         st.metric("Messages", _msg_count)
 
     if voice_transcript and voice_transcript != st.session_state.last_user_input:
