@@ -39,7 +39,13 @@ class Base(DeclarativeBase):
     """Shared declarative base for all ORM models."""
 
 
-def _ensure_emotion_log_columns(conn) -> None:  # noqa: ANN001
+_REQUIRED_EMOTION_LOG_COLUMNS: tuple[str, ...] = (
+    "risk_score",
+    "personalization_score",
+)
+
+
+def _ensure_emotion_log_columns(conn: "sqlalchemy.engine.Connection") -> None:
     """Add missing columns to emotion_logs if they are absent (safe ALTER TABLE).
 
     This handles databases that were created before the risk_score /
@@ -54,7 +60,9 @@ def _ensure_emotion_log_columns(conn) -> None:  # noqa: ANN001
         return
 
     existing = {col["name"] for col in inspector.get_columns("emotion_logs")}
-    for col_name in ("risk_score", "personalization_score"):
+    for col_name in _REQUIRED_EMOTION_LOG_COLUMNS:
+        # col_name is drawn from the fixed tuple above — not user input.
+        assert col_name.replace("_", "").isalpha(), f"Unexpected column name: {col_name!r}"
         if col_name not in existing:
             conn.execute(
                 text(

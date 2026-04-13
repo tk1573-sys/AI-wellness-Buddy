@@ -65,7 +65,6 @@ export default function DashboardPage() {
         setJourneyData(journey);
         setGuardianAlerts(ga?.alerts ?? []);
       })
-      .catch(() => {/* individual catches handle failures above */})
       .finally(() => setLoading(false));
   }, [router]);
 
