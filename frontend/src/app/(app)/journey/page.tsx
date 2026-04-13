@@ -34,7 +34,6 @@ export default function JourneyPage() {
   const router = useRouter();
   const [data, setData] = useState<JourneyData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -43,7 +42,7 @@ export default function JourneyPage() {
     }
     getJourney()
       .then(setData)
-      .catch((e) => setError(e?.response?.data?.detail ?? "Failed to load journey."))
+      .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -53,17 +52,6 @@ export default function JourneyPage() {
         <div className="animate-pulse text-center space-y-2">
           <div className="text-4xl">🛤️</div>
           <p>Loading journey…</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-full text-red-400">
-        <div className="text-center space-y-2">
-          <div className="text-4xl">⚠️</div>
-          <p>{error}</p>
         </div>
       </div>
     );

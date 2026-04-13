@@ -40,7 +40,6 @@ export default function WeeklyReportPage() {
   const router = useRouter();
   const [data, setData] = useState<WeeklyReportData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -49,7 +48,7 @@ export default function WeeklyReportPage() {
     }
     getWeeklyReport()
       .then(setData)
-      .catch((e) => setError(e?.response?.data?.detail ?? "Failed to load weekly report."))
+      .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -59,17 +58,6 @@ export default function WeeklyReportPage() {
         <div className="animate-pulse text-center space-y-2">
           <div className="text-4xl">📋</div>
           <p>Generating report…</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-full text-red-400">
-        <div className="text-center space-y-2">
-          <div className="text-4xl">⚠️</div>
-          <p>{error}</p>
         </div>
       </div>
     );
