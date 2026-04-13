@@ -320,6 +320,27 @@ export async function getWeeklyReport(): Promise<WeeklyReportData> {
 }
 
 // -------------------------------------------------------------------------- //
+// Insights API types and functions
+// -------------------------------------------------------------------------- //
+
+export interface InsightsData {
+  dominant_emotion: string;
+  personalization_score: number;
+  trigger_signals: string[];
+  risk_level: string;
+  recent_pattern: Record<string, number>;
+  trend: string;
+}
+
+export async function getInsights(): Promise<InsightsData> {
+  const { data } = await axios.get<InsightsData>(
+    `${API_URL}/api/v1/insights`,
+    { headers: authedHeaders() },
+  );
+  return data;
+}
+
+// -------------------------------------------------------------------------- //
 // Voice API functions
 // -------------------------------------------------------------------------- //
 

@@ -22,7 +22,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { Globe, AlertCircle, PanelRightOpen, X } from "lucide-react";
 
-import { sendMessage, getChatHistory, getProfile, getErrorMessage, ChatMessage, ChatResponse, EmotionScore } from "@/lib/api";
+import { sendMessage, getChatHistory, getProfile, getInsights, getErrorMessage, ChatMessage, ChatResponse, EmotionScore, InsightsData } from "@/lib/api";
 import { isAuthenticated } from "@/lib/auth";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { InputFooter } from "@/components/chat/InputFooter";
@@ -68,6 +68,7 @@ export default function ChatPage() {
   const [lastPersonalizationScore, setLastPersonalizationScore] = useState<number | undefined>(undefined);
   const [lastUsedTriggers, setLastUsedTriggers] = useState<string[]>([]);
   const [showMobileInsights, setShowMobileInsights] = useState(false);
+  const [insightsData, setInsightsData] = useState<InsightsData | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const getRiskScore = useCallback((res: ChatResponse): number => {
@@ -113,7 +114,7 @@ export default function ChatPage() {
   }, []);
 
   // Load existing chat history on mount
-  useEffect(() => {
+  const loadHistory = useCallback(() => {
     setIsLoadingHistory(true);
     setHistoryError(null);
     getChatHistory()
@@ -130,12 +131,29 @@ export default function ChatPage() {
       })
       .catch((err) => {
         console.error("Failed to load chat history:", err);
-        setHistoryError("Could not load chat history. Starting fresh.");
+        const msg = getErrorMessage(err);
+        setHistoryError(`Could not load chat history: ${msg}`);
+        toast.error("Could not load chat history. You can retry or start fresh.");
       })
       .finally(() => {
         setIsLoadingHistory(false);
       });
   }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  // Refresh backend insights summary periodically and after each new message
+  const refreshInsights = useCallback(() => {
+    getInsights()
+      .then(setInsightsData)
+      .catch(() => {/* insights are non-critical; silently ignore */});
+  }, []);
+
+  useEffect(() => {
+    refreshInsights();
+  }, [refreshInsights]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
@@ -216,8 +234,10 @@ export default function ChatPage() {
     } finally {
       setIsLoading(false);
       textareaRef.current?.focus();
+      // Refresh insights after each completed exchange
+      refreshInsights();
     }
-  }, [getNormalizedReply, getRiskScore, input, isLoading, sessionId, language]);
+  }, [getNormalizedReply, getRiskScore, input, isLoading, sessionId, language, refreshInsights]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -306,7 +326,22 @@ export default function ChatPage() {
       {historyError && (
         <div className="relative z-10 mx-4 mt-3 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-900/20 px-4 py-2 text-sm">
           <AlertCircle className="w-4 h-4 text-amber-300 flex-shrink-0" />
-          <span className="text-xs text-amber-200">{historyError}</span>
+          <span className="flex-1 text-xs text-amber-200">{historyError}</span>
+          <button
+            type="button"
+            onClick={loadHistory}
+            disabled={isLoadingHistory}
+            className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg bg-amber-600/30 border border-amber-500/50 text-amber-300 hover:bg-amber-600/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isLoadingHistory ? (
+              <span className="inline-flex items-center gap-1">
+                <span className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                Loading…
+              </span>
+            ) : (
+              "Retry History"
+            )}
+          </button>
         </div>
       )}
 
@@ -383,6 +418,7 @@ export default function ChatPage() {
                 personalizationScore={lastPersonalizationScore}
                 usedTriggers={lastUsedTriggers}
                 dominantEmotion={dominantEmotion}
+                insightsData={insightsData}
               />
               <EmotionAnalysis
                 isLoading={isLoading || isLoadingHistory}
@@ -452,6 +488,7 @@ export default function ChatPage() {
                 personalizationScore={lastPersonalizationScore}
                 usedTriggers={lastUsedTriggers}
                 dominantEmotion={dominantEmotion}
+                insightsData={insightsData}
               />
               <EmotionAnalysis
                 isLoading={isLoading || isLoadingHistory}
