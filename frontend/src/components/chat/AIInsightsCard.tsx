@@ -70,7 +70,7 @@ export function AIInsightsCard({
         <>
           <div className="rounded-lg border border-slate-600/60 bg-slate-800/65 px-3 py-2 text-xs text-slate-200">
             <span className="text-slate-400">Response Mode: </span>
-            <span className="font-semibold text-cyan-300 uppercase">{responseType ?? "unknown"}</span>
+            <span className="font-semibold text-cyan-300 uppercase">{responseType || "personalized"}</span>
           </div>
 
           <div className="rounded-lg border border-slate-600/60 bg-slate-800/65 px-3 py-2 text-xs text-slate-200">
