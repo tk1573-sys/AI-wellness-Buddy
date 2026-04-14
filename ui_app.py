@@ -601,9 +601,9 @@ def render_chat_tab():
         st.session_state.chat_history.append({"role": "assistant", "content": greeting})
         st.session_state["messages"].append({"role": "assistant", "content": greeting})
 
-    # --- Full-width split: main chat (4 parts) | quick insight panel (1 part)
+    # --- Full-width split: main chat (5 parts) | quick insight panel (1 part)
     voice_transcript = None  # initialized here; set inside chat_col's Voice Controls expander
-    chat_col, insight_col = st.columns([4, 1])
+    chat_col, insight_col = st.columns([5, 1])
 
     with chat_col:
         # --- Dedicated container: render from session_state["messages"] only.

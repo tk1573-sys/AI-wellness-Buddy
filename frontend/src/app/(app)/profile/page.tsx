@@ -163,7 +163,7 @@ export default function ProfilePage() {
               <select
                 value={form.gender ?? ""}
                 onChange={(e) => set("gender", e.target.value)}
-                className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full rounded-xl border border-glass-border bg-[#111827] px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">Select</option>
                 {["Male", "Female", "Non-binary", "Prefer not to say"].map((g) => (
@@ -188,7 +188,7 @@ export default function ProfilePage() {
             <select
               value={form.baseline_emotion ?? ""}
               onChange={(e) => set("baseline_emotion", e.target.value)}
-              className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full rounded-xl border border-glass-border bg-[#111827] px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="">Select your usual emotional state</option>
               {BASELINE_EMOTIONS.map((e) => (
@@ -217,7 +217,7 @@ export default function ProfilePage() {
             <select
               value={form.personality_type ?? ""}
               onChange={(e) => set("personality_type", e.target.value)}
-              className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full rounded-xl border border-glass-border bg-[#111827] px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="">Select</option>
               {PERSONALITY_OPTIONS.map((p) => (
@@ -266,7 +266,7 @@ export default function ProfilePage() {
               <select
                 value={form.sleep_pattern ?? ""}
                 onChange={(e) => set("sleep_pattern", e.target.value)}
-                className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full rounded-xl border border-glass-border bg-[#111827] px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">Select</option>
                 {SLEEP_OPTIONS.map((s) => (
@@ -279,7 +279,7 @@ export default function ProfilePage() {
               <select
                 value={form.exercise_frequency ?? ""}
                 onChange={(e) => set("exercise_frequency", e.target.value)}
-                className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full rounded-xl border border-glass-border bg-[#111827] px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">Select</option>
                 {EXERCISE_OPTIONS.map((ex) => (
@@ -293,7 +293,7 @@ export default function ProfilePage() {
             <select
               value={form.social_support ?? ""}
               onChange={(e) => set("social_support", e.target.value)}
-              className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full rounded-xl border border-glass-border bg-[#111827] px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="">Select</option>
               {SUPPORT_OPTIONS.map((s) => (
@@ -322,7 +322,7 @@ export default function ProfilePage() {
               <select
                 value={form.marital_status ?? ""}
                 onChange={(e) => set("marital_status", e.target.value)}
-                className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-xs text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full rounded-xl border border-glass-border bg-[#111827] px-3 py-2 text-xs text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">Select (optional)</option>
                 {MARITAL_OPTIONS.map((o) => (
@@ -335,7 +335,7 @@ export default function ProfilePage() {
               <select
                 value={form.living_situation ?? ""}
                 onChange={(e) => set("living_situation", e.target.value)}
-                className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-xs text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full rounded-xl border border-glass-border bg-[#111827] px-3 py-2 text-xs text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">Select (optional)</option>
                 {LIVING_OPTIONS.map((o) => (
@@ -479,7 +479,7 @@ export default function ProfilePage() {
                 <select
                   value={form.guardian_relationship ?? ""}
                   onChange={(e) => set("guardian_relationship", e.target.value)}
-                  className="w-full rounded-xl border border-glass-border bg-white/5 px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  className="w-full rounded-xl border border-glass-border bg-[#111827] px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option value="">Select relationship</option>
                   {["Parent", "Sibling", "Partner", "Friend", "Therapist", "Doctor", "Other"].map((r) => (
