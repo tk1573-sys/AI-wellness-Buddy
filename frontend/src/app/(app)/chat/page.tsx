@@ -102,6 +102,18 @@ export default function ChatPage() {
     }
   }, [router]);
 
+  // Prevent the browser from restoring a stale scroll position when the user
+  // navigates back to /chat from dashboard, profile, journey, etc.
+  // The chat window manages its own scroll via the ChatWindow auto-scroll logic.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const prev = history.scrollRestoration;
+    history.scrollRestoration = "manual";
+    return () => {
+      history.scrollRestoration = prev;
+    };
+  }, []);
+
   // Load language preference from profile on mount
   useEffect(() => {
     getProfile()

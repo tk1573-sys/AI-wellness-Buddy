@@ -46,10 +46,19 @@ function MessageSkeleton() {
 
 export function ChatWindow({ messages, isLoading, language = "english" }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  // True until the first non-loading render (initial history fetch completes).
+  // On initial load we jump instantly so stale scroll positions are never
+  // visible; subsequent new messages use a smooth transition.
+  const isInitialLoad = useRef(true);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when messages change or loading state changes.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const behavior: ScrollBehavior = isInitialLoad.current ? "instant" : "smooth";
+    // Mark initial load complete once the loading spinner has cleared.
+    if (isInitialLoad.current && !isLoading) {
+      isInitialLoad.current = false;
+    }
+    bottomRef.current?.scrollIntoView({ behavior });
   }, [messages, isLoading]);
 
   return (
