@@ -96,7 +96,8 @@ export function VoiceRecorder({ language, onTranscript, disabled, className }: V
     };
 
     recognition.onend = () => {
-      if (state === "recording") setState("idle");
+      // Unconditionally reset — this fires after stop() or on natural end
+      setState("idle");
     };
 
     try {
@@ -105,7 +106,7 @@ export function VoiceRecorder({ language, onTranscript, disabled, className }: V
     } catch {
       return false;
     }
-  }, [language, onTranscript, state]);
+  }, [language, onTranscript]);
 
   // ── MediaRecorder fallback path ──────────────────────────────────────────
   const startMediaRecorder = useCallback(async () => {

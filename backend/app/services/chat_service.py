@@ -182,16 +182,24 @@ async def _maybe_dispatch_crisis_alert(
     channel deduplication internally — so we simply call dispatch and let
     it decide whether to actually send.
     """
+    from app.models.user import User  # noqa: PLC0415
     from app.services import guardian_alert_service  # noqa: PLC0415
 
     risk_level = "critical" if primary_emotion == "crisis" else "high"
     reason = f"Automatic crisis detection — emotion: {primary_emotion}"
 
+    # Resolve a human-readable alias for the alert notification
+    user_result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user_row = user_result.scalar_one_or_none()
+    user_alias = user_row.username if user_row else str(user_id)
+
     try:
         alerts = await guardian_alert_service.dispatch_guardian_alert(
             db,
             user_id=user_id,
-            user_alias=str(user_id),
+            user_alias=user_alias,
             risk_level=risk_level,
             risk_reason=reason,
             channels=["email", "whatsapp"],
