@@ -62,7 +62,6 @@ select option {
   color: #ffffff;
 }
 
-select option:hover,
 select option:checked {
   background-color: #1d4ed8;
   color: #ffffff;
