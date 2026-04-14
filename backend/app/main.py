@@ -34,6 +34,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from sqlalchemy.exc import DisconnectionError, OperationalError, TimeoutError as SATimeoutError
 
 from app.config import get_settings
 from app.database import init_db
@@ -118,6 +119,32 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     app.add_middleware(SlowAPIMiddleware)
+
+    # ------------------------------------------------------------------ #
+    # DB outage handler — 503 for any SQLAlchemy connectivity failure.
+    # Must be registered before the generic 500 handler so FastAPI's
+    # most-specific-type matching picks it up first.
+    # ------------------------------------------------------------------ #
+    _DB_OUTAGE_RESPONSE = {
+        "error": "database_unavailable",
+        "message": "The service is temporarily unavailable. Please try again in a moment.",
+        "status_code": 503,
+    }
+
+    @app.exception_handler(OperationalError)
+    async def db_operational_error_handler(request: Request, exc: OperationalError) -> JSONResponse:
+        logger.error("DB operational error on %s %s: %s", request.method, request.url, exc)
+        return JSONResponse(status_code=503, content=_DB_OUTAGE_RESPONSE)
+
+    @app.exception_handler(DisconnectionError)
+    async def db_disconnection_error_handler(request: Request, exc: DisconnectionError) -> JSONResponse:
+        logger.error("DB disconnection on %s %s: %s", request.method, request.url, exc)
+        return JSONResponse(status_code=503, content=_DB_OUTAGE_RESPONSE)
+
+    @app.exception_handler(SATimeoutError)
+    async def db_timeout_error_handler(request: Request, exc: SATimeoutError) -> JSONResponse:
+        logger.error("DB timeout on %s %s: %s", request.method, request.url, exc)
+        return JSONResponse(status_code=503, content=_DB_OUTAGE_RESPONSE)
 
     # ------------------------------------------------------------------ #
     # Global exception handler — returns a consistent JSON error shape
