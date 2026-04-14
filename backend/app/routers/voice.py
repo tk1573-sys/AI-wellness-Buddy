@@ -66,15 +66,20 @@ class TtsRequest(BaseModel):
 
 @router.post("/transcribe", response_model=TranscriptResponse)
 async def transcribe_audio(
-    audio: UploadFile = File(..., description="WAV audio recording from the microphone"),
+    audio: UploadFile = File(..., description="Audio recording from the microphone (WAV/WebM/MP3/FLAC/OGG)"),
     language_preference: str = Form(default="english"),
     _user=Depends(get_current_user),
 ):
-    """Transcribe uploaded WAV audio to text using Google Speech Recognition.
+    """Transcribe uploaded audio to text using Google Speech Recognition.
 
     The ``language_preference`` form field can be ``english``, ``tamil``, or
-    ``bilingual``.  An empty string is returned when speech cannot be
-    recognised or when the STT dependency is not installed.
+    ``bilingual``.  Bilingual / Tanglish input is attempted first with the
+    ``en-IN`` locale (Latin-script Tamil / code-switching) and then with
+    ``ta-IN`` as a fallback.
+
+    Supported formats: WAV, AIFF, FLAC (native); WebM, MP3, OGG, MP4
+    (via pydub + ffmpeg when installed).  An empty string is returned when
+    speech cannot be recognised or when the STT dependency is not installed.
     """
     handler = _get_handler()
 

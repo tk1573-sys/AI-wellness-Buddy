@@ -701,7 +701,7 @@ def render_chat_tab():
             st.rerun()
 
     # ---- Dedicated Voice Controls section ----
-    with st.expander("🎤 Voice Controls", expanded=False):
+    with st.expander("🎤 Voice Controls", expanded=True):
         _vc1, _vc2 = st.columns(2)
         with _vc1:
             voice_transcript = _handle_voice_input()

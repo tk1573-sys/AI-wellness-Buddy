@@ -332,8 +332,21 @@ export async function transcribeVoice(
   audioBlob: Blob,
   languagePreference: string = "english",
 ): Promise<string> {
+  // Use a file extension that matches the blob's MIME type so the backend
+  // can correctly detect the audio format for conversion.
+  const mimeToExt: Record<string, string> = {
+    "audio/wav":  "wav",
+    "audio/wave": "wav",
+    "audio/webm": "webm",
+    "audio/ogg":  "ogg",
+    "audio/mp4":  "mp4",
+    "audio/mpeg": "mp3",
+    "audio/mp3":  "mp3",
+    "audio/flac": "flac",
+  };
+  const ext = mimeToExt[audioBlob.type?.split(";")[0]] ?? "webm";
   const form = new FormData();
-  form.append("audio", audioBlob, "recording.wav");
+  form.append("audio", audioBlob, `recording.${ext}`);
   form.append("language_preference", languagePreference);
   const { data } = await api.post<{ transcript: string; language_used: string }>(
     `/api/v1/voice/transcribe`,
