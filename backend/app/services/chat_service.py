@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import secrets
 import sys
+import time
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -228,6 +229,8 @@ async def handle_chat(
 ) -> ChatResponse:
     """Process one chat turn, persist to DB, and return structured reply."""
 
+    t_start = time.perf_counter()
+
     session_id = req.session_id or secrets.token_hex(16)
     pipeline = _get_pipeline(user_id)
 
@@ -255,6 +258,7 @@ async def handle_chat(
         context["language_preference"] = req.language_preference
 
     # Run full agent pipeline (emotion → pattern → response)
+    t_nlp_start = time.perf_counter()
     try:
         result = pipeline.process_turn(req.message, context=context)
     except Exception:
@@ -264,6 +268,8 @@ async def handle_chat(
             "emotion": {"primary_emotion": "neutral", "confidence_score": 0.5},
             "patterns": {},
         }
+    t_nlp_end = time.perf_counter()
+    logger.info("timing nlp=%.3fs user_id=%d", t_nlp_end - t_nlp_start, user_id)
 
     emotion_data: dict = result.get("emotion") or {}
     primary = emotion_data.get("primary_emotion", "neutral")
@@ -292,7 +298,8 @@ async def handle_chat(
         for e, s in sorted(raw_scores.items(), key=lambda x: x[1], reverse=True)
     ]
 
-    # Persist user message
+    # ── Persist user message, assistant reply, and emotion log in one flush ──
+    t_db_start = time.perf_counter()
     db.add(ChatHistory(
         user_id=user_id,
         session_id=session_id,
@@ -300,16 +307,12 @@ async def handle_chat(
         content=req.message,
         emotion=primary,
     ))
-
-    # Persist assistant reply
     db.add(ChatHistory(
         user_id=user_id,
         session_id=session_id,
         role="assistant",
         content=reply_text,
     ))
-
-    # Persist emotion log
     db.add(EmotionLog(
         user_id=user_id,
         input_text=req.message,
@@ -319,10 +322,15 @@ async def handle_chat(
         is_high_risk=is_high_risk,
         all_scores=raw_scores,
     ))
+    # Flush all three inserts in a single round-trip instead of separate flushes.
+    await db.flush()
+    t_db_end = time.perf_counter()
+    logger.info("timing db=%.3fs user_id=%d", t_db_end - t_db_start, user_id)
 
+    t_total = time.perf_counter() - t_start
     logger.info(
-        "chat user_id=%d session=%s emotion=%s is_high_risk=%s response_type=%s",
-        user_id, session_id, primary, is_high_risk, response_type,
+        "chat user_id=%d session=%s emotion=%s is_high_risk=%s response_type=%s total=%.3fs",
+        user_id, session_id, primary, is_high_risk, response_type, t_total,
     )
 
     # ── Auto crisis alert dispatch ────────────────────────────────────────

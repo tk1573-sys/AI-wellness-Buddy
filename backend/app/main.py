@@ -97,6 +97,20 @@ def create_app() -> FastAPI:
                 "EmotionAnalyzer pre-warm failed; first request may experience cold-start delay.",
                 exc_info=True,
             )
+        # Pre-warm the WellnessAgentPipeline with a dummy user_id so the NLP
+        # models and conversation templates are loaded before the first real
+        # request.  A sentinel ID of 0 is used to avoid polluting real user
+        # pipeline slots; the pipeline is discarded immediately after warming.
+        try:
+            from app.services.chat_service import _get_pipeline, _pipelines
+            _get_pipeline(0)
+            _pipelines.pop(0, None)  # discard the sentinel pipeline
+            logger.info("WellnessAgentPipeline pre-warmed successfully.")
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "WellnessAgentPipeline pre-warm failed; first request may experience cold-start delay.",
+                exc_info=True,
+            )
         yield
         logger.info("Shutting down.")
 
