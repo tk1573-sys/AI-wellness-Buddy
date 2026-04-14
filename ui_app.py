@@ -2028,6 +2028,9 @@ def main():
             padding-left: 1rem;
             padding-right: 1rem;
         }
+        [data-testid="stHorizontalBlock"] > div:first-child {
+            flex: 5 !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
