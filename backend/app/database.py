@@ -81,13 +81,49 @@ async def init_db() -> None:
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency that yields a database session per request."""
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+    """FastAPI dependency that yields a database session per request.
+
+    Converts SQLAlchemy connectivity errors (OperationalError,
+    DisconnectionError, TimeoutError) into HTTP 503 responses so callers
+    receive a structured, frontend-friendly error instead of a raw traceback.
+    Other DB errors (e.g. IntegrityError) are re-raised as-is.
+    """
+    import logging as _logging
+
+    from fastapi import HTTPException, status
+    from sqlalchemy.exc import DisconnectionError, OperationalError
+    from sqlalchemy.exc import TimeoutError as SATimeoutError
+
+    _db_logger = _logging.getLogger(__name__)
+    _DB_503_DETAIL = {
+        "error": "database_unavailable",
+        "message": "The service is temporarily unavailable. Please try again in a moment.",
+        "status_code": 503,
+    }
+
+    try:
+        async with AsyncSessionLocal() as session:
+            try:
+                yield session
+                await session.commit()
+            except (OperationalError, DisconnectionError, SATimeoutError) as exc:
+                await session.rollback()
+                _db_logger.error("DB connectivity error during request: %s", exc)
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=_DB_503_DETAIL,
+                ) from exc
+            except Exception:
+                await session.rollback()
+                raise
+            finally:
+                await session.close()
+    except HTTPException:
+        raise
+    except (OperationalError, DisconnectionError, SATimeoutError) as exc:
+        _db_logger.error("DB connectivity error when creating session: %s", exc)
+        from fastapi import HTTPException, status  # noqa: F811  (already imported above)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_DB_503_DETAIL,
+        ) from exc
