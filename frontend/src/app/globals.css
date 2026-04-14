@@ -46,3 +46,24 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* Dark theme for all <select> elements — overrides white native dropdown */
+select {
+  background-color: #111827;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+select option {
+  background-color: #0f172a;
+  color: #ffffff;
+}
+
+select option:hover,
+select option:checked {
+  background-color: #1d4ed8;
+  color: #ffffff;
+}
