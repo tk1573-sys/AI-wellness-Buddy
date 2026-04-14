@@ -37,8 +37,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setMobileOpen(false);
   }, [pathname]);
 
-  const handleLogout = () => {
-    logoutUser();
+  const handleLogout = async () => {
+    await logoutUser();
     router.replace("/login");
   };
 

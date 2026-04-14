@@ -2,14 +2,20 @@
  * Chat API utilities.
  *
  * Wraps the backend /api/v1/chat, /api/v1/profile, and /api/v1/dashboard
- * endpoints. Every request attaches the stored JWT via the Authorization:
- * Bearer header — tokens are never passed as URL query parameters.
+ * endpoints. JWT authentication is handled via HttpOnly cookies set by the
+ * backend — axios sends them automatically with `withCredentials: true`.
+ * Tokens are never stored in localStorage or sent as URL query parameters.
  */
 
 import axios from "axios";
-import { getToken } from "./auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+// Axios instance with credentials (cookies) sent on every request.
+const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true,
+});
 
 // -------------------------------------------------------------------------- //
 // Shared types (mirror the backend Pydantic schemas)
@@ -107,19 +113,6 @@ export interface DashboardData {
 }
 
 // -------------------------------------------------------------------------- //
-// Helper — builds axios Authorization header from the stored JWT.
-// Tokens are sent only in the Authorization header, never in the URL.
-// -------------------------------------------------------------------------- //
-
-function authedHeaders(): Record<string, string> {
-  const token = getToken();
-  if (!token) {
-    throw new Error("Not authenticated. Please log in.");
-  }
-  return { Authorization: `Bearer ${token}` };
-}
-
-// -------------------------------------------------------------------------- //
 // Helper — extracts a human-readable message from any thrown value.
 // AxiosErrors carry the server's `detail` field; fall back to err.message.
 // -------------------------------------------------------------------------- //
@@ -176,18 +169,16 @@ export async function sendMessage(
   sessionId?: string,
   languagePreference?: string,
 ): Promise<ChatResponse> {
-  const { data } = await axios.post<Record<string, unknown>>(
-    `${API_URL}/api/v1/chat`,
+  const { data } = await api.post<Record<string, unknown>>(
+    `/api/v1/chat`,
     { message, session_id: sessionId ?? null, language_preference: languagePreference ?? "english" },
-    { headers: authedHeaders() },
   );
   return normalizeChatResponse(data);
 }
 
 export async function getChatHistory(): Promise<ChatMessage[]> {
-  const { data } = await axios.get<ChatMessage[]>(
-    `${API_URL}/api/v1/chat/history`,
-    { headers: authedHeaders() },
+  const { data } = await api.get<ChatMessage[]>(
+    `/api/v1/chat/history`,
   );
   return data;
 }
@@ -197,27 +188,24 @@ export async function getChatHistory(): Promise<ChatMessage[]> {
 // -------------------------------------------------------------------------- //
 
 export async function getProfile(): Promise<UserProfile> {
-  const { data } = await axios.get<UserProfile>(
-    `${API_URL}/api/v1/profile`,
-    { headers: authedHeaders() },
+  const { data } = await api.get<UserProfile>(
+    `/api/v1/profile`,
   );
   return data;
 }
 
 export async function createProfile(profile: UserProfile): Promise<UserProfile> {
-  const { data } = await axios.post<UserProfile>(
-    `${API_URL}/api/v1/profile`,
+  const { data } = await api.post<UserProfile>(
+    `/api/v1/profile`,
     profile,
-    { headers: authedHeaders() },
   );
   return data;
 }
 
 export async function updateProfile(profile: UserProfile): Promise<UserProfile> {
-  const { data } = await axios.put<UserProfile>(
-    `${API_URL}/api/v1/profile`,
+  const { data } = await api.put<UserProfile>(
+    `/api/v1/profile`,
     profile,
-    { headers: authedHeaders() },
   );
   return data;
 }
@@ -227,9 +215,8 @@ export async function updateProfile(profile: UserProfile): Promise<UserProfile> 
 // -------------------------------------------------------------------------- //
 
 export async function getDashboard(): Promise<DashboardData> {
-  const { data } = await axios.get<DashboardData>(
-    `${API_URL}/api/v1/dashboard`,
-    { headers: authedHeaders() },
+  const { data } = await api.get<DashboardData>(
+    `/api/v1/dashboard`,
   );
   return data;
 }
@@ -270,9 +257,8 @@ export interface JourneyData {
 }
 
 export async function getJourney(): Promise<JourneyData> {
-  const { data } = await axios.get<JourneyData>(
-    `${API_URL}/api/v1/journey`,
-    { headers: authedHeaders() },
+  const { data } = await api.get<JourneyData>(
+    `/api/v1/journey`,
   );
   return data;
 }
@@ -312,9 +298,8 @@ export interface WeeklyReportData {
 }
 
 export async function getWeeklyReport(): Promise<WeeklyReportData> {
-  const { data } = await axios.get<WeeklyReportData>(
-    `${API_URL}/api/v1/weekly-report`,
-    { headers: authedHeaders() },
+  const { data } = await api.get<WeeklyReportData>(
+    `/api/v1/weekly-report`,
   );
   return data;
 }
@@ -333,9 +318,8 @@ export interface InsightsData {
 }
 
 export async function getInsights(): Promise<InsightsData> {
-  const { data } = await axios.get<InsightsData>(
-    `${API_URL}/api/v1/insights`,
-    { headers: authedHeaders() },
+  const { data } = await api.get<InsightsData>(
+    `/api/v1/insights`,
   );
   return data;
 }
@@ -351,10 +335,9 @@ export async function transcribeVoice(
   const form = new FormData();
   form.append("audio", audioBlob, "recording.wav");
   form.append("language_preference", languagePreference);
-  const { data } = await axios.post<{ transcript: string; language_used: string }>(
-    `${API_URL}/api/v1/voice/transcribe`,
+  const { data } = await api.post<{ transcript: string; language_used: string }>(
+    `/api/v1/voice/transcribe`,
     form,
-    { headers: authedHeaders() },
   );
   return data.transcript;
 }
@@ -363,13 +346,10 @@ export async function getTts(
   text: string,
   languagePreference: string = "english",
 ): Promise<Blob> {
-  const { data } = await axios.post(
-    `${API_URL}/api/v1/voice/tts`,
+  const { data } = await api.post(
+    `/api/v1/voice/tts`,
     { text, language_preference: languagePreference },
-    {
-      headers: authedHeaders(),
-      responseType: "blob",
-    },
+    { responseType: "blob" },
   );
   return data as Blob;
 }
@@ -405,18 +385,16 @@ export interface GuardianAlertTriggerRequest {
 export async function triggerGuardianAlert(
   req: GuardianAlertTriggerRequest,
 ): Promise<GuardianAlertRecord[]> {
-  const { data } = await axios.post<GuardianAlertRecord[]>(
-    `${API_URL}/api/v1/guardian-alert`,
+  const { data } = await api.post<GuardianAlertRecord[]>(
+    `/api/v1/guardian-alert`,
     req,
-    { headers: authedHeaders() },
   );
   return data;
 }
 
 export async function getGuardianAlerts(): Promise<GuardianAlertListResponse> {
-  const { data } = await axios.get<GuardianAlertListResponse>(
-    `${API_URL}/api/v1/guardian-alert`,
-    { headers: authedHeaders() },
+  const { data } = await api.get<GuardianAlertListResponse>(
+    `/api/v1/guardian-alert`,
   );
   return data;
 }

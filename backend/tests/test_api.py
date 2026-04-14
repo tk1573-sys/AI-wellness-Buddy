@@ -134,6 +134,23 @@ async def test_me_invalid_token_returns_401(client):
     assert resp.status_code == 401
 
 
+async def test_logout_returns_204(client):
+    """POST /auth/logout should return 204 and clear the auth cookie."""
+    resp = await client.post("/api/v1/auth/logout")
+    assert resp.status_code == 204
+
+
+async def test_login_sets_auth_cookie(client):
+    """POST /auth/login should set an HttpOnly wb_access_token cookie."""
+    await _signup(client, email="cookie@example.com", username="cookieuser")
+    resp = await _login(client, email="cookie@example.com")
+    assert resp.status_code == 200
+    # Cookie should be present in the response headers
+    set_cookie = resp.headers.get("set-cookie", "")
+    assert "wb_access_token" in set_cookie
+    assert "httponly" in set_cookie.lower()
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Predict
 # ─────────────────────────────────────────────────────────────────────────────
