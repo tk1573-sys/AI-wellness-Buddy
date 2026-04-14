@@ -351,7 +351,9 @@ section[data-testid="stSidebar"] {{
     width: 320px !important;
 }}
 section[data-testid="stSidebar"] + div {{
-    margin-left: 320px;
+    margin-left: 0 !important;
+    width: 100% !important;
+    flex: 1 1 auto !important;
 }}
 section[data-testid="stSidebar"] .stMarkdown p {{
     font-size: 0.9rem;
@@ -484,11 +486,11 @@ section[data-testid="stSidebar"] .stMarkdown p {{
 [data-testid="block-container"] {{
     border-top: 3px solid {border_color};
     transition: border-color 0.5s ease;
-    max-width: none !important;
+    max-width: 100% !important;
     width: 100% !important;
     padding-top: 1.2rem;
-    padding-left: 2.4rem;
-    padding-right: 2.4rem;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
     box-sizing: border-box;
 }}
 
