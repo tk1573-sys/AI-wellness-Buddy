@@ -308,11 +308,11 @@ test.describe("Chat Flow", () => {
 
     const now = Date.now();
     const historyMessages = [
-      { role: "user",      content: "Oldest message",        emotion: null,      created_at: new Date(now - 4000).toISOString() },
-      { role: "assistant", content: "First assistant reply",  emotion: "neutral", created_at: new Date(now - 3000).toISOString() },
-      { role: "user",      content: "Middle message",         emotion: null,      created_at: new Date(now - 2000).toISOString() },
-      { role: "assistant", content: "Second assistant reply", emotion: "joy",     created_at: new Date(now - 1000).toISOString() },
-      { role: "user",      content: "Newest message",         emotion: null,      created_at: new Date(now).toISOString() },
+      { role: "user", content: "Oldest message", emotion: null, created_at: new Date(now - 4000).toISOString() },
+      { role: "assistant", content: "First assistant reply", emotion: "neutral", created_at: new Date(now - 3000).toISOString() },
+      { role: "user", content: "Middle message", emotion: null, created_at: new Date(now - 2000).toISOString() },
+      { role: "assistant", content: "Second assistant reply", emotion: "joy", created_at: new Date(now - 1000).toISOString() },
+      { role: "user", content: "Newest message", emotion: null, created_at: new Date(now).toISOString() },
     ];
     await mockChatHistory(page, historyMessages);
 

@@ -52,13 +52,16 @@ export function ChatWindow({ messages, isLoading, language = "english" }: ChatWi
   const isInitialLoad = useRef(true);
 
   // Auto-scroll to bottom when messages change or loading state changes.
+  // Capture whether this is the initial load before potentially clearing the
+  // flag so the scroll behavior is determined from the correct phase.
   useEffect(() => {
-    const behavior: ScrollBehavior = isInitialLoad.current ? "instant" : "smooth";
-    // Mark initial load complete once the loading spinner has cleared.
+    const wasInitialLoad = isInitialLoad.current;
     if (isInitialLoad.current && !isLoading) {
       isInitialLoad.current = false;
     }
-    bottomRef.current?.scrollIntoView({ behavior });
+    // Jump instantly on first history load to avoid a visible scroll animation
+    // from the top of the conversation; use smooth for new live messages.
+    bottomRef.current?.scrollIntoView({ behavior: wasInitialLoad ? "instant" : "smooth" });
   }, [messages, isLoading]);
 
   return (
