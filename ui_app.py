@@ -601,201 +601,131 @@ def render_chat_tab():
         st.session_state.chat_history.append({"role": "assistant", "content": greeting})
         st.session_state["messages"].append({"role": "assistant", "content": greeting})
 
-    # --- Full-width split: main chat (5 parts) | quick insight panel (1 part)
-    voice_transcript = None  # initialized here; set inside chat_col's Voice Controls expander
-    chat_col, insight_col = st.columns([5, 1])
+    # --- Full-width chat — no side panel; AI Insights are in their dedicated tab
+    voice_transcript = None
 
-    with chat_col:
-        # --- Dedicated container: render from session_state["messages"] only.
-        #     Using a single list prevents UI duplication during Streamlit reruns.
-        chat_container = st.container()
+    # --- Dedicated container: render from session_state["messages"] only.
+    #     Using a single list prevents UI duplication during Streamlit reruns.
+    chat_container = st.container()
 
-        with chat_container:
-            for idx, message in enumerate(st.session_state["messages"]):
-                with st.chat_message(message["role"]):
-                    # Show emotion badge with confidence and concern level beside user messages
-                    _msg_emo = message.get("emotion", "")
-                    if _msg_emo and message["role"] == "user":
-                        _icon = EMO_ICONS.get(_msg_emo, "")
-                        _msg_conf = message.get("confidence", 0.0)
-                        _msg_concern = message.get("concern_level", "")
-                        _badge_color = _CONCERN_BADGE_COLORS.get(_msg_concern, '#9B8CFF')
-                        _conf_html = (
-                            f'<span class="badge-conf">{_msg_conf:.0%}</span>'
-                            if _msg_conf else ""
-                        )
-                        _concern_html = (
-                            f'<span class="badge-sep">·</span>'
-                            f'<span class="badge-concern">{_msg_concern.capitalize()}</span>'
-                            if _msg_concern else ""
-                        )
-                        _badge_html = (
-                            f'<span class="emotion-badge-pill" style="'
-                            f'background:{_badge_color}18;'
-                            f'color:{_badge_color};'
-                            f'border-color:{_badge_color}50;">'
-                            f'{_icon} {_msg_emo.capitalize()}'
-                            f'{_conf_html}'
-                            f'{_concern_html}'
-                            f'</span>'
-                        )
-                        st.markdown(
-                            f"{message['content']}\n\n{_badge_html}",
-                            unsafe_allow_html=True,
-                        )
-                    else:
-                        st.markdown(message["content"])
-                    # Replay TTS button for assistant messages
-                    if message["role"] == "assistant" and st.session_state.get('tts_enabled', False):
-                        vh: VoiceHandler = st.session_state.voice_handler
-                        if vh and vh.tts_available:
-                            if st.button("🔊", key=f"tts_{idx}",
-                                         help="Listen to this response"):
-                                _play_tts(message["content"])
-
-        # ---- Crisis resources: show immediately when crisis detected ----
-        _meta = st.session_state.get('last_response_meta') or {}
-        _det_emotion = _meta.get('emotion', '')
-        if _det_emotion == 'crisis':
-            st.error(
-                "🆘 **Crisis Resources — Please reach out now**\n\n"
-                "- **988 Suicide & Crisis Lifeline**: Call or text **988** (24/7)\n"
-                "- **Crisis Text Line**: Text **HOME** to **741741**\n"
-                "- **Emergency**: Call **911**\n\n"
-                "You are not alone. Help is available right now. 💙"
-            )
-
-        # ---- Intervention recommendations (contextual, shown inline) ----
-        _interventions = _meta.get('interventions', {})
-        _intervention_level = _interventions.get('level', '')
-        if _intervention_level in ('moderate', 'high', 'critical'):
-            _inter_msg = _interventions.get('supportive_message', '')
-            if _inter_msg:
-                st.info(f"💡 {_inter_msg}")
-
-        # ---- Breathing exercise: triggered by anxiety emotion or high risk ----
-        _risk_level = _meta.get('risk_level', 'low')
-        _should_offer = (
-            (_det_emotion == 'anxiety' or _risk_level == 'high')
-            and _det_emotion != 'crisis'
-            and not st.session_state.get('breathing_active', False)
-        )
-        if _should_offer:
-            st.info(
-                "😌 Anxiety or elevated risk detected. Would you like to try a calming breathing exercise?"
-            )
-            if st.button("🫁 Start Breathing Exercise", key="start_breathing"):
-                st.session_state.breathing_active = True
-                st.rerun()
-
-        if st.session_state.get('breathing_active', False):
-            components.html(breathing_exercise_html(), height=_BREATHING_WIDGET_HEIGHT)
-            _vol = st.session_state.get('_calm_volume', 0.03)
-            _sound = st.session_state.get('ambient_sound', 'deep_focus')
-            st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
-            # Calming audio (st.audio for browsers that block Web Audio autoplay)
-            _tone = _generate_calming_tone()
-            if _tone:
-                st.audio(_tone, format="audio/wav")
-            if st.button("✖ Stop Breathing Exercise", key="stop_breathing"):
-                st.session_state.breathing_active = False
-                st.markdown(ambient_stop_html(), unsafe_allow_html=True)
-                st.rerun()
-
-        # ---- Dedicated Voice Controls section ----
-        with st.expander("🎤 Voice Controls", expanded=False):
-            _vc1, _vc2 = st.columns(2)
-            with _vc1:
-                voice_transcript = _handle_voice_input()
-            with _vc2:
-                vh_ctrl: VoiceHandler = st.session_state.voice_handler
-                if vh_ctrl and vh_ctrl.tts_available:
-                    _tts_on = st.toggle(
-                        "🔊 Text-to-Speech",
-                        value=st.session_state.get('tts_enabled', False),
-                        key="tts_toggle_chat",
+    with chat_container:
+        for idx, message in enumerate(st.session_state["messages"]):
+            with st.chat_message(message["role"]):
+                # Show emotion badge with confidence and concern level beside user messages
+                _msg_emo = message.get("emotion", "")
+                if _msg_emo and message["role"] == "user":
+                    _icon = EMO_ICONS.get(_msg_emo, "")
+                    _msg_conf = message.get("confidence", 0.0)
+                    _msg_concern = message.get("concern_level", "")
+                    _badge_color = _CONCERN_BADGE_COLORS.get(_msg_concern, '#9B8CFF')
+                    _conf_html = (
+                        f'<span class="badge-conf">{_msg_conf:.0%}</span>'
+                        if _msg_conf else ""
                     )
-                    st.session_state.tts_enabled = _tts_on
-                _SOUND_MAP = {label: key for key, label in SOUND_LABELS.items()}
-                _cur_sound_label = SOUND_LABELS.get(
-                    st.session_state.get('ambient_sound', 'deep_focus'), 'Deep Focus'
+                    _concern_html = (
+                        f'<span class="badge-sep">·</span>'
+                        f'<span class="badge-concern">{_msg_concern.capitalize()}</span>'
+                        if _msg_concern else ""
+                    )
+                    _badge_html = (
+                        f'<span class="emotion-badge-pill" style="'
+                        f'background:{_badge_color}18;'
+                        f'color:{_badge_color};'
+                        f'border-color:{_badge_color}50;">'
+                        f'{_icon} {_msg_emo.capitalize()}'
+                        f'{_conf_html}'
+                        f'{_concern_html}'
+                        f'</span>'
+                    )
+                    st.markdown(
+                        f"{message['content']}\n\n{_badge_html}",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(message["content"])
+                # Replay TTS button for assistant messages
+                if message["role"] == "assistant" and st.session_state.get('tts_enabled', False):
+                    vh: VoiceHandler = st.session_state.voice_handler
+                    if vh and vh.tts_available:
+                        if st.button("🔊", key=f"tts_{idx}",
+                                     help="Listen to this response"):
+                            _play_tts(message["content"])
+
+    # ---- Crisis resources: show immediately when crisis detected ----
+    _meta = st.session_state.get('last_response_meta') or {}
+    _det_emotion = _meta.get('emotion', '')
+    if _det_emotion == 'crisis':
+        st.error(
+            "🆘 **Crisis Resources — Please reach out now**\n\n"
+            "- **988 Suicide & Crisis Lifeline**: Call or text **988** (24/7)\n"
+            "- **Crisis Text Line**: Text **HOME** to **741741**\n"
+            "- **Emergency**: Call **911**\n\n"
+            "You are not alone. Help is available right now. 💙"
+        )
+
+    # ---- Intervention recommendations (contextual, shown inline) ----
+    _interventions = _meta.get('interventions', {})
+    _intervention_level = _interventions.get('level', '')
+    if _intervention_level in ('moderate', 'high', 'critical'):
+        _inter_msg = _interventions.get('supportive_message', '')
+        if _inter_msg:
+            st.info(f"💡 {_inter_msg}")
+
+    # ---- Breathing exercise: triggered by anxiety emotion or high risk ----
+    _risk_level = _meta.get('risk_level', 'low')
+    _should_offer = (
+        (_det_emotion == 'anxiety' or _risk_level == 'high')
+        and _det_emotion != 'crisis'
+        and not st.session_state.get('breathing_active', False)
+    )
+    if _should_offer:
+        st.info(
+            "😌 Anxiety or elevated risk detected. Would you like to try a calming breathing exercise?"
+        )
+        if st.button("🫁 Start Breathing Exercise", key="start_breathing"):
+            st.session_state.breathing_active = True
+            st.rerun()
+
+    if st.session_state.get('breathing_active', False):
+        components.html(breathing_exercise_html(), height=_BREATHING_WIDGET_HEIGHT)
+        _vol = st.session_state.get('_calm_volume', 0.03)
+        _sound = st.session_state.get('ambient_sound', 'deep_focus')
+        st.markdown(ambient_sound_html(_sound, _vol), unsafe_allow_html=True)
+        # Calming audio (st.audio for browsers that block Web Audio autoplay)
+        _tone = _generate_calming_tone()
+        if _tone:
+            st.audio(_tone, format="audio/wav")
+        if st.button("✖ Stop Breathing Exercise", key="stop_breathing"):
+            st.session_state.breathing_active = False
+            st.markdown(ambient_stop_html(), unsafe_allow_html=True)
+            st.rerun()
+
+    # ---- Dedicated Voice Controls section ----
+    with st.expander("🎤 Voice Controls", expanded=False):
+        _vc1, _vc2 = st.columns(2)
+        with _vc1:
+            voice_transcript = _handle_voice_input()
+        with _vc2:
+            vh_ctrl: VoiceHandler = st.session_state.voice_handler
+            if vh_ctrl and vh_ctrl.tts_available:
+                _tts_on = st.toggle(
+                    "🔊 Text-to-Speech",
+                    value=st.session_state.get('tts_enabled', False),
+                    key="tts_toggle_chat",
                 )
-                sound_choice = st.selectbox(
-                    "🎵 Ambient sound",
-                    options=list(SOUND_LABELS.values()),
-                    index=list(SOUND_LABELS.values()).index(_cur_sound_label)
-                          if _cur_sound_label in SOUND_LABELS.values() else 0,
-                    key="ambient_sound_select_chat",
-                )
-                st.session_state.ambient_sound = _SOUND_MAP.get(sound_choice, 'deep_focus')
-
-    with insight_col:
-        # AI Insights panel — mirrors /api/v1/insights response fields
-        _meta_ins = st.session_state.get('last_response_meta') or {}
-        _cur_emo = _meta_ins.get('emotion', _dom_emotion) or 'neutral'
-        _cur_risk = _meta_ins.get('risk_score', 0.0) or 0.0
-        _cur_conf = _meta_ins.get('confidence', 0.0) or 0.0
-        _msg_count = len([m for m in st.session_state.get('messages', []) if m.get('role') == 'user'])
-        _emo_icon = EMO_ICONS.get(_cur_emo, '💬')
-
-        # Compute trigger signals from profile triggers + repeated negative emotions
-        _emo_hist = st.session_state.get('emotion_history', [])
-        _neg_emotions = {'sadness', 'anger', 'fear', 'anxiety', 'crisis', 'stress'}
-        _trigger_sigs = []
-        if st.session_state.buddy and hasattr(st.session_state.buddy, 'user_profile'):
-            _p = st.session_state.buddy.user_profile
-            if _p and hasattr(_p, 'triggers') and _p.triggers:
-                _trigger_sigs = [k for k, v in _p.triggers.items() if v]
-        # Add dominant negative emotion as a signal when it appears ≥2 times
-        _neg_counts: dict[str, int] = {}
-        for _snap in _emo_hist:
-            _ed = _snap.get('emotion_data', {}) or {}
-            _en = _ed.get('primary_emotion') or _ed.get('emotion', '')
-            if _en in _neg_emotions:
-                _neg_counts[_en] = _neg_counts.get(_en, 0) + 1
-        for _neg_e, _neg_c in _neg_counts.items():
-            if _neg_c >= 2 and _neg_e not in _trigger_sigs:
-                _trigger_sigs.append(_neg_e)
-        _trigger_sigs = _trigger_sigs[:5]
-
-        # Compute mood trend from last 8 emotions
-        _all_emos = [
-            ((_snap.get('emotion_data') or {}).get('primary_emotion') or
-             (_snap.get('emotion_data') or {}).get('emotion', 'neutral'))
-            for _snap in _emo_hist[-8:]
-        ]
-        _trend = 'stable'
-        if len(_all_emos) >= 4:
-            _mid = len(_all_emos) // 2
-            _early_neg = sum(1 for _e in _all_emos[:_mid] if _e in _neg_emotions)
-            _late_neg = sum(1 for _e in _all_emos[_mid:] if _e in _neg_emotions)
-            if _late_neg < _early_neg:
-                _trend = 'improving'
-            elif _late_neg > _early_neg:
-                _trend = 'declining'
-
-        # Risk level
-        _risk_level = 'low'
-        if _cur_risk >= 0.75 or _cur_emo == 'crisis':
-            _risk_level = 'critical'
-        elif _cur_risk >= 0.5:
-            _risk_level = 'high'
-        elif _cur_risk >= 0.25:
-            _risk_level = 'moderate'
-
-        # Personalization score from meta
-        _pers_score = _meta_ins.get('personalization_score', 0.0) or 0.0
-
-        st.markdown("**🧠 AI Insights**")
-        st.metric("Emotion", f"{_emo_icon} {_cur_emo.capitalize()}")
-        st.metric("Risk Level", _risk_level.capitalize())
-        st.metric("Confidence", f"{_cur_conf:.0%}" if isinstance(_cur_conf, float) else "—")
-        st.metric("Mood Trend", {'improving': '📈', 'declining': '📉', 'stable': '➡️'}.get(_trend, '➡️') + f' {_trend.capitalize()}')
-        if _pers_score:
-            st.metric("Personalization", f"{_pers_score:.0%}")
-        if _trigger_sigs:
-            st.markdown(f"**Trigger Signals:** {', '.join(_trigger_sigs)}")
-        st.metric("Messages", _msg_count)
+                st.session_state.tts_enabled = _tts_on
+            _SOUND_MAP = {label: key for key, label in SOUND_LABELS.items()}
+            _cur_sound_label = SOUND_LABELS.get(
+                st.session_state.get('ambient_sound', 'deep_focus'), 'Deep Focus'
+            )
+            sound_choice = st.selectbox(
+                "🎵 Ambient sound",
+                options=list(SOUND_LABELS.values()),
+                index=list(SOUND_LABELS.values()).index(_cur_sound_label)
+                      if _cur_sound_label in SOUND_LABELS.values() else 0,
+                key="ambient_sound_select_chat",
+            )
+            st.session_state.ambient_sound = _SOUND_MAP.get(sound_choice, 'deep_focus')
 
     if voice_transcript and voice_transcript != st.session_state.last_user_input:
         # Deduplicate immediately so a Streamlit rerun before the block completes
@@ -2025,11 +1955,11 @@ def main():
         <style>
         .block-container {
             max-width: 100% !important;
-            padding-left: 1rem;
-            padding-right: 1rem;
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
         }
-        [data-testid="stHorizontalBlock"] > div:first-child {
-            flex: 5 !important;
+        .main .block-container {
+            width: 100% !important;
         }
         </style>
         """,
