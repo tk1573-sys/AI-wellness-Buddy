@@ -170,6 +170,57 @@ def _compute_personalization_score(
     return round(min(score, 1.0), 4)
 
 
+async def _maybe_dispatch_crisis_alert(
+    db: AsyncSession,
+    user_id: int,
+    primary_emotion: str,
+    message_text: str,
+) -> None:
+    """Automatically dispatch a guardian alert when a high-risk message is detected.
+
+    The guardian_alert_service handles consent checks, cooldown, and
+    channel deduplication internally — so we simply call dispatch and let
+    it decide whether to actually send.
+    """
+    from app.models.user import User  # noqa: PLC0415
+    from app.services import guardian_alert_service  # noqa: PLC0415
+
+    risk_level = "critical" if primary_emotion == "crisis" else "high"
+    reason = f"Automatic crisis detection — emotion: {primary_emotion}"
+
+    # Resolve a human-readable alias for the alert notification
+    user_result = await db.execute(
+        select(User).where(User.id == user_id)
+    )
+    user_row = user_result.scalar_one_or_none()
+    user_alias = user_row.username if user_row else str(user_id)
+
+    try:
+        alerts = await guardian_alert_service.dispatch_guardian_alert(
+            db,
+            user_id=user_id,
+            user_alias=user_alias,
+            risk_level=risk_level,
+            risk_reason=reason,
+            channels=["email", "whatsapp"],
+        )
+        if alerts:
+            logger.warning(
+                "auto_crisis_alert user_id=%d emotion=%s alerts_sent=%d",
+                user_id, primary_emotion, len(alerts),
+            )
+        else:
+            logger.info(
+                "auto_crisis_alert user_id=%d emotion=%s — skipped (consent/cooldown)",
+                user_id, primary_emotion,
+            )
+    except Exception:
+        # Never let an alert failure break the chat response.
+        logger.exception(
+            "auto_crisis_alert failed for user_id=%d — continuing", user_id
+        )
+
+
 async def handle_chat(
     db: AsyncSession,
     user_id: int,
@@ -273,6 +324,10 @@ async def handle_chat(
         "chat user_id=%d session=%s emotion=%s is_high_risk=%s response_type=%s",
         user_id, session_id, primary, is_high_risk, response_type,
     )
+
+    # ── Auto crisis alert dispatch ────────────────────────────────────────
+    if is_high_risk:
+        await _maybe_dispatch_crisis_alert(db, user_id, primary, req.message)
 
     return ChatResponse(
         session_id=session_id,

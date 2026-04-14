@@ -542,7 +542,7 @@ def create_session_emotion_timeline(emotion_history: list) -> go.Figure:
     ))
 
     fig.update_layout(**_base_layout(
-        height=240,
+        height=210,
         xaxis=dict(
             title='Message',
             tickvals=x_vals,
