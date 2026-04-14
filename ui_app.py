@@ -1961,6 +1961,13 @@ def main():
         .main .block-container {
             width: 100% !important;
         }
+        section.main > div {
+            width: 100% !important;
+        }
+        [data-testid="column"]:nth-child(2) {
+            width: 100% !important;
+            flex: 1 1 auto !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
