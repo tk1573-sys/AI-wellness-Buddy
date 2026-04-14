@@ -27,10 +27,13 @@ interface VoiceRecorderProps {
 type State = "idle" | "recording" | "transcribing";
 
 // Map our language preference to BCP-47 STT locale codes.
+// Bilingual / Tanglish uses en-IN because Tanglish is Tamil words spoken in
+// Latin/English script — Google STT's en-IN model handles Indian-English
+// code-switching far better than ta-IN for this use-case.
 const LANG_TO_LOCALE: Record<LanguagePreference, string> = {
   english: "en-IN",
   tamil: "ta-IN",
-  bilingual: "ta-IN",
+  bilingual: "en-IN",
 };
 
 /** Return true when the browser's Web Speech API is available. */
