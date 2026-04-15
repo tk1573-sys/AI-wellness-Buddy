@@ -51,7 +51,7 @@ export function InputFooter({
           loading={isLoading}
           disabled={!value.trim() || disabled}
           className="h-10 w-10 p-0 flex-shrink-0"
-          aria-label={t("chat.send", language)}
+          aria-label="Send message"
         >
           <Send className="w-4 h-4" />
         </Button>

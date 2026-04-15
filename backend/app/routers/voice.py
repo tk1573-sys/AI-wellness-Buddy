@@ -7,15 +7,15 @@ Endpoints:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import sys
+import time
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
 from app.routers.auth import get_current_user
 from app.utils import find_project_root
 
@@ -94,8 +94,16 @@ async def transcribe_audio(
             detail="No audio data received.",
         )
 
-    transcript: str = handler.transcribe_audio(audio_bytes, lang)
-    logger.info("STT lang=%s transcript_length=%d", lang, len(transcript))
+    # Offload blocking SpeechRecognition (network I/O to Google STT) to a
+    # thread so the async event loop stays responsive during transcription.
+    t0 = time.perf_counter()
+    transcript: str = await asyncio.to_thread(
+        handler.transcribe_audio, audio_bytes, lang
+    )
+    logger.info(
+        "STT lang=%s transcript_length=%d latency=%.3fs",
+        lang, len(transcript), time.perf_counter() - t0,
+    )
     return TranscriptResponse(transcript=transcript, language_used=lang)
 
 
@@ -122,12 +130,18 @@ async def text_to_speech(
             detail="text must not be empty.",
         )
 
-    mp3_bytes = handler.text_to_speech(text, lang)
+    # Offload blocking gTTS synthesis (HTTP round-trip to Google) to a thread
+    # so the async event loop stays responsive for concurrent requests.
+    t0 = time.perf_counter()
+    mp3_bytes = await asyncio.to_thread(handler.text_to_speech, text, lang)
     if not mp3_bytes:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="TTS service unavailable or failed to generate audio.",
         )
 
-    logger.info("TTS lang=%s bytes=%d", lang, len(mp3_bytes))
+    logger.info(
+        "TTS lang=%s bytes=%d latency=%.3fs",
+        lang, len(mp3_bytes), time.perf_counter() - t0,
+    )
     return Response(content=mp3_bytes, media_type="audio/mpeg")

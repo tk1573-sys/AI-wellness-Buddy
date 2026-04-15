@@ -19,10 +19,17 @@ const FAKE_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fake.token";
 // Fixture helpers
 // ---------------------------------------------------------------------------
 
+/** Set the wb_logged_in cookie so the auth gate treats the session as
+ *  authenticated (auth.ts checks Cookies.get("wb_logged_in") === "1"). */
 async function injectToken(page: Page) {
-  await page.addInitScript((token) => {
-    window.localStorage.setItem("wb_access_token", token);
-  }, FAKE_TOKEN);
+  await page.context().addCookies([
+    {
+      name: "wb_logged_in",
+      value: "1",
+      domain: "localhost",
+      path: "/",
+    },
+  ]);
 }
 
 async function mockChatHistory(page: Page, messages: object[] = []) {
