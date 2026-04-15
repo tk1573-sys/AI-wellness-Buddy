@@ -367,7 +367,11 @@ class WellnessBuddy:
         _logger.info(
             "Timing — process_message total: %.3fs "
             "(emo=%.3f, resp=%.3f, risk=%.3f, db=%.3f)",
-            _t_db - _t0, _t_emo - _t0, _t_resp - _t1, _t_risk - _t2, _t_db - _t3,
+            _t_db - _t0,
+            _t_emo - _t0,       # emotion analysis
+            _t_resp - _t1,      # response generation
+            _t_risk - _t2,      # risk/clinical scoring
+            _t_db - _t3,        # DB write
         )
 
         return response
@@ -388,15 +392,17 @@ class WellnessBuddy:
                 e['user_message'] for e in self.conversation_handler.conversation_history
             }
             _ctx_new = 0
-            _t_ctx = time.perf_counter()
+            _t_ctx = None
             for msg in context:
                 content = msg.get('content')
                 if msg.get('role') == 'user' and content and content not in existing_msgs:
+                    if _t_ctx is None:
+                        _t_ctx = time.perf_counter()
                     emotion_data = self.emotion_analyzer.classify_emotion(content)
                     self.conversation_handler.add_message(content, emotion_data)
                     existing_msgs.add(content)
                     _ctx_new += 1
-            if _ctx_new:
+            if _ctx_new and _t_ctx is not None:
                 _logger.info(
                     "Timing — context seeding (%d new msgs): %.3fs",
                     _ctx_new, time.perf_counter() - _t_ctx,
