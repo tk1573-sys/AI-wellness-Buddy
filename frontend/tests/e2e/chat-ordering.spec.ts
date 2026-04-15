@@ -89,7 +89,7 @@ test.describe("Chat Ordering", () => {
     await page
       .getByPlaceholder(/Type a message/i)
       .fill("I feel very sad today.");
-    await page.click('[aria-label="Send message"]');
+    await page.click('[data-testid="send-message"]');
 
     // Wait for the assistant reply to appear.
     await expect(
@@ -149,14 +149,14 @@ test.describe("Chat Ordering", () => {
 
     // First turn
     await page.getByPlaceholder(/Type a message/i).fill("Message one.");
-    await page.click('[aria-label="Send message"]');
+    await page.click('[data-testid="send-message"]');
     await expect(page.getByText("First reply.")).toBeVisible({
       timeout: 10_000,
     });
 
     // Second turn
     await page.getByPlaceholder(/Type a message/i).fill("Message two.");
-    await page.click('[aria-label="Send message"]');
+    await page.click('[data-testid="send-message"]');
     await expect(page.getByText("Second reply.")).toBeVisible({
       timeout: 10_000,
     });
@@ -284,7 +284,7 @@ test.describe("Scroll Restoration", () => {
     await page
       .getByPlaceholder(/Type a message/i)
       .fill("Show me the latest message.");
-    await page.click('[aria-label="Send message"]');
+    await page.click('[data-testid="send-message"]');
 
     const latestReply = page.getByText("Latest assistant reply.");
     await expect(latestReply).toBeVisible({ timeout: 10_000 });

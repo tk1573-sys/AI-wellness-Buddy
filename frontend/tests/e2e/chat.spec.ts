@@ -96,7 +96,7 @@ test.describe("Chat Flow", () => {
     await textarea.fill("Hello, I need some support today.");
 
     // Send via button click
-    await page.click('[aria-label="Send message"]');
+    await page.click('[data-testid="send-message"]');
 
     // User message bubble should be visible
     await expect(
@@ -119,7 +119,7 @@ test.describe("Chat Flow", () => {
       .getByPlaceholder(/Type a message/i)
       .fill("I've been feeling very sad lately.");
 
-    await page.click('[aria-label="Send message"]');
+    await page.click('[data-testid="send-message"]');
 
     // Assistant reply should appear
     await expect(
@@ -138,7 +138,7 @@ test.describe("Chat Flow", () => {
       .getByPlaceholder(/Type a message/i)
       .fill("I'm feeling very anxious about everything.");
 
-    await page.click('[aria-label="Send message"]');
+    await page.click('[data-testid="send-message"]');
 
     // Wait for the reply to appear first
     await expect(
@@ -162,7 +162,7 @@ test.describe("Chat Flow", () => {
       .getByPlaceholder(/Type a message/i)
       .fill("I feel hopeless.");
 
-    await page.click('[aria-label="Send message"]');
+    await page.click('[data-testid="send-message"]');
 
     await expect(page.getByText("You're not alone in this.")).toBeVisible({
       timeout: 10_000,
