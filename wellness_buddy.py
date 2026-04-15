@@ -4,6 +4,8 @@ Main application that integrates all components for emotional support
 """
 
 import sys
+import logging
+import time
 from datetime import datetime
 from emotion_analyzer import EmotionAnalyzer
 from pattern_tracker import PatternTracker
@@ -22,6 +24,8 @@ from clinical_indicators import (
 )
 from intervention_engine import InterventionEngine
 import config
+
+_logger = logging.getLogger(__name__)
 
 
 class WellnessBuddy:
@@ -260,7 +264,10 @@ class WellnessBuddy:
             return self._manage_profile()
         
         # Analyze emotion
+        _t0 = time.perf_counter()
         emotion_data = self.emotion_analyzer.classify_emotion(user_message)
+        _t_emo = time.perf_counter()
+        _logger.info("Timing — emotion analysis: %.3fs", _t_emo - _t0)
         
         # Track patterns
         self.pattern_tracker.add_emotion_data(emotion_data)
@@ -285,7 +292,10 @@ class WellnessBuddy:
         if pre_distress:
             user_context['pre_distress_warning'] = pre_distress
 
+        _t1 = time.perf_counter()
         response = self.conversation_handler.generate_response(emotion_data, user_context)
+        _t_resp = time.perf_counter()
+        _logger.info("Timing — response generation: %.3fs", _t_resp - _t1)
         response_meta = self.conversation_handler.get_last_response_metadata()
         
         # Check for distress alerts
@@ -314,6 +324,7 @@ class WellnessBuddy:
         response_meta['emotion_confidence'] = emotion_data.get('emotion_confidence', 0.0)
 
         # Clinical distress indicators + weighted emotional risk index
+        _t2 = time.perf_counter()
         clinical = compute_clinical_indicators(
             list(self.pattern_tracker.emotion_history)
         )
@@ -326,6 +337,8 @@ class WellnessBuddy:
             emotion_data.get('primary_emotion', 'neutral'),
             clinical,
         )
+        _t_risk = time.perf_counter()
+        _logger.info("Timing — risk/clinical scoring: %.3fs", _t_risk - _t2)
         response_meta['clinical_indicators'] = clinical
         response_meta['emotional_risk'] = emotional_risk
         response_meta['cdi'] = cdi
@@ -338,6 +351,7 @@ class WellnessBuddy:
         self._last_response_metadata = response_meta
 
         # Persist session data for research analysis
+        _t3 = time.perf_counter()
         try:
             self.data_store.save_session_log(self.user_id or 'anonymous', {
                 'timestamp': response_meta.get('timestamp', datetime.now().isoformat()),
@@ -348,6 +362,17 @@ class WellnessBuddy:
             })
         except Exception:
             pass  # Never interrupt conversation for a logging failure
+        _t_db = time.perf_counter()
+        _logger.info("Timing — DB log: %.3fs", _t_db - _t3)
+        _logger.info(
+            "Timing — process_message total: %.3fs "
+            "(emo=%.3f, resp=%.3f, risk=%.3f, db=%.3f)",
+            _t_db - _t0,
+            _t_emo - _t0,       # emotion analysis
+            _t_resp - _t1,      # response generation
+            _t_risk - _t2,      # risk/clinical scoring
+            _t_db - _t3,        # DB write
+        )
 
         return response
     
@@ -366,12 +391,22 @@ class WellnessBuddy:
             existing_msgs = {
                 e['user_message'] for e in self.conversation_handler.conversation_history
             }
+            _ctx_new = 0
+            _t_ctx = None
             for msg in context:
                 content = msg.get('content')
                 if msg.get('role') == 'user' and content and content not in existing_msgs:
+                    if _t_ctx is None:
+                        _t_ctx = time.perf_counter()
                     emotion_data = self.emotion_analyzer.classify_emotion(content)
                     self.conversation_handler.add_message(content, emotion_data)
                     existing_msgs.add(content)
+                    _ctx_new += 1
+            if _ctx_new and _t_ctx is not None:
+                _logger.info(
+                    "Timing — context seeding (%d new msgs): %.3fs",
+                    _ctx_new, time.perf_counter() - _t_ctx,
+                )
 
         return self.process_message(user_input, message_options=options)
 

@@ -90,6 +90,7 @@ for key, default in [
     ('research_logging_enabled', False),
     ('background_theme', 'calm_gradient'),
     ('guardian_alert_history', []),
+    ('_pending_tts_audio', None),    # TTS audio bytes queued for playback after rerun
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -474,11 +475,12 @@ def _get_lang_pref() -> str:
 
 
 def _play_tts(text: str):
-    """Render a gTTS audio player for *text* if TTS is enabled.
+    """Queue a gTTS audio response for playback if TTS is enabled.
 
-    Audio is rendered with ``autoplay=True`` so the response plays immediately
-    without requiring a manual click.  A spinner is shown while the MP3 is
-    generated so the user knows the response is being processed.
+    Audio bytes are stored in ``st.session_state['_pending_tts_audio']`` so
+    that a ``st.rerun()`` call immediately after this function does not destroy
+    the widget before the browser can play it.  The widget is rendered on the
+    next run by :func:`_render_pending_tts`.
     """
     if not st.session_state.get('tts_enabled', False):
         return
@@ -489,7 +491,19 @@ def _play_tts(text: str):
     with st.spinner("Generating audio response…"):
         audio_bytes = vh.text_to_speech(text, lang_pref)
     if audio_bytes:
+        st.session_state['_pending_tts_audio'] = audio_bytes
+
+
+def _render_pending_tts():
+    """Render and clear any TTS audio queued by :func:`_play_tts`.
+
+    Must be called once per run in a location that survives ``st.rerun()``,
+    i.e. before the rerun is triggered by voice / text input processing.
+    """
+    audio_bytes = st.session_state.get('_pending_tts_audio')
+    if audio_bytes:
         st.audio(audio_bytes, format="audio/mp3", autoplay=True)
+        st.session_state['_pending_tts_audio'] = None
 
 
 def _handle_voice_input(show_status: bool = True, recorder_key: str = "voice_recorder"):
@@ -547,11 +561,15 @@ def _handle_user_prompt(prompt_text: str):
     if not prompt_text or prompt_text == st.session_state.last_user_input:
         return
 
+    # Capture context *before* adding the current message so the respond()
+    # context loop does not classify it a second time (process_message already
+    # does the definitive classify_emotion call for the current turn).
+    context_snapshot = list(st.session_state.chat_history)
     _add_chat_message("user", prompt_text)
     with st.spinner("Analysing your message…"):
         response = st.session_state.buddy.respond(
             prompt_text,
-            context=st.session_state.chat_history,
+            context=context_snapshot,
             options={
                 'calm_mode_active': st.session_state.get('calm_music_enabled', False),
                 'research_logging': st.session_state.get('research_logging_enabled', False),
@@ -706,6 +724,9 @@ def render_chat_tab():
             st.markdown(ambient_stop_html(), unsafe_allow_html=True)
             st.rerun()
 
+    # ---- Render any TTS audio queued by _play_tts (survives st.rerun) ----
+    _render_pending_tts()
+
     # ---- Dedicated Voice Controls section ----
     with st.expander("🎤 Voice Controls", expanded=True):
         _vc1, _vc2 = st.columns(2)
@@ -734,16 +755,9 @@ def render_chat_tab():
             st.session_state.ambient_sound = _SOUND_MAP.get(sound_choice, 'deep_focus')
 
     if voice_transcript and voice_transcript != st.session_state.last_user_input:
-        # Deduplicate immediately so a Streamlit rerun before the block completes
-        # cannot cause the same transcript to be processed a second time.
-        st.session_state.last_user_input = voice_transcript
-        _add_chat_message("user", voice_transcript)
-        # Typing indicator (cleared after response)
-        typing_placeholder = st.empty()
-        with typing_placeholder.chat_message("assistant"):
-            st.markdown(TYPING_INDICATOR_HTML, unsafe_allow_html=True)
+        # _handle_user_prompt sets last_user_input after processing to prevent
+        # double-processing on Streamlit reruns; do NOT pre-set it here.
         _handle_user_prompt(voice_transcript)
-        typing_placeholder.empty()
         st.rerun()
 
     # Text chat input (must be outside columns — renders at page bottom)
