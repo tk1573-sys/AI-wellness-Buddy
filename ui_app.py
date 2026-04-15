@@ -474,16 +474,22 @@ def _get_lang_pref() -> str:
 
 
 def _play_tts(text: str):
-    """Render a gTTS audio player for *text* if TTS is enabled."""
+    """Render a gTTS audio player for *text* if TTS is enabled.
+
+    Audio is rendered with ``autoplay=True`` so the response plays immediately
+    without requiring a manual click.  A spinner is shown while the MP3 is
+    generated so the user knows the response is being processed.
+    """
     if not st.session_state.get('tts_enabled', False):
         return
     vh: VoiceHandler = st.session_state.voice_handler
     if vh is None or not vh.tts_available:
         return
     lang_pref = _get_lang_pref()
-    audio_bytes = vh.text_to_speech(text, lang_pref)
+    with st.spinner("Generating audio response…"):
+        audio_bytes = vh.text_to_speech(text, lang_pref)
     if audio_bytes:
-        st.audio(audio_bytes, format="audio/mp3", autoplay=False)
+        st.audio(audio_bytes, format="audio/mp3", autoplay=True)
 
 
 def _handle_voice_input(show_status: bool = True, recorder_key: str = "voice_recorder"):

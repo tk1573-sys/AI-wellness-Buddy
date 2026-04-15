@@ -43,6 +43,8 @@ interface Message {
   scores?: EmotionScore[];
   responseType?: "generic" | "personalized";
   personalizationScore?: number;
+  /** ISO-8601 timestamp for strict chronological ordering. */
+  timestamp?: string;
 }
 
 const ANXIETY_EMOTIONS = new Set(["anxiety", "fear", "stress", "crisis"]);
@@ -120,11 +122,21 @@ export default function ChatPage() {
     getChatHistory()
       .then((history: ChatMessage[]) => {
         if (history.length > 0) {
+          // Sort ascending by created_at so the order matches insertion order
+          // (the API already returns them in order, but we sort defensively).
+          const sorted = [...history].sort((a, b) => {
+            if (!a.created_at && !b.created_at) return 0;
+            if (!a.created_at) return -1;
+            if (!b.created_at) return 1;
+            return a.created_at < b.created_at ? -1 : 1;
+          });
           setMessages(
-            history.map((m) => ({
+            sorted.map((m) => ({
               role: m.role as "user" | "assistant",
               content: m.content,
               emotion: m.emotion,
+              // Preserve backend timestamp for chronological ordering
+              timestamp: m.created_at ?? undefined,
             }))
           );
         }
@@ -161,9 +173,12 @@ export default function ChatPage() {
 
     console.log("[Chat] Sending message:", { text, sessionId, language });
 
+    // Record precise send time so the user bubble has a stable timestamp.
+    const userTimestamp = new Date().toISOString();
+
     setInput("");
     setBreathingPromptVisible(false);
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    setMessages((prev) => [...prev, { role: "user", content: text, timestamp: userTimestamp }]);
     setIsLoading(true);
 
     try {
@@ -197,6 +212,8 @@ export default function ChatPage() {
       setLastPersonalizationScore(res.personalization_score);
       setLastUsedTriggers(Array.isArray(res.used_triggers) ? res.used_triggers : []);
 
+      // Assistant timestamp is always strictly after the user message.
+      const assistantTimestamp = new Date().toISOString();
       setMessages((prev) => [
         ...prev,
         {
@@ -209,6 +226,7 @@ export default function ChatPage() {
           scores: res.scores,
           responseType: res.response_type,
           personalizationScore: res.personalization_score,
+          timestamp: assistantTimestamp,
         },
       ]);
 
@@ -246,10 +264,72 @@ export default function ChatPage() {
     }
   };
 
-  const handleVoiceTranscript = (text: string) => {
-    setInput((prev) => prev + (prev ? " " : "") + text);
+  const handleVoiceTranscript = useCallback((text: string) => {
+    // Append transcript to input then immediately send so the voice turn is
+    // seamless — the user spoke, the AI should reply without extra clicks.
+    setInput(text);
     textareaRef.current?.focus();
-  };
+    // Use a microtask so React flushes the state update before handleSend reads `input`.
+    setTimeout(() => {
+      const trimmed = text.trim();
+      if (trimmed) {
+        // Directly call the send logic with the transcript text to bypass the
+        // stale-closure risk of reading `input` state from inside handleSend.
+        setInput("");
+        setBreathingPromptVisible(false);
+        const userTimestamp = new Date().toISOString();
+        setMessages((prev) => [...prev, { role: "user", content: trimmed, timestamp: userTimestamp }]);
+        setIsLoading(true);
+        sendMessage(trimmed, sessionId, language)
+          .then((res: ChatResponse) => {
+            const botReply = getNormalizedReply(res);
+            if (!sessionId) setSessionId(res.session_id);
+            setDominantEmotion(res.primary_emotion);
+            setLastConfidence(res.confidence);
+            setLastHighRisk(res.is_high_risk);
+            setLastEscalation(res.escalation_message);
+            setLastRiskScore(getRiskScore(res));
+            setLastResponseType(res.response_type);
+            setLastPersonalizationScore(res.personalization_score);
+            setLastUsedTriggers(Array.isArray(res.used_triggers) ? res.used_triggers : []);
+            const assistantTimestamp = new Date().toISOString();
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: botReply,
+                emotion: res.primary_emotion,
+                confidence: res.confidence,
+                isHighRisk: res.is_high_risk,
+                escalationMessage: res.escalation_message,
+                scores: res.scores,
+                responseType: res.response_type,
+                personalizationScore: res.personalization_score,
+                timestamp: assistantTimestamp,
+              },
+            ]);
+            if (res.is_high_risk || ANXIETY_EMOTIONS.has(res.primary_emotion)) {
+              setBreathingPromptVisible(true);
+            }
+            if (res.is_high_risk) {
+              toast.error("High-risk content detected. Please seek support.", {
+                duration: 8000,
+                icon: "🆘",
+              });
+            }
+          })
+          .catch((err: unknown) => {
+            const msg = getErrorMessage(err);
+            toast.error(msg);
+            setMessages((prev) => prev.slice(0, -1));
+          })
+          .finally(() => {
+            setIsLoading(false);
+            refreshInsights();
+          });
+      }
+    }, 0);
+  }, [getNormalizedReply, getRiskScore, sessionId, language, refreshInsights]);
 
   const LANG_OPTIONS: LanguagePreference[] = ["english", "tamil", "bilingual"];
 
@@ -395,6 +475,7 @@ export default function ChatPage() {
             messages={messages}
             isLoading={isLoading || isLoadingHistory}
             language={language}
+            isRestoringHistory={isLoadingHistory}
           />
 
           <InputFooter
