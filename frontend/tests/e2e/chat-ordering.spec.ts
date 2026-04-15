@@ -19,10 +19,17 @@ const FAKE_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fake.token";
 // Fixture helpers
 // ---------------------------------------------------------------------------
 
+/** Set the wb_logged_in cookie so the auth gate treats the session as
+ *  authenticated (auth.ts checks Cookies.get("wb_logged_in") === "1"). */
 async function injectToken(page: Page) {
-  await page.addInitScript((token) => {
-    window.localStorage.setItem("wb_access_token", token);
-  }, FAKE_TOKEN);
+  await page.context().addCookies([
+    {
+      name: "wb_logged_in",
+      value: "1",
+      domain: "localhost",
+      path: "/",
+    },
+  ]);
 }
 
 async function mockChatHistory(page: Page, messages: object[] = []) {
@@ -82,7 +89,7 @@ test.describe("Chat Ordering", () => {
     await page
       .getByPlaceholder(/Type a message/i)
       .fill("I feel very sad today.");
-    await page.click('[aria-label="Send message"]');
+    await page.click('[data-testid="send-message"]');
 
     // Wait for the assistant reply to appear.
     await expect(
@@ -142,14 +149,14 @@ test.describe("Chat Ordering", () => {
 
     // First turn
     await page.getByPlaceholder(/Type a message/i).fill("Message one.");
-    await page.click('[aria-label="Send message"]');
+    await page.click('[data-testid="send-message"]');
     await expect(page.getByText("First reply.")).toBeVisible({
       timeout: 10_000,
     });
 
     // Second turn
     await page.getByPlaceholder(/Type a message/i).fill("Message two.");
-    await page.click('[aria-label="Send message"]');
+    await page.click('[data-testid="send-message"]');
     await expect(page.getByText("Second reply.")).toBeVisible({
       timeout: 10_000,
     });
@@ -277,7 +284,7 @@ test.describe("Scroll Restoration", () => {
     await page
       .getByPlaceholder(/Type a message/i)
       .fill("Show me the latest message.");
-    await page.click('[aria-label="Send message"]');
+    await page.click('[data-testid="send-message"]');
 
     const latestReply = page.getByText("Latest assistant reply.");
     await expect(latestReply).toBeVisible({ timeout: 10_000 });

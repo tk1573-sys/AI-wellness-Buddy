@@ -7,6 +7,8 @@ Run with: streamlit run ui_app.py
 """
 
 import streamlit as st
+import logging
+import time
 from datetime import datetime
 from wellness_buddy import WellnessBuddy
 from user_profile import UserProfile
@@ -503,6 +505,7 @@ def _render_pending_tts():
     audio_bytes = st.session_state.get('_pending_tts_audio')
     if audio_bytes:
         st.audio(audio_bytes, format="audio/mp3", autoplay=True)
+        st.caption("🔊 Audio response ready — press play if autoplay is blocked by your browser.")
         st.session_state['_pending_tts_audio'] = None
 
 
@@ -566,6 +569,7 @@ def _handle_user_prompt(prompt_text: str):
     # does the definitive classify_emotion call for the current turn).
     context_snapshot = list(st.session_state.chat_history)
     _add_chat_message("user", prompt_text)
+    t0 = time.perf_counter()
     with st.spinner("Analysing your message…"):
         response = st.session_state.buddy.respond(
             prompt_text,
@@ -575,6 +579,10 @@ def _handle_user_prompt(prompt_text: str):
                 'research_logging': st.session_state.get('research_logging_enabled', False),
             },
         )
+    elapsed = time.perf_counter() - t0
+    logging.getLogger(__name__).info(
+        "chat response generated in %.2fs for prompt_len=%d", elapsed, len(prompt_text)
+    )
 
     _add_chat_message("assistant", response)
     st.session_state.last_response = response
@@ -584,7 +592,9 @@ def _handle_user_prompt(prompt_text: str):
     st.session_state.last_user_input = prompt_text
 
     if st.session_state.get('tts_enabled', False):
-        _play_tts(response)
+        vh: VoiceHandler = st.session_state.voice_handler
+        if vh and vh.tts_available:
+            _play_tts(response)
 
 
 # -----------------------------------------------------------------------

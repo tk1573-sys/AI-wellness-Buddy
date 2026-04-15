@@ -70,7 +70,7 @@ async function mockAuthFailure(page: Page, endpoint: "signup" | "login") {
 // ---------------------------------------------------------------------------
 
 test.describe("Auth Flow", () => {
-  test("signup → token stored → redirect to /chat", async ({ page }) => {
+  test("signup → session flag set → redirect to /chat", async ({ page }) => {
     await mockAuthSuccess(page, "signup", 201);
     await page.goto("/signup");
 
@@ -85,14 +85,15 @@ test.describe("Auth Flow", () => {
     await page.waitForURL("**/chat", { timeout: 10_000 });
     expect(page.url()).toContain("/chat");
 
-    // Token must be persisted in localStorage
-    const token = await page.evaluate(() =>
-      window.localStorage.getItem("wb_access_token"),
-    );
-    expect(token).toBe(FAKE_TOKEN);
+    // Session presence flag must be set in the wb_logged_in cookie.
+    // The JWT itself lives in an HttpOnly cookie set by the backend; only
+    // the non-HttpOnly flag is readable from JavaScript.
+    const cookies = await page.context().cookies();
+    const flag = cookies.find((c) => c.name === "wb_logged_in");
+    expect(flag?.value).toBe("1");
   });
 
-  test("login → token stored → redirect to /chat", async ({ page }) => {
+  test("login → session flag set → redirect to /chat", async ({ page }) => {
     await mockAuthSuccess(page, "login");
     await page.goto("/login");
 
@@ -104,10 +105,10 @@ test.describe("Auth Flow", () => {
     await page.waitForURL("**/chat", { timeout: 10_000 });
     expect(page.url()).toContain("/chat");
 
-    const token = await page.evaluate(() =>
-      window.localStorage.getItem("wb_access_token"),
-    );
-    expect(token).toBe(FAKE_TOKEN);
+    // The wb_logged_in flag cookie must be present after a successful login.
+    const cookies = await page.context().cookies();
+    const flag = cookies.find((c) => c.name === "wb_logged_in");
+    expect(flag?.value).toBe("1");
   });
 
   test("invalid login → error toast shown, stays on /login", async ({
