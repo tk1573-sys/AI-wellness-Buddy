@@ -33,6 +33,7 @@ export function EmotionBadge({ emotion, confidence, size = "md" }: EmotionBadgeP
 
   return (
     <span
+      data-testid="emotion-badge"
       className={clsx(
         "inline-flex items-center gap-1 rounded-full border font-medium capitalize",
         size === "sm" ? "px-2 py-0.5 text-xs" : "px-3 py-1 text-sm",

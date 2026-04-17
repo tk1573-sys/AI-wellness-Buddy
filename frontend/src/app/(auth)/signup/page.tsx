@@ -67,7 +67,7 @@ export default function SignupPage() {
           <p className="text-gray-400 text-sm">Start your wellness journey today</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <Input
             id="email"
             label="Email"

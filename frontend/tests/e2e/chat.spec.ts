@@ -145,9 +145,9 @@ test.describe("Chat Flow", () => {
       page.getByText("Let's work through this together."),
     ).toBeVisible({ timeout: 10_000 });
 
-    // EmotionBadge renders a capitalised span containing the emotion label
+    // EmotionBadge renders a pill with data-testid="emotion-badge" containing the emotion label
     await expect(
-      page.locator("span.capitalize", { hasText: "anxiety" }),
+      page.locator('[data-testid="emotion-badge"]', { hasText: "anxiety" }),
     ).toBeVisible({ timeout: 5_000 });
   });
 
@@ -168,8 +168,12 @@ test.describe("Chat Flow", () => {
       timeout: 10_000,
     });
 
-    // Confidence is rendered as "90%" next to the emotion label
-    await expect(page.getByText("90%")).toBeVisible({ timeout: 5_000 });
+    // Confidence is rendered as "90%" inside the EmotionBadge pill.
+    // Scope the lookup to the badge element to avoid strict-mode violations
+    // caused by confidence/risk percentages displayed elsewhere in the UI.
+    await expect(
+      page.locator('[data-testid="emotion-badge"]').getByText("90%"),
+    ).toBeVisible({ timeout: 5_000 });
   });
 
   test("send via Enter key works", async ({ page }) => {
