@@ -18,6 +18,50 @@ const api = axios.create({
 });
 
 // -------------------------------------------------------------------------- //
+// Global interceptors
+// -------------------------------------------------------------------------- //
+
+// Request interceptor — log outgoing requests in development.
+api.interceptors.request.use((config) => {
+  if (process.env.NODE_ENV === "development") {
+    console.debug(`[API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+  }
+  return config;
+});
+
+// Response interceptor — log responses and redirect to /login on 401.
+api.interceptors.response.use(
+  (response) => {
+    if (process.env.NODE_ENV === "development") {
+      console.debug(
+        `[API] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`,
+      );
+    }
+    return response;
+  },
+  (error) => {
+    if (process.env.NODE_ENV === "development") {
+      console.debug(
+        `[API] ERROR ${error.response?.status} ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
+        error.response?.data,
+      );
+    }
+    if (
+      axios.isAxiosError(error) &&
+      error.response?.status === 401 &&
+      typeof window !== "undefined" &&
+      !window.location.pathname.startsWith("/login") &&
+      !window.location.pathname.startsWith("/signup")
+    ) {
+      console.warn("[API] 401 Unauthorized — redirecting to /login");
+      // Use window.location.href for a full navigation reset.  The api module
+      // is not a React component, so Next.js router hooks are not available here.
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  },
+);
+
 // Shared types (mirror the backend Pydantic schemas)
 // -------------------------------------------------------------------------- //
 
