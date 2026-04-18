@@ -15,7 +15,7 @@ import axios from "axios";
 
 // Axios instance — same-origin requests via the Next.js proxy (/api/:path*).
 const api = axios.create({
-  baseURL: "",
+  baseURL: "/api",
   withCredentials: true,
 });
 
@@ -216,7 +216,7 @@ export async function sendMessage(
   languagePreference?: string,
 ): Promise<ChatResponse> {
   const { data } = await api.post<Record<string, unknown>>(
-    `/api/v1/chat`,
+    `/v1/chat`,
     { message, session_id: sessionId ?? null, language_preference: languagePreference ?? "english" },
   );
   return normalizeChatResponse(data);
@@ -224,7 +224,7 @@ export async function sendMessage(
 
 export async function getChatHistory(): Promise<ChatMessage[]> {
   const { data } = await api.get<ChatMessage[]>(
-    `/api/v1/chat/history`,
+    `/v1/chat/history`,
   );
   return data;
 }
@@ -235,14 +235,14 @@ export async function getChatHistory(): Promise<ChatMessage[]> {
 
 export async function getProfile(): Promise<UserProfile> {
   const { data } = await api.get<UserProfile>(
-    `/api/v1/profile`,
+    `/v1/profile`,
   );
   return data;
 }
 
 export async function createProfile(profile: UserProfile): Promise<UserProfile> {
   const { data } = await api.post<UserProfile>(
-    `/api/v1/profile`,
+    `/v1/profile`,
     profile,
   );
   return data;
@@ -250,7 +250,7 @@ export async function createProfile(profile: UserProfile): Promise<UserProfile> 
 
 export async function updateProfile(profile: UserProfile): Promise<UserProfile> {
   const { data } = await api.put<UserProfile>(
-    `/api/v1/profile`,
+    `/v1/profile`,
     profile,
   );
   return data;
@@ -262,7 +262,7 @@ export async function updateProfile(profile: UserProfile): Promise<UserProfile> 
 
 export async function getDashboard(): Promise<DashboardData> {
   const { data } = await api.get<DashboardData>(
-    `/api/v1/dashboard`,
+    `/v1/dashboard`,
   );
   return data;
 }
@@ -304,7 +304,7 @@ export interface JourneyData {
 
 export async function getJourney(): Promise<JourneyData> {
   const { data } = await api.get<JourneyData>(
-    `/api/v1/journey`,
+    `/v1/journey`,
   );
   return data;
 }
@@ -345,7 +345,7 @@ export interface WeeklyReportData {
 
 export async function getWeeklyReport(): Promise<WeeklyReportData> {
   const { data } = await api.get<WeeklyReportData>(
-    `/api/v1/weekly-report`,
+    `/v1/weekly-report`,
   );
   return data;
 }
@@ -365,7 +365,7 @@ export interface InsightsData {
 
 export async function getInsights(): Promise<InsightsData> {
   const { data } = await api.get<InsightsData>(
-    `/api/v1/insights`,
+    `/v1/insights`,
   );
   return data;
 }
@@ -395,7 +395,7 @@ export async function transcribeVoice(
   form.append("audio", audioBlob, `recording.${ext}`);
   form.append("language_preference", languagePreference);
   const { data } = await api.post<{ transcript: string; language_used: string }>(
-    `/api/v1/voice/transcribe`,
+    `/v1/voice/transcribe`,
     form,
   );
   return data.transcript;
@@ -406,7 +406,7 @@ export async function getTts(
   languagePreference: string = "english",
 ): Promise<Blob> {
   const { data } = await api.post(
-    `/api/v1/voice/tts`,
+    `/v1/voice/tts`,
     { text, language_preference: languagePreference },
     { responseType: "blob" },
   );
@@ -445,7 +445,7 @@ export async function triggerGuardianAlert(
   req: GuardianAlertTriggerRequest,
 ): Promise<GuardianAlertRecord[]> {
   const { data } = await api.post<GuardianAlertRecord[]>(
-    `/api/v1/guardian-alert`,
+    `/v1/guardian-alert`,
     req,
   );
   return data;
@@ -453,7 +453,7 @@ export async function triggerGuardianAlert(
 
 export async function getGuardianAlerts(): Promise<GuardianAlertListResponse> {
   const { data } = await api.get<GuardianAlertListResponse>(
-    `/api/v1/guardian-alert`,
+    `/v1/guardian-alert`,
   );
   return data;
 }
