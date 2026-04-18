@@ -33,7 +33,7 @@ export function getToken(): string | null {
 
 /**
  * Extracts a human-readable error message from an AxiosError or any thrown value.
- * Delegates to the shared getErrorMessage utility from lib/api.
+ * Wrapper around getErrorMessage from lib/api.
  */
 function extractErrorMessage(err: unknown): string {
   return getErrorMessage(err);

@@ -126,3 +126,110 @@ def _make_crisis_pipeline():
             }
 
     return _MockPipeline()
+
+
+# --------------------------------------------------------------------------- #
+# Cookie-based auth integration tests (Tasks 6 & 7)
+# --------------------------------------------------------------------------- #
+
+async def test_cookie_auth_flow_login_me_profile(client):
+    """Login → /auth/me → /profile using cookies only (no Bearer header).
+
+    Verifies that the HttpOnly wb_access_token cookie issued on login is
+    accepted by every protected endpoint without a Bearer header.
+    """
+    # ── 1. Signup ──────────────────────────────────────────────────────────
+    resp = await client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": "cookieflow@example.com",
+            "username": "cookieflow",
+            "password": "Passw0rd!",
+        },
+    )
+    assert resp.status_code == 201
+
+    # ── 2. Login — extract the HttpOnly cookie from the Set-Cookie header ──
+    resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "cookieflow@example.com", "password": "Passw0rd!"},
+    )
+    assert resp.status_code == 200
+    cookie_value = resp.cookies.get("wb_access_token")
+    assert cookie_value is not None, (
+        "POST /auth/login must set a wb_access_token cookie in the response"
+    )
+
+    # ── 3. GET /auth/me — cookie only, no Authorization header ────────────
+    resp = await client.get(
+        "/api/v1/auth/me",
+        cookies={"wb_access_token": cookie_value},
+    )
+    assert resp.status_code == 200, (
+        f"/auth/me returned {resp.status_code} with valid cookie: {resp.text}"
+    )
+    assert resp.json()["email"] == "cookieflow@example.com"
+
+    # ── 4. GET /api/v1/profile — cookie only ───────────────────────────────
+    # A freshly-created user has no profile yet, so 404 is expected.
+    # 401 / 403 would indicate cookie auth is broken.
+    resp = await client.get(
+        "/api/v1/profile",
+        cookies={"wb_access_token": cookie_value},
+    )
+    assert resp.status_code in (200, 404), (
+        f"/profile returned {resp.status_code} (expected 200 or 404, not 401/403): {resp.text}"
+    )
+
+    # ── 5. GET /auth/debug — confirms cookie visibility on the backend ─────
+    resp = await client.get(
+        "/api/v1/auth/debug",
+        cookies={"wb_access_token": cookie_value},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["wb_access_token_present"] is True
+
+
+async def test_me_without_any_auth_returns_401(client):
+    """GET /auth/me with no credentials must return 401."""
+    resp = await client.get("/api/v1/auth/me")
+    assert resp.status_code == 401
+
+
+async def test_profile_without_any_auth_returns_401(client):
+    """GET /profile with no credentials must return 401."""
+    resp = await client.get("/api/v1/profile")
+    assert resp.status_code == 401
+
+
+async def test_auth_debug_no_cookie(client):
+    """GET /auth/debug without a cookie must report the cookie as absent."""
+    resp = await client.get("/api/v1/auth/debug")
+    assert resp.status_code == 200
+    assert resp.json()["wb_access_token_present"] is False
+
+
+async def test_auth_debug_with_cookie(client):
+    """GET /auth/debug with a valid cookie must report it as present."""
+    await client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": "debugcookie@example.com",
+            "username": "debugcookie",
+            "password": "Passw0rd!",
+        },
+    )
+    login_resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "debugcookie@example.com", "password": "Passw0rd!"},
+    )
+    assert login_resp.status_code == 200
+    cookie_value = login_resp.cookies.get("wb_access_token")
+    assert cookie_value is not None
+
+    resp = await client.get(
+        "/api/v1/auth/debug",
+        cookies={"wb_access_token": cookie_value},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["wb_access_token_present"] is True

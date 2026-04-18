@@ -217,11 +217,27 @@ def create_app() -> FastAPI:
     allowed_origins = list(settings.ALLOWED_ORIGINS)
     if settings.FRONTEND_URL:
         allowed_origins.append(settings.FRONTEND_URL)
+
+    # Warn when ALLOWED_ORIGINS mixes "localhost" and "127.0.0.1".
+    # Mixing these causes the browser to treat the SameSite=Lax auth cookie
+    # as cross-site (different host) and silently drop it on subsequent
+    # requests, producing 401 errors after a successful login.
+    _has_localhost = any("localhost" in o for o in allowed_origins)
+    _has_127 = any("127.0.0.1" in o for o in allowed_origins)
+    if _has_localhost and _has_127:
+        logger.warning(
+            "CORS: ALLOWED_ORIGINS contains both 'localhost' and '127.0.0.1'. "
+            "Mixing these hostnames causes SameSite=Lax auth cookies to be "
+            "treated as cross-site and silently dropped by the browser, "
+            "breaking cookie-based auth after login. "
+            "Use a single hostname consistently (recommend: 'localhost')."
+        )
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "OPTIONS"],
         allow_headers=["*"],
     )
 

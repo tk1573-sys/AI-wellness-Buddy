@@ -33,15 +33,21 @@ _bearer_optional = HTTPBearer(auto_error=False)
 # Cookie helpers
 # --------------------------------------------------------------------------- #
 
-def _set_auth_cookie(response: Response, token: str, max_age: int) -> None:
-    """Attach an HttpOnly, SameSite=Lax auth cookie to the response."""
+def _set_auth_cookie(response: Response, token: str, max_age: int, *, request: Request) -> None:
+    """Attach an HttpOnly, SameSite=Lax auth cookie to the response.
+
+    The Secure flag is inferred from the request scheme: it is set only when
+    the request arrived over HTTPS.  This makes the cookie work over plain HTTP
+    in local development without any environment-variable configuration.
+    """
+    is_https = request.url.scheme == "https"
     response.set_cookie(
         key=_AUTH_COOKIE,
         value=token,
         max_age=max_age,
         httponly=True,
-        secure=settings.ENV != "development",  # Secure flag in production
-        samesite="lax",  # lax allows cookie to be sent on same-site cross-port requests
+        secure=is_https,  # True over HTTPS, False over HTTP (local dev)
+        samesite="lax",   # lax allows cookie to be sent on same-site cross-port requests
         path="/",
     )
 
@@ -88,15 +94,21 @@ async def get_current_user(
     raw_token: str | None = wb_access_token or (
         credentials.credentials if credentials else None
     )
-    if raw_token is not None:
-        if wb_access_token:
-            token_source = "cookie"
-        elif credentials and credentials.credentials:
-            token_source = "bearer"
-        else:
-            token_source = "none"
-        logger.debug("get_current_user: token source=%s", token_source)
+    if wb_access_token:
+        logger.debug("get_current_user: token source=cookie")
+    elif credentials and credentials.credentials:
+        logger.debug("get_current_user: token source=bearer")
     if not raw_token:
+        # Warn when the request arrived with no cookies at all — this is a
+        # strong signal that the client isn't sending credentials (e.g.
+        # withCredentials is missing from the axios/fetch call).
+        if not request.cookies:
+            logger.warning(
+                "get_current_user: request has NO cookies at all — "
+                "client may not be forwarding credentials. "
+                "Ensure withCredentials=true (axios) or credentials='include' (fetch). "
+                "Also verify ENV=development (HTTP) or HTTPS is in use."
+            )
         logger.debug(
             "get_current_user: no auth cookie and no Bearer header — returning 401",
         )
@@ -157,7 +169,7 @@ async def signup(
 
     user = await auth_service.create_user(db, req)
     token, expire_seconds = auth_service.create_access_token(user.id)
-    _set_auth_cookie(response, token, expire_seconds)
+    _set_auth_cookie(response, token, expire_seconds, request=request)
     logger.info("signup user_id=%d email=%s", user.id, user.email)
     return TokenResponse(access_token=token, expires_in=expire_seconds)
 
@@ -182,11 +194,12 @@ async def login(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is disabled.")
 
     token, expire_seconds = auth_service.create_access_token(user.id)
-    _set_auth_cookie(response, token, expire_seconds)
+    _set_auth_cookie(response, token, expire_seconds, request=request)
+    is_https = request.url.scheme == "https"
     logger.info("login user_id=%d", user.id)
     logger.debug(
         "login: cookie wb_access_token set (secure=%s samesite=lax path=/ max_age=%d)",
-        settings.ENV != "development",
+        is_https,
         expire_seconds,
     )
     return TokenResponse(access_token=token, expires_in=expire_seconds)
@@ -203,3 +216,20 @@ async def logout(response: Response):
 async def me(user=Depends(get_current_user)):
     """Return the currently authenticated user's profile."""
     return user
+
+
+@router.get("/debug", include_in_schema=True, tags=["Auth"])
+async def auth_debug(request: Request):
+    """Return cookie presence flags for debugging the auth flow.
+
+    This endpoint is intentionally unauthenticated so it can be called
+    before a session is established.  It never exposes token *values* —
+    only boolean presence flags.
+
+    Use this to verify:
+    - The browser is sending the wb_access_token cookie on requests.
+    - The cookie was set correctly after login/signup.
+    """
+    return {
+        "wb_access_token_present": _AUTH_COOKIE in request.cookies,
+    }
