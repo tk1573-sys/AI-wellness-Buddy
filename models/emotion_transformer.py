@@ -48,21 +48,18 @@ def _load_emotion_pipeline_impl(model_name: str):
     )
 
 
-try:
-    import streamlit as _st
+def load_emotion_pipeline(model_name: str = "j-hartmann/emotion-english-distilroberta-base"):
+    """Process-cached emotion pipeline loader.
 
-    @_st.cache_resource
-    def load_emotion_pipeline(model_name: str = "j-hartmann/emotion-english-distilroberta-base"):
-        """Streamlit-cached emotion pipeline loader."""
-        return _load_emotion_pipeline_impl(model_name)
-except Exception:
-    # Streamlit not installed or not in a Streamlit runtime — use a
-    # process-level dict so the model is loaded at most once per worker.
-    def load_emotion_pipeline(model_name: str = "j-hartmann/emotion-english-distilroberta-base"):  # type: ignore[misc]
-        """Process-cached emotion pipeline loader (non-Streamlit)."""
-        if model_name not in _PROCESS_PIPELINE_CACHE:
-            _PROCESS_PIPELINE_CACHE[model_name] = _load_emotion_pipeline_impl(model_name)
-        return _PROCESS_PIPELINE_CACHE[model_name]
+    Uses a process-level dict so the heavy HuggingFace model is downloaded
+    and initialised only once per worker process.  This is the correct
+    caching strategy for FastAPI (and CLI/test) contexts; Streamlit apps
+    that need ``@st.cache_resource`` should call this function from their
+    own module and wrap it there.
+    """
+    if model_name not in _PROCESS_PIPELINE_CACHE:
+        _PROCESS_PIPELINE_CACHE[model_name] = _load_emotion_pipeline_impl(model_name)
+    return _PROCESS_PIPELINE_CACHE[model_name]
 
 
 class EmotionTransformer:

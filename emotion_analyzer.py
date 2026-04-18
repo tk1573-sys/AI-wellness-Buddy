@@ -65,32 +65,31 @@ def _load_crisis_pipeline_impl():
 # instances are created in the same worker process.
 _PROCESS_ANALYZER_PIPELINE_CACHE: dict[str, object] = {}
 
-try:
-    import streamlit as _st
 
-    @_st.cache_resource
-    def load_ml_emotion_pipeline():
-        """Streamlit-cached emotion pipeline loader."""
-        return _load_ml_emotion_pipeline_impl()
+def load_ml_emotion_pipeline():
+    """Process-cached emotion pipeline loader.
 
-    @_st.cache_resource
-    def load_crisis_pipeline():
-        """Streamlit-cached crisis classification pipeline loader."""
-        return _load_crisis_pipeline_impl()
-except Exception:
-    def load_ml_emotion_pipeline():  # type: ignore[misc]
-        """Process-cached emotion pipeline loader (non-Streamlit)."""
-        key = "ml_emotion"
-        if key not in _PROCESS_ANALYZER_PIPELINE_CACHE:
-            _PROCESS_ANALYZER_PIPELINE_CACHE[key] = _load_ml_emotion_pipeline_impl()
-        return _PROCESS_ANALYZER_PIPELINE_CACHE[key]
+    Uses a process-level dict so the heavy HuggingFace model is downloaded
+    and initialised only once per worker process.  Streamlit apps should
+    wrap this with ``@st.cache_resource`` in their own module.
+    """
+    key = "ml_emotion"
+    if key not in _PROCESS_ANALYZER_PIPELINE_CACHE:
+        _PROCESS_ANALYZER_PIPELINE_CACHE[key] = _load_ml_emotion_pipeline_impl()
+    return _PROCESS_ANALYZER_PIPELINE_CACHE[key]
 
-    def load_crisis_pipeline():  # type: ignore[misc]
-        """Process-cached crisis classification pipeline loader (non-Streamlit)."""
-        key = "crisis"
-        if key not in _PROCESS_ANALYZER_PIPELINE_CACHE:
-            _PROCESS_ANALYZER_PIPELINE_CACHE[key] = _load_crisis_pipeline_impl()
-        return _PROCESS_ANALYZER_PIPELINE_CACHE[key]
+
+def load_crisis_pipeline():
+    """Process-cached crisis classification pipeline loader.
+
+    Uses a process-level dict so the heavy HuggingFace model is downloaded
+    and initialised only once per worker process.  Streamlit apps should
+    wrap this with ``@st.cache_resource`` in their own module.
+    """
+    key = "crisis"
+    if key not in _PROCESS_ANALYZER_PIPELINE_CACHE:
+        _PROCESS_ANALYZER_PIPELINE_CACHE[key] = _load_crisis_pipeline_impl()
+    return _PROCESS_ANALYZER_PIPELINE_CACHE[key]
 
 
 class MLEmotionAdapter:
