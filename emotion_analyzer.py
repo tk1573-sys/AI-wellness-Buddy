@@ -60,6 +60,11 @@ def _load_crisis_pipeline_impl():
     )
 
 
+# Process-level pipeline cache for non-Streamlit environments (FastAPI, CLI,
+# tests).  Prevents redundant model loads when multiple EmotionAnalyzer
+# instances are created in the same worker process.
+_PROCESS_ANALYZER_PIPELINE_CACHE: dict[str, object] = {}
+
 try:
     import streamlit as _st
 
@@ -74,12 +79,18 @@ try:
         return _load_crisis_pipeline_impl()
 except Exception:
     def load_ml_emotion_pipeline():  # type: ignore[misc]
-        """Fallback (non-cached) emotion pipeline loader."""
-        return _load_ml_emotion_pipeline_impl()
+        """Process-cached emotion pipeline loader (non-Streamlit)."""
+        key = "ml_emotion"
+        if key not in _PROCESS_ANALYZER_PIPELINE_CACHE:
+            _PROCESS_ANALYZER_PIPELINE_CACHE[key] = _load_ml_emotion_pipeline_impl()
+        return _PROCESS_ANALYZER_PIPELINE_CACHE[key]
 
     def load_crisis_pipeline():  # type: ignore[misc]
-        """Fallback (non-cached) crisis classification pipeline loader."""
-        return _load_crisis_pipeline_impl()
+        """Process-cached crisis classification pipeline loader (non-Streamlit)."""
+        key = "crisis"
+        if key not in _PROCESS_ANALYZER_PIPELINE_CACHE:
+            _PROCESS_ANALYZER_PIPELINE_CACHE[key] = _load_crisis_pipeline_impl()
+        return _PROCESS_ANALYZER_PIPELINE_CACHE[key]
 
 
 class MLEmotionAdapter:

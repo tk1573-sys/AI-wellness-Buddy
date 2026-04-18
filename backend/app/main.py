@@ -42,6 +42,7 @@ from app.limiter import limiter
 from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
 from app.routers import analytics, auth, chat, health, insights, predict, profile, dashboard, voice, weekly_report, journey, guardian_alert
+from app.utils import find_project_root
 
 try:
     settings = get_settings()
@@ -87,7 +88,11 @@ def create_app() -> FastAPI:
         )
         await init_db()
         logger.info("Database tables created / verified.")
-        # Pre-warm the ML model so the first real request is not delayed.
+
+        # ── Pre-warm ML models ────────────────────────────────────────────
+        # Load HuggingFace transformer models into the process-level pipeline
+        # cache (models/emotion_transformer.py + emotion_analyzer.py) so that
+        # the first real user request is served in <2 s instead of ~16 s.
         try:
             from app.services import emotion_service
             emotion_service._get_analyzer()
@@ -97,20 +102,50 @@ def create_app() -> FastAPI:
                 "EmotionAnalyzer pre-warm failed; first request may experience cold-start delay.",
                 exc_info=True,
             )
-        # Pre-warm the WellnessAgentPipeline with a dummy user_id so the NLP
-        # models and conversation templates are loaded before the first real
-        # request.  A sentinel ID of 0 is used to avoid polluting real user
-        # pipeline slots; the pipeline is discarded immediately after warming.
+        # Pre-warm the WellnessAgentPipeline.  The sentinel pipeline (user_id=0)
+        # is discarded after construction, but the underlying HuggingFace models
+        # now live in the module-level _PROCESS_PIPELINE_CACHE dicts so all
+        # subsequent WellnessAgentPipeline() calls reuse them instantly.
         try:
             from app.services.chat_service import _get_pipeline, _pipelines
             _get_pipeline(0)
-            _pipelines.pop(0, None)  # discard the sentinel pipeline
-            logger.info("WellnessAgentPipeline pre-warmed successfully.")
+            _pipelines.pop(0, None)  # discard sentinel; models stay in cache
+            logger.info("Model preloaded at startup — WellnessAgentPipeline pre-warmed.")
         except Exception:  # noqa: BLE001
             logger.warning(
                 "WellnessAgentPipeline pre-warm failed; first request may experience cold-start delay.",
                 exc_info=True,
             )
+
+        # ── Voice pipeline readiness check ───────────────────────────────
+        import shutil
+        import sys as _sys
+
+        _ffmpeg_found = shutil.which("ffmpeg") is not None
+        if _ffmpeg_found:
+            logger.info("Voice pipeline ready — ffmpeg detected (%s).", shutil.which("ffmpeg"))
+        else:
+            logger.warning(
+                "ffmpeg not found in PATH — WebM/MP3 audio from browsers cannot be "
+                "converted for STT.  Install ffmpeg (apt-get install ffmpeg) for full "
+                "voice support."
+            )
+
+        # Check gTTS / SpeechRecognition availability via VoiceHandler flags
+        try:
+            _sys.path.insert(0, str(find_project_root()))
+            from voice_handler import VoiceHandler as _VH, _GTTS_AVAILABLE, _SR_AVAILABLE  # noqa: PLC0415
+            if _GTTS_AVAILABLE:
+                logger.info("TTS ready — gTTS available.")
+            else:
+                logger.warning("TTS unavailable — gTTS not installed.")
+            if _SR_AVAILABLE:
+                logger.info("STT ready — SpeechRecognition available.")
+            else:
+                logger.warning("STT unavailable — SpeechRecognition not installed.")
+        except Exception:  # noqa: BLE001
+            logger.warning("Voice handler import check failed.", exc_info=True)
+
         yield
         logger.info("Shutting down.")
 

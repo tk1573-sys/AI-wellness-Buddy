@@ -96,14 +96,33 @@ async def transcribe_audio(
 
     # Offload blocking SpeechRecognition (network I/O to Google STT) to a
     # thread so the async event loop stays responsive during transcription.
+    # A 30-second timeout guards against hung STT connections.
     t0 = time.perf_counter()
-    transcript: str = await asyncio.to_thread(
-        handler.transcribe_audio, audio_bytes, lang
-    )
-    logger.info(
-        "STT lang=%s transcript_length=%d latency=%.3fs",
-        lang, len(transcript), time.perf_counter() - t0,
-    )
+    try:
+        transcript: str = await asyncio.wait_for(
+            asyncio.to_thread(handler.transcribe_audio, audio_bytes, lang),
+            timeout=30.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("STT timeout after 30s (lang=%s, bytes=%d)", lang, len(audio_bytes))
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Speech recognition timed out. Please try a shorter recording.",
+        )
+    elapsed = time.perf_counter() - t0
+
+    if transcript:
+        logger.info(
+            "STT lang=%s transcript_length=%d latency=%.3fs",
+            lang, len(transcript), elapsed,
+        )
+    else:
+        logger.warning(
+            "STT returned empty transcript (lang=%s, bytes=%d, latency=%.3fs) — "
+            "audio may be silent, too noisy, or in an unsupported format",
+            lang, len(audio_bytes), elapsed,
+        )
+
     return TranscriptResponse(transcript=transcript, language_used=lang)
 
 
@@ -132,9 +151,22 @@ async def text_to_speech(
 
     # Offload blocking gTTS synthesis (HTTP round-trip to Google) to a thread
     # so the async event loop stays responsive for concurrent requests.
+    # A 15-second timeout guards against hung TTS connections.
     t0 = time.perf_counter()
-    mp3_bytes = await asyncio.to_thread(handler.text_to_speech, text, lang)
+    try:
+        mp3_bytes = await asyncio.wait_for(
+            asyncio.to_thread(handler.text_to_speech, text, lang),
+            timeout=15.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("TTS timeout after 15s (lang=%s, text_length=%d)", lang, len(text))
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Text-to-speech timed out. Please try again.",
+        )
+
     if not mp3_bytes:
+        logger.warning("TTS produced no audio (lang=%s, text_length=%d)", lang, len(text))
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="TTS service unavailable or failed to generate audio.",
