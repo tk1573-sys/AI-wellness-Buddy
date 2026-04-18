@@ -81,9 +81,9 @@ test.describe("Auth Flow", () => {
 
     await page.click('button[type="submit"]');
 
-    // Should land on the chat page
-    await page.waitForURL("**/chat", { timeout: 10_000 });
-    expect(page.url()).toContain("/chat");
+    // New users are redirected through the onboarding flow before reaching /chat.
+    await page.waitForURL(/\/(onboarding|chat)/, { timeout: 10_000 });
+    expect(page.url()).toMatch(/\/(onboarding|chat)/);
 
     // Session presence flag must be set in the wb_logged_in cookie.
     // The JWT itself lives in an HttpOnly cookie set by the backend; only

@@ -28,10 +28,14 @@ from __future__ import annotations
 # Cached pipeline loader – uses @st.cache_resource when Streamlit is
 # available so that the heavy HuggingFace model is downloaded and
 # initialised only once per process, surviving Streamlit script reruns.
-# In non-Streamlit contexts (tests, CLI) the plain function is used and
-# the caller's own lazy-loading guard (_load_attempted) still prevents
-# redundant loads.
+# In non-Streamlit contexts (FastAPI, tests, CLI) a process-level dict
+# cache prevents redundant model loads across multiple WellnessAgentPipeline
+# instances in the same worker (critical for sub-2 s warm-request latency).
 # ---------------------------------------------------------------------------
+
+# Process-level model cache for non-Streamlit environments.
+_PROCESS_PIPELINE_CACHE: dict[str, object] = {}
+
 
 def _load_emotion_pipeline_impl(model_name: str):
     """Load the HuggingFace emotion pipeline (uncached helper)."""
@@ -52,10 +56,13 @@ try:
         """Streamlit-cached emotion pipeline loader."""
         return _load_emotion_pipeline_impl(model_name)
 except Exception:
-    # Streamlit not installed or not in a Streamlit runtime
+    # Streamlit not installed or not in a Streamlit runtime — use a
+    # process-level dict so the model is loaded at most once per worker.
     def load_emotion_pipeline(model_name: str = "j-hartmann/emotion-english-distilroberta-base"):  # type: ignore[misc]
-        """Fallback (non-cached) emotion pipeline loader."""
-        return _load_emotion_pipeline_impl(model_name)
+        """Process-cached emotion pipeline loader (non-Streamlit)."""
+        if model_name not in _PROCESS_PIPELINE_CACHE:
+            _PROCESS_PIPELINE_CACHE[model_name] = _load_emotion_pipeline_impl(model_name)
+        return _PROCESS_PIPELINE_CACHE[model_name]
 
 
 class EmotionTransformer:
