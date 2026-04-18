@@ -29,13 +29,12 @@ import os
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 
 import warnings
-warnings.filterwarnings(
-    "ignore",
-    message=".*ScriptRunContext.*",
-)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import logging
 logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("aiosqlite").setLevel(logging.WARNING)
 logging.getLogger("transformers").setLevel(logging.ERROR)
 logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 # --- END ---
@@ -83,6 +82,9 @@ logging.basicConfig(
     format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
+logging.getLogger("uvicorn").setLevel(logging.INFO)
+logging.getLogger("uvicorn.error").setLevel(logging.INFO)
+logging.getLogger("uvicorn.access").setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 
 
