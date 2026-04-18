@@ -218,6 +218,88 @@ The personal history profile is the backbone of context-aware personalisation. I
 | `family_responsibilities` | Caretaker/single parent burden increases burnout risk | Recognised risk factor for depression in caregivers (Pinquart & Sörensen, 2003) |
 | `occupation` | Work stress, unemployment → financial anxiety, identity crisis | Unemployment × depression link well-established (Paul & Moser, 2009) |
 
+### 4.4 Production Web Application Architecture
+
+To maximise accessibility and support multi-user deployment, the multi-agent pipeline has been packaged as a full-stack web application. This section describes the production deployment architecture and the two key security and communication design decisions.
+
+#### 4.4.1 System Components
+
+The production system comprises three tiers:
+
+**Tier 1 — Frontend (Next.js on Vercel):** A React-based single-page application built with Next.js 14 (App Router) and Tailwind CSS. The frontend exposes the chat interface, emotion dashboard, journey view, weekly report, and guardian alert management. All authenticated state is derived from the HttpOnly session cookie — no client-side token storage is used.
+
+**Tier 2 — Backend API (FastAPI on Render):** An asynchronous Python REST API built with FastAPI and SQLAlchemy async. The backend implements the complete multi-agent AI pipeline (emotion analysis, risk classification, empathetic response generation, crisis escalation) behind a set of versioned REST endpoints under the `/api/v1/` prefix. A Prometheus metrics endpoint (`/metrics`) exposes operational telemetry. Slowapi rate limiting protects auth endpoints (5 requests/min) and chat endpoints (20 requests/min).
+
+**Tier 3 — Database (PostgreSQL on Render):** A managed PostgreSQL instance stores users, per-turn chat history, per-session emotion logs, user profiles, and guardian alert records. SQLite with `aiosqlite` is used in local development and testing.
+
+#### 4.4.2 Same-Origin Proxy Architecture
+
+A fundamental challenge in browser-based web applications is the interaction between the browser's same-origin policy (SOP), the Cross-Origin Resource Sharing (CORS) standard, and cookie-based session management. When a browser application on origin A makes a request to origin B (a different host or port), the browser:
+
+1. Sends a CORS preflight (`OPTIONS`) request requiring explicit server-side permission.
+2. Applies `SameSite` cookie restrictions — `SameSite=Lax` cookies are not sent on cross-origin subresource requests.
+
+Both constraints make direct browser-to-backend communication unsuitable for cookie-based authentication. The system resolves this through a **server-side same-origin proxy** implemented in `next.config.js`:
+
+```
+Browser  ──── /api/v1/*  ────▶  Next.js server
+                                     │
+                                     │  Server-side rewrite
+                                     │  /api/:path* → BACKEND_URL/api/:path*
+                                     ▼
+                               FastAPI backend
+```
+
+All browser requests target the Next.js origin (`https://your-app.vercel.app`). The Next.js server forwards them to the FastAPI backend using the server-side `BACKEND_URL` environment variable — a private value never exposed to the browser. From the browser's perspective, every request is same-origin, eliminating CORS restrictions entirely. The `Set-Cookie` response from FastAPI is transparently forwarded back to the browser as if issued by the Next.js origin, ensuring `SameSite=Lax` semantics are preserved.
+
+#### 4.4.3 HttpOnly Cookie Authentication
+
+Authentication tokens are issued as HttpOnly cookies rather than JSON response bodies stored in `localStorage`. The design follows the principle of least privilege for JavaScript execution:
+
+**Token issuance:** On `POST /api/v1/auth/login` (or `/signup`), the backend calls `response.set_cookie()` with `httponly=True`. The JWT is embedded in the `wb_access_token` cookie with the following attributes:
+
+| Attribute | Value | Rationale |
+|---|---|---|
+| `HttpOnly` | True | Cookie is inaccessible to JavaScript — prevents XSS token theft |
+| `SameSite` | Lax | Blocks cross-site request forgery; allows same-site navigation |
+| `Secure` | Auto (True on HTTPS) | Prevents transmission over unencrypted connections |
+| `Path` | `/` | Cookie sent on all paths |
+| `max_age` | `ACCESS_TOKEN_EXPIRE_MINUTES × 60` | Session lifetime |
+
+**Token validation:** Every protected endpoint declares a FastAPI dependency (`get_current_user`) that reads the `wb_access_token` cookie, decodes the JWT using `python-jose`, and resolves the user from the database. A fallback `Authorization: Bearer` header path is preserved for API clients and automated tests.
+
+**Client-side session flag:** A non-HttpOnly cookie (`wb_logged_in = "1"`) is set by the frontend JavaScript after successful login. This flag — not the JWT — is what the frontend uses to determine whether to render authenticated routes. It carries no security value and contains no token material; its sole purpose is to enable the frontend to detect session presence without making an API call on every render.
+
+#### 4.4.4 Data Flow Diagram
+
+```
+┌──────────────┐       HTTPS same-origin        ┌───────────────────────┐
+│   Browser    │  ──── POST /api/v1/auth/login ─▶│   Next.js (Vercel)    │
+│              │  ◀─── Set-Cookie: wb_access_token│   Server-side proxy   │
+│  wb_logged_in│                                 └──────────┬────────────┘
+│   cookie set │                                            │ BACKEND_URL rewrite
+│   by JS      │                                            ▼
+└──────────────┘                               ┌────────────────────────┐
+                                               │  FastAPI (Render)      │
+       Cookie sent automatically               │  auth_service.login()  │
+       on subsequent requests                  │  → JWT → Set-Cookie    │
+┌──────────────┐                               └──────────┬─────────────┘
+│   Browser    │  ──── GET /api/v1/chat/history ─────────▶│               │
+│  (cookie in  │  ◀─── 200 [{role,content,created_at}...] │  SQLAlchemy   │
+│   header)    │       ORDER BY created_at ASC            │  PostgreSQL   │
+└──────────────┘                                          └───────────────┘
+```
+
+#### 4.4.5 Security Architecture Summary
+
+The combined effect of the same-origin proxy and HttpOnly cookie authentication provides defence-in-depth:
+
+- **XSS mitigation**: HttpOnly attribute prevents token access even if malicious scripts execute on the page.
+- **CSRF mitigation**: `SameSite=Lax` attribute prevents cookies from being sent on cross-site form submissions.
+- **CORS elimination**: The same-origin proxy removes all cross-origin requests from the browser threat model.
+- **Credential isolation**: The JWT never appears in JavaScript memory, network logs visible to the page, or browser storage APIs.
+- **Rate limiting**: SlowAPI enforces per-IP request quotas on authentication endpoints (5/min) and chat (20/min), limiting brute-force and abuse.
+
 ---
 
 ## 5. Mathematical Formulation
@@ -451,10 +533,12 @@ Tamil/Tanglish keyword coverage: 47 Tamil Unicode keywords + 63 Tanglish (romani
 
 ### 7.8 System Performance
 
-- **Test suite**: 26/26 automated regression tests pass
-- **Response latency**: < 200 ms (local processing, CPU-only)
-- **Storage per user per year**: ~2 MB (365 daily summaries, encrypted JSON)
-- **Memory footprint**: ~50 MB (no model loaded) / ~450 MB (with GoEmotions adapter)
+- **Backend test suite**: 117 pytest-asyncio tests pass (unit + integration + E2E) — covering auth, cookie handling, chat ordering, analytics, crisis dispatch, guardian alerts, and DB outage recovery
+- **Frontend test suite**: Playwright end-to-end tests covering login/signup flow, cookie flag, message ordering, and scroll restoration
+- **API response latency**: < 200 ms (CPU-only, SQLite/PostgreSQL)
+- **AI inference latency**: ~1–2 s after model pre-warm (cold start ~16 s first request)
+- **Memory footprint**: ~450 MB (with GoEmotions DistilRoBERTa adapter pre-warmed)
+- **Production deployment**: Backend on Render (Docker), frontend on Vercel, PostgreSQL on Render managed DB
 
 ---
 

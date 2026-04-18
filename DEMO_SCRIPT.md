@@ -181,6 +181,12 @@ A: `SELECT ... ORDER BY created_at ASC` — strictly chronological, newest-last.
 **Q: What is the personalization score?**
 A: A 0–1 float stored on each `EmotionLog` row. It reflects how well the AI response used the user's profile triggers and preferred communication style. Averaged over all sessions in the analytics endpoint.
 
+**Q: Why did you use a proxy instead of calling the backend directly from the browser?**
+A: Direct browser calls to `http://localhost:8000` (or the Render URL) are cross-origin — a different host or port. Browsers block or restrict cross-origin requests under CORS policy, and `SameSite=Lax` cookies will not be sent on cross-origin requests. The Next.js server-side proxy (`next.config.js` rewrites) forwards `/api/*` to the backend transparently, keeping the browser on a single origin throughout. This eliminates all CORS preflight issues and ensures cookies work correctly.
+
+**Q: How is user data secured?**
+A: Multiple layers: (1) The JWT token lives in an HttpOnly cookie — inaccessible to JavaScript, preventing XSS theft. (2) The same-origin proxy prevents CORS leakage. (3) Passwords are hashed with bcrypt via passlib. (4) The `SameSite=Lax` cookie attribute blocks cross-site request forgery. (5) The `Secure` flag is auto-set on HTTPS. (6) Rate limiting (5 requests/min on auth endpoints) prevents brute-force. (7) Security headers (CSP, X-Frame-Options, X-Content-Type-Options) are added by `SecurityHeadersMiddleware`. (8) In production, PostgreSQL on a Render private network is used — not a public-facing SQLite file.
+
 ---
 
 ## 9. Quick-Start Commands (for live demo setup)
