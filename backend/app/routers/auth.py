@@ -64,6 +64,7 @@ def _clear_auth_cookie(response: Response) -> None:
 # --------------------------------------------------------------------------- #
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
     wb_access_token: str | None = Cookie(default=None),
     db: AsyncSession = Depends(get_db),
@@ -76,10 +77,25 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+    # Log whether the auth cookie is present to aid debugging without
+    # exposing sensitive session values in log output.
+    logger.debug(
+        "get_current_user: wb_access_token cookie present=%s",
+        wb_access_token is not None,
+    )
+
     # Prefer cookie; fall back to Authorization header.
     raw_token: str | None = wb_access_token or (
         credentials.credentials if credentials else None
     )
+    if raw_token is not None:
+        if wb_access_token:
+            token_source = "cookie"
+        elif credentials and credentials.credentials:
+            token_source = "bearer"
+        else:
+            token_source = "none"
+        logger.debug("get_current_user: token source=%s", token_source)
     if not raw_token:
         logger.debug(
             "get_current_user: no auth cookie and no Bearer header — returning 401",
@@ -92,14 +108,17 @@ async def get_current_user(
         logger.debug("get_current_user: JWT validation failed — invalid or expired token")
         raise credentials_exception
 
+    logger.debug("get_current_user: JWT valid, user_id=%s", user_id)
     user = await auth_service.get_user_by_id(db, user_id)
     if user is None or not user.is_active:
         logger.debug("get_current_user: user_id=%s not found or inactive", user_id)
         raise credentials_exception
+    logger.debug("get_current_user: authenticated user_id=%s email=%s", user.id, user.email)
     return user
 
 
 async def get_optional_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_optional),
     wb_access_token: str | None = Cookie(default=None),
     db: AsyncSession = Depends(get_db),
@@ -165,6 +184,11 @@ async def login(
     token, expire_seconds = auth_service.create_access_token(user.id)
     _set_auth_cookie(response, token, expire_seconds)
     logger.info("login user_id=%d", user.id)
+    logger.debug(
+        "login: cookie wb_access_token set (secure=%s samesite=lax path=/ max_age=%d)",
+        settings.ENV != "development",
+        expire_seconds,
+    )
     return TokenResponse(access_token=token, expires_in=expire_seconds)
 
 

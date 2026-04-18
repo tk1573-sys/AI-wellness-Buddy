@@ -14,6 +14,7 @@
 
 import axios from "axios";
 import Cookies from "js-cookie";
+import { getErrorMessage } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -31,6 +32,14 @@ export function getToken(): string | null {
 }
 
 /**
+ * Extracts a human-readable error message from an AxiosError or any thrown value.
+ * Delegates to the shared getErrorMessage utility from lib/api.
+ */
+function extractErrorMessage(err: unknown): string {
+  return getErrorMessage(err);
+}
+
+/**
  * Authenticates an existing user.
  * The backend sets the HttpOnly `wb_access_token` cookie in the response.
  * We then verify the session with /auth/me and set a non-HttpOnly presence
@@ -38,11 +47,15 @@ export function getToken(): string | null {
  * Throws an Error with the server's detail message on failure.
  */
 export async function loginUser(email: string, password: string): Promise<void> {
-  await axios.post(
-    `${API_URL}/api/v1/auth/login`,
-    { email, password },
-    { withCredentials: true },
-  );
+  try {
+    await axios.post(
+      `${API_URL}/api/v1/auth/login`,
+      { email, password },
+      { withCredentials: true },
+    );
+  } catch (err) {
+    throw new Error(extractErrorMessage(err));
+  }
   // Verify the session cookie is working by hitting a protected endpoint.
   // This also warms up the session so the first page after login loads cleanly.
   // Uses the raw axios instance (not the api singleton from lib/api.ts) to
@@ -68,11 +81,24 @@ export async function signupUser(
   username: string,
   password: string,
 ): Promise<void> {
-  await axios.post(
-    `${API_URL}/api/v1/auth/signup`,
-    { email, username, password },
-    { withCredentials: true },
-  );
+  try {
+    await axios.post(
+      `${API_URL}/api/v1/auth/signup`,
+      { email, username, password },
+      { withCredentials: true },
+    );
+  } catch (err) {
+    throw new Error(extractErrorMessage(err));
+  }
+  // Verify the session cookie is working by hitting a protected endpoint.
+  try {
+    await axios.get(`${API_URL}/api/v1/auth/me`, { withCredentials: true });
+  } catch (err) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[auth] Session verification after signup failed:", err);
+    }
+    // Non-fatal — the cookie may still work; let the user proceed.
+  }
   Cookies.set(SESSION_FLAG, "1", { sameSite: "lax" });
 }
 
