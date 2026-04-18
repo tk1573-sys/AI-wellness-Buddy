@@ -51,7 +51,7 @@ async def history(
     stmt = (
         select(ChatHistory)
         .where(ChatHistory.user_id == user.id)
-        .order_by(ChatHistory.created_at.desc())
+        .order_by(ChatHistory.created_at.asc())
         .limit(max(1, min(limit, 200)))
     )
     if session_id:
@@ -59,4 +59,4 @@ async def history(
 
     result = await db.execute(stmt)
     rows = result.scalars().all()
-    return [ChatMessage.model_validate(row) for row in reversed(rows)]
+    return [ChatMessage.model_validate(row) for row in rows]
