@@ -12,7 +12,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 
-const API = "http://localhost:8000";
+const API = "http://localhost:3000";
 const FAKE_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fake.token";
 
 // ---------------------------------------------------------------------------

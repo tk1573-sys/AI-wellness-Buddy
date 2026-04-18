@@ -6,17 +6,15 @@
  * A lightweight non-HttpOnly presence flag (`wb_logged_in`) lets the frontend
  * know whether a session exists without exposing the token to JavaScript.
  *
- * IMPORTANT: NEXT_PUBLIC_API_URL must use the same hostname (e.g. "localhost")
- * as the Next.js dev server so that the SameSite=Lax auth cookie set by the
- * backend is treated as same-site and included in subsequent API calls.
- * Mixing "localhost" and "127.0.0.1" causes cross-site cookie blocking.
+ * All requests are routed through the Next.js proxy (next.config.js rewrites
+ * for /api/:path*) so the browser always communicates with the same origin
+ * (localhost:3000), eliminating CORS issues and ensuring cookies are set and
+ * forwarded correctly.
  */
 
 import axios from "axios";
 import Cookies from "js-cookie";
 import { getErrorMessage } from "@/lib/api";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 /** Non-HttpOnly cookie name used only as a client-side "logged-in" flag. */
 const SESSION_FLAG = "wb_logged_in";
@@ -49,7 +47,7 @@ function extractErrorMessage(err: unknown): string {
 export async function loginUser(email: string, password: string): Promise<void> {
   try {
     await axios.post(
-      `${API_URL}/api/v1/auth/login`,
+      `/api/v1/auth/login`,
       { email, password },
       { withCredentials: true },
     );
@@ -61,7 +59,7 @@ export async function loginUser(email: string, password: string): Promise<void> 
   // Uses the raw axios instance (not the api singleton from lib/api.ts) to
   // avoid triggering the 401 interceptor during the login flow itself.
   try {
-    await axios.get(`${API_URL}/api/v1/auth/me`, { withCredentials: true });
+    await axios.get(`/api/v1/auth/me`, { withCredentials: true });
   } catch (err) {
     if (process.env.NODE_ENV === "development") {
       console.warn("[auth] Session verification after login failed:", err);
@@ -83,7 +81,7 @@ export async function signupUser(
 ): Promise<void> {
   try {
     await axios.post(
-      `${API_URL}/api/v1/auth/signup`,
+      `/api/v1/auth/signup`,
       { email, username, password },
       { withCredentials: true },
     );
@@ -92,7 +90,7 @@ export async function signupUser(
   }
   // Verify the session cookie is working by hitting a protected endpoint.
   try {
-    await axios.get(`${API_URL}/api/v1/auth/me`, { withCredentials: true });
+    await axios.get(`/api/v1/auth/me`, { withCredentials: true });
   } catch (err) {
     if (process.env.NODE_ENV === "development") {
       console.warn("[auth] Session verification after signup failed:", err);
@@ -109,7 +107,7 @@ export async function signupUser(
 export async function logoutUser(): Promise<void> {
   try {
     await axios.post(
-      `${API_URL}/api/v1/auth/logout`,
+      `/api/v1/auth/logout`,
       {},
       { withCredentials: true },
     );

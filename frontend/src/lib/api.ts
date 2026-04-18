@@ -5,32 +5,17 @@
  * endpoints. JWT authentication is handled via HttpOnly cookies set by the
  * backend — axios sends them automatically with `withCredentials: true`.
  * Tokens are never stored in localStorage or sent as URL query parameters.
+ *
+ * All requests are routed through the Next.js proxy (next.config.js rewrites)
+ * so that the browser always communicates with the same origin, eliminating
+ * CORS issues and ensuring HttpOnly cookies are forwarded correctly.
  */
 
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-// Warn at module load if the API URL uses 127.0.0.1 instead of localhost.
-// If the browser address bar shows "localhost" while the API URL uses
-// "127.0.0.1", the browser treats them as different sites and silently drops
-// SameSite=Lax cookies — causing 401 errors after every successful login.
-if (
-  process.env.NODE_ENV === "development" &&
-  typeof console !== "undefined" &&
-  API_URL.includes("127.0.0.1")
-) {
-  console.warn(
-    "[API] NEXT_PUBLIC_API_URL uses '127.0.0.1'. " +
-    "If the browser address bar shows 'localhost', " +
-    "SameSite=Lax auth cookies will be silently dropped (cross-site). " +
-    "Fix: set NEXT_PUBLIC_API_URL=http://localhost:8000 in .env.local"
-  );
-}
-
-// Axios instance with credentials (cookies) sent on every request.
+// Axios instance — same-origin requests via the Next.js proxy (/api/:path*).
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: "/api",
   withCredentials: true,
 });
 
@@ -41,7 +26,7 @@ const api = axios.create({
 // Request interceptor — log outgoing requests in development.
 api.interceptors.request.use((config) => {
   if (process.env.NODE_ENV === "development") {
-    console.debug(`[API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+    console.debug(`[API] ${config.method?.toUpperCase()} ${config.url}`);
   }
   return config;
 });
@@ -231,7 +216,7 @@ export async function sendMessage(
   languagePreference?: string,
 ): Promise<ChatResponse> {
   const { data } = await api.post<Record<string, unknown>>(
-    `/api/v1/chat`,
+    `/v1/chat`,
     { message, session_id: sessionId ?? null, language_preference: languagePreference ?? "english" },
   );
   return normalizeChatResponse(data);
@@ -239,7 +224,7 @@ export async function sendMessage(
 
 export async function getChatHistory(): Promise<ChatMessage[]> {
   const { data } = await api.get<ChatMessage[]>(
-    `/api/v1/chat/history`,
+    `/v1/chat/history`,
   );
   return data;
 }
@@ -250,14 +235,14 @@ export async function getChatHistory(): Promise<ChatMessage[]> {
 
 export async function getProfile(): Promise<UserProfile> {
   const { data } = await api.get<UserProfile>(
-    `/api/v1/profile`,
+    `/v1/profile`,
   );
   return data;
 }
 
 export async function createProfile(profile: UserProfile): Promise<UserProfile> {
   const { data } = await api.post<UserProfile>(
-    `/api/v1/profile`,
+    `/v1/profile`,
     profile,
   );
   return data;
@@ -265,7 +250,7 @@ export async function createProfile(profile: UserProfile): Promise<UserProfile> 
 
 export async function updateProfile(profile: UserProfile): Promise<UserProfile> {
   const { data } = await api.put<UserProfile>(
-    `/api/v1/profile`,
+    `/v1/profile`,
     profile,
   );
   return data;
@@ -277,7 +262,7 @@ export async function updateProfile(profile: UserProfile): Promise<UserProfile> 
 
 export async function getDashboard(): Promise<DashboardData> {
   const { data } = await api.get<DashboardData>(
-    `/api/v1/dashboard`,
+    `/v1/dashboard`,
   );
   return data;
 }
@@ -319,7 +304,7 @@ export interface JourneyData {
 
 export async function getJourney(): Promise<JourneyData> {
   const { data } = await api.get<JourneyData>(
-    `/api/v1/journey`,
+    `/v1/journey`,
   );
   return data;
 }
@@ -360,7 +345,7 @@ export interface WeeklyReportData {
 
 export async function getWeeklyReport(): Promise<WeeklyReportData> {
   const { data } = await api.get<WeeklyReportData>(
-    `/api/v1/weekly-report`,
+    `/v1/weekly-report`,
   );
   return data;
 }
@@ -380,7 +365,7 @@ export interface InsightsData {
 
 export async function getInsights(): Promise<InsightsData> {
   const { data } = await api.get<InsightsData>(
-    `/api/v1/insights`,
+    `/v1/insights`,
   );
   return data;
 }
@@ -410,7 +395,7 @@ export async function transcribeVoice(
   form.append("audio", audioBlob, `recording.${ext}`);
   form.append("language_preference", languagePreference);
   const { data } = await api.post<{ transcript: string; language_used: string }>(
-    `/api/v1/voice/transcribe`,
+    `/v1/voice/transcribe`,
     form,
   );
   return data.transcript;
@@ -421,7 +406,7 @@ export async function getTts(
   languagePreference: string = "english",
 ): Promise<Blob> {
   const { data } = await api.post(
-    `/api/v1/voice/tts`,
+    `/v1/voice/tts`,
     { text, language_preference: languagePreference },
     { responseType: "blob" },
   );
@@ -460,7 +445,7 @@ export async function triggerGuardianAlert(
   req: GuardianAlertTriggerRequest,
 ): Promise<GuardianAlertRecord[]> {
   const { data } = await api.post<GuardianAlertRecord[]>(
-    `/api/v1/guardian-alert`,
+    `/v1/guardian-alert`,
     req,
   );
   return data;
@@ -468,7 +453,7 @@ export async function triggerGuardianAlert(
 
 export async function getGuardianAlerts(): Promise<GuardianAlertListResponse> {
   const { data } = await api.get<GuardianAlertListResponse>(
-    `/api/v1/guardian-alert`,
+    `/v1/guardian-alert`,
   );
   return data;
 }

@@ -27,7 +27,6 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api/v1"
     ALLOWED_ORIGINS: list[str] = [
         "http://localhost:3000",
-        "http://localhost:3001",
     ]
     # Set this to your Vercel (or other) frontend URL so the browser
     # CORS preflight succeeds.  Example:

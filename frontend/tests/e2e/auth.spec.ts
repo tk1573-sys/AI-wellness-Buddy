@@ -12,8 +12,8 @@
 
 import { test, expect, type Page } from "@playwright/test";
 
-// Backend origin as seen by the browser (matches NEXT_PUBLIC_API_URL default)
-const API = "http://localhost:8000";
+// Backend origin as seen by the browser (proxied via Next.js /api/* rewrites)
+const API = "http://localhost:3000";
 
 // Fake JWT returned by the mocked auth endpoints
 const FAKE_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fake.token";
