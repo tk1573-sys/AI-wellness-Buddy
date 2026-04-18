@@ -5,32 +5,17 @@
  * endpoints. JWT authentication is handled via HttpOnly cookies set by the
  * backend — axios sends them automatically with `withCredentials: true`.
  * Tokens are never stored in localStorage or sent as URL query parameters.
+ *
+ * All requests are routed through the Next.js proxy (next.config.js rewrites)
+ * so that the browser always communicates with the same origin, eliminating
+ * CORS issues and ensuring HttpOnly cookies are forwarded correctly.
  */
 
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-// Warn at module load if the API URL uses 127.0.0.1 instead of localhost.
-// If the browser address bar shows "localhost" while the API URL uses
-// "127.0.0.1", the browser treats them as different sites and silently drops
-// SameSite=Lax cookies — causing 401 errors after every successful login.
-if (
-  process.env.NODE_ENV === "development" &&
-  typeof console !== "undefined" &&
-  API_URL.includes("127.0.0.1")
-) {
-  console.warn(
-    "[API] NEXT_PUBLIC_API_URL uses '127.0.0.1'. " +
-    "If the browser address bar shows 'localhost', " +
-    "SameSite=Lax auth cookies will be silently dropped (cross-site). " +
-    "Fix: set NEXT_PUBLIC_API_URL=http://localhost:8000 in .env.local"
-  );
-}
-
-// Axios instance with credentials (cookies) sent on every request.
+// Axios instance — same-origin requests via the Next.js proxy (/api/:path*).
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: "",
   withCredentials: true,
 });
 
@@ -41,7 +26,7 @@ const api = axios.create({
 // Request interceptor — log outgoing requests in development.
 api.interceptors.request.use((config) => {
   if (process.env.NODE_ENV === "development") {
-    console.debug(`[API] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+    console.debug(`[API] ${config.method?.toUpperCase()} ${config.url}`);
   }
   return config;
 });
