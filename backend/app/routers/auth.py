@@ -34,14 +34,14 @@ _bearer_optional = HTTPBearer(auto_error=False)
 # --------------------------------------------------------------------------- #
 
 def _set_auth_cookie(response: Response, token: str, max_age: int) -> None:
-    """Attach an HttpOnly, SameSite=Strict auth cookie to the response."""
+    """Attach an HttpOnly, SameSite=Lax auth cookie to the response."""
     response.set_cookie(
         key=_AUTH_COOKIE,
         value=token,
         max_age=max_age,
         httponly=True,
         secure=settings.ENV != "development",  # Secure flag in production
-        samesite="strict",
+        samesite="lax",  # lax allows cookie to be sent on same-site cross-port requests
         path="/",
     )
 
@@ -52,7 +52,7 @@ def _clear_auth_cookie(response: Response) -> None:
         key=_AUTH_COOKIE,
         path="/",
         httponly=True,
-        samesite="strict",
+        samesite="lax",
     )
 
 
@@ -81,15 +81,20 @@ async def get_current_user(
         credentials.credentials if credentials else None
     )
     if not raw_token:
+        logger.debug(
+            "get_current_user: no auth cookie and no Bearer header — returning 401",
+        )
         raise credentials_exception
 
     try:
         user_id = auth_service.decode_access_token(raw_token)
     except JWTError:
+        logger.debug("get_current_user: JWT validation failed — invalid or expired token")
         raise credentials_exception
 
     user = await auth_service.get_user_by_id(db, user_id)
     if user is None or not user.is_active:
+        logger.debug("get_current_user: user_id=%s not found or inactive", user_id)
         raise credentials_exception
     return user
 

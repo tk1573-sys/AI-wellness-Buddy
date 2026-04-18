@@ -5,6 +5,11 @@
  * The browser sends the cookie automatically with every credentialed request.
  * A lightweight non-HttpOnly presence flag (`wb_logged_in`) lets the frontend
  * know whether a session exists without exposing the token to JavaScript.
+ *
+ * IMPORTANT: NEXT_PUBLIC_API_URL must use the same hostname (e.g. "localhost")
+ * as the Next.js dev server so that the SameSite=Lax auth cookie set by the
+ * backend is treated as same-site and included in subsequent API calls.
+ * Mixing "localhost" and "127.0.0.1" causes cross-site cookie blocking.
  */
 
 import axios from "axios";
@@ -28,7 +33,8 @@ export function getToken(): string | null {
 /**
  * Authenticates an existing user.
  * The backend sets the HttpOnly `wb_access_token` cookie in the response.
- * We set a non-HttpOnly presence flag so the frontend can detect the session.
+ * We then verify the session with /auth/me and set a non-HttpOnly presence
+ * flag so the frontend can detect the session on subsequent renders.
  * Throws an Error with the server's detail message on failure.
  */
 export async function loginUser(email: string, password: string): Promise<void> {
@@ -37,7 +43,19 @@ export async function loginUser(email: string, password: string): Promise<void> 
     { email, password },
     { withCredentials: true },
   );
-  Cookies.set(SESSION_FLAG, "1", { sameSite: "strict" });
+  // Verify the session cookie is working by hitting a protected endpoint.
+  // This also warms up the session so the first page after login loads cleanly.
+  // Uses the raw axios instance (not the api singleton from lib/api.ts) to
+  // avoid triggering the 401 interceptor during the login flow itself.
+  try {
+    await axios.get(`${API_URL}/api/v1/auth/me`, { withCredentials: true });
+  } catch (err) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[auth] Session verification after login failed:", err);
+    }
+    // Non-fatal — the cookie may still work; let the user proceed.
+  }
+  Cookies.set(SESSION_FLAG, "1", { sameSite: "lax" });
 }
 
 /**
@@ -55,7 +73,7 @@ export async function signupUser(
     { email, username, password },
     { withCredentials: true },
   );
-  Cookies.set(SESSION_FLAG, "1", { sameSite: "strict" });
+  Cookies.set(SESSION_FLAG, "1", { sameSite: "lax" });
 }
 
 /**
