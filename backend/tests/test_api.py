@@ -151,6 +151,17 @@ async def test_login_sets_auth_cookie(client):
     assert "httponly" in set_cookie.lower()
 
 
+async def test_signup_sets_auth_cookie(client):
+    """POST /auth/signup should also set an HttpOnly wb_access_token cookie."""
+    resp = await _signup(client, email="signupcookie@example.com", username="signupcookieuser")
+    assert resp.status_code == 201
+    set_cookie = resp.headers.get("set-cookie", "")
+    assert "wb_access_token" in set_cookie, (
+        "Signup must set the wb_access_token cookie so the user is immediately logged in"
+    )
+    assert "httponly" in set_cookie.lower()
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Predict
 # ─────────────────────────────────────────────────────────────────────────────
@@ -454,3 +465,99 @@ async def test_analytics_research_summary_fields(client):
     }
     for field in required_fields:
         assert field in summary, f"Missing field: {field}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Chat history — ordering
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def test_chat_history_ascending_order(client, db_session):
+    """GET /chat/history must return messages in ascending created_at order.
+
+    Verifies that the backend stores and returns chat messages newest-last
+    (chronological) without any reversed() logic.
+    """
+    from datetime import datetime, timezone, timedelta
+
+    from app.models.chat import ChatHistory
+    from app.models.user import User
+    from app.services.auth_service import hash_password
+
+    # Create a user directly in the DB
+    user = User(
+        email="ordering@example.com",
+        username="orderinguser",
+        hashed_password=hash_password("Passw0rd!"),
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.flush()
+
+    # Insert three messages with explicit timestamps in reverse order so we
+    # can confirm the endpoint re-sorts them ascending.
+    base = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    messages = [
+        ChatHistory(
+            user_id=user.id,
+            session_id="order-test",
+            role="user",
+            content="First user message",
+            created_at=base,
+        ),
+        ChatHistory(
+            user_id=user.id,
+            session_id="order-test",
+            role="assistant",
+            content="First assistant reply",
+            created_at=base + timedelta(seconds=1),
+        ),
+        ChatHistory(
+            user_id=user.id,
+            session_id="order-test",
+            role="user",
+            content="Second user message",
+            created_at=base + timedelta(seconds=2),
+        ),
+    ]
+    # Add in reversed order to prove the query doesn't rely on insertion order.
+    for msg in reversed(messages):
+        db_session.add(msg)
+    await db_session.commit()
+
+    # Login to obtain a token for this user
+    signup_resp = await client.post(
+        "/api/v1/auth/signup",
+        json={"email": "ordering@example.com", "username": "orderinguser", "password": "Passw0rd!"},
+    )
+    # User might already exist if the DB is shared — accept 201 or 409
+    assert signup_resp.status_code in (201, 409)
+
+    login_resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "ordering@example.com", "password": "Passw0rd!"},
+    )
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
+
+    resp = await client.get(
+        "/api/v1/chat/history",
+        params={"session_id": "order-test"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    items = resp.json()
+    assert len(items) >= 3, f"Expected at least 3 messages, got {len(items)}"
+
+    # Find the three seeded messages by content (other tests may have added rows)
+    seeded = [m for m in items if m["content"] in {
+        "First user message", "First assistant reply", "Second user message"
+    }]
+    assert len(seeded) == 3, f"Could not find all seeded messages in history: {items}"
+
+    contents = [m["content"] for m in seeded]
+    assert contents == [
+        "First user message",
+        "First assistant reply",
+        "Second user message",
+    ], f"Messages not in ascending order: {contents}"
+

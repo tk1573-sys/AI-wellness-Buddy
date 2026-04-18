@@ -4,7 +4,7 @@
   "outputDirectory": ".next",
   "framework": "nextjs",
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://ai-wellness-backend-ox4q.onrender.com"
+    "BACKEND_URL": "https://ai-wellness-backend-ox4q.onrender.com"
   },
   "headers": [
     {

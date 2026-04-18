@@ -464,68 +464,193 @@ Our mission is to provide accessible emotional support for everyone, with specia
 
 ---
 
-## 🚀 SaaS Production Deployment (v2.0)
+## 🚀 Production Web Application (v2.0)
 
-The project has been upgraded to a production-grade microservice architecture.
+The project includes a production-grade full-stack web application alongside the original CLI/Streamlit tools.
 
-### Architecture Overview
+---
+
+## 🔐 Authentication Design (Production-Grade)
+
+The web application uses **HttpOnly cookie-based JWT authentication** routed through a **same-origin Next.js proxy**. This design eliminates the two most common web security vulnerabilities: XSS token theft and CORS misconfiguration.
+
+### How It Works
 
 ```
-├── backend/          # FastAPI + SQLAlchemy backend
+Browser (Next.js on Vercel)
+    │  All requests go to /api/* — same origin, no CORS
+    ▼
+Next.js Server-Side Proxy  (next.config.js rewrites)
+    │  /api/:path*  →  BACKEND_URL/api/:path*
+    │  Forwards cookies transparently
+    ▼
+FastAPI Backend (Render)
+    │  POST /api/v1/auth/login → sets HttpOnly wb_access_token cookie
+    │  GET  /api/v1/auth/me   → validates cookie, returns user
+    ▼
+PostgreSQL (Render managed DB)
+```
+
+### Security Properties
+
+| Property | Implementation |
+|---|---|
+| Token storage | HttpOnly cookie — **never** in `localStorage` or JavaScript |
+| XSS protection | `HttpOnly` flag makes the token inaccessible to scripts |
+| CORS prevention | Same-origin proxy — browser never makes cross-origin requests |
+| Cookie scope | `SameSite=Lax`, `Path=/`, `Secure` (auto-set on HTTPS) |
+| Token lifetime | `ACCESS_TOKEN_EXPIRE_MINUTES` (default 60 min) |
+| CSRF | `SameSite=Lax` blocks cross-site form submissions |
+| Session flag | Non-HttpOnly `wb_logged_in` cookie used only as a UI presence flag |
+
+### Why Not `localStorage`?
+
+`localStorage` is accessible from any JavaScript on the page, making tokens trivially stealable via XSS. HttpOnly cookies cannot be read by JavaScript at all — the browser sends them automatically on every credentialed request.
+
+### Why Same-Origin Proxy Instead of Direct Backend Calls?
+
+Direct calls from `http://localhost:3000` to `http://localhost:8000` are cross-origin. Browsers enforce CORS restrictions on cross-origin requests, and `SameSite=Lax` cookies are not sent cross-origin by default. The Next.js proxy forwards requests server-side, keeping the browser on a single origin throughout.
+
+---
+
+## 🏗️ Web App Architecture
+
+```
+browser
+    │  HTTPS  →  https://your-app.vercel.app/api/*  (same origin)
+    ▼
+Next.js (Vercel)                         [frontend/]
+    │  next.config.js rewrites
+    │  /api/:path*  →  BACKEND_URL/api/:path*
+    ▼
+FastAPI (Render)                         [backend/]
+    ├── /health                          liveness probe
+    ├── /api/v1/auth/*                   signup · login · logout · me · debug
+    ├── /api/v1/predict                  emotion analysis (public)
+    ├── /api/v1/chat                     AI chat (authenticated)
+    ├── /api/v1/chat/history             chat history, ASC order (authenticated)
+    ├── /api/v1/dashboard                emotion trend + risk alerts
+    ├── /api/v1/weekly-report            7-day summary
+    ├── /api/v1/journey                  longitudinal journey view
+    ├── /api/v1/insights                 personalization insights
+    ├── /api/v1/analytics/research       IEEE-grade metrics endpoint
+    ├── /api/v1/voice/transcribe         STT (SpeechRecognition + ffmpeg)
+    ├── /api/v1/voice/tts                TTS (gTTS)
+    └── /api/v1/guardian-alert           guardian notification system
+    │
+    ▼
+PostgreSQL (Render managed)              [SQLite for local dev]
+    Tables: users · chat_history · emotion_logs · user_profiles · guardian_alerts
+```
+
+### Repository Structure
+
+```
+backend/
+├── app/
+│   ├── main.py           # App factory, CORS, lifespan, model pre-warm
+│   ├── config.py         # Pydantic-settings (.env support)
+│   ├── database.py       # Async SQLAlchemy engine (PostgreSQL + SQLite)
+│   ├── models/           # User, ChatHistory, EmotionLog, UserProfile ORM models
+│   ├── schemas/          # Pydantic v2 request/response schemas
+│   ├── routers/          # auth, chat, predict, dashboard, analytics, voice, …
+│   ├── services/         # auth_service, emotion_service, chat_service, …
+│   └── middleware/       # RequestLoggingMiddleware, SecurityHeadersMiddleware
+├── tests/                # 117 pytest-asyncio tests (unit + integration + E2E)
+├── alembic/              # Database migrations
+├── requirements.txt
+├── .env.example
+└── pytest.ini
+
+frontend/
+├── src/
 │   ├── app/
-│   │   ├── main.py           # App factory, CORS, lifespan
-│   │   ├── config.py         # Pydantic-settings (.env support)
-│   │   ├── database.py       # Async SQLAlchemy engine
-│   │   ├── models/           # User, ChatHistory, EmotionLog ORM models
-│   │   ├── schemas/          # Pydantic v2 request/response schemas
-│   │   ├── routers/          # /health /auth /predict /chat
-│   │   ├── services/         # auth_service, emotion_service, chat_service
-│   │   └── middleware/       # Request logging
-│   ├── tests/                # 19 pytest-asyncio unit + integration tests
-│   ├── requirements.txt
-│   ├── .env.example
-│   └── pytest.ini
-├── frontend/         # Next.js 14 + Tailwind CSS
-│   ├── src/app/
 │   │   ├── (auth)/login      # Login page
 │   │   ├── (auth)/signup     # Signup page
-│   │   └── (app)/chat        # Main chat interface
-│   ├── src/components/
-│   │   ├── chat/             # ChatBubble, TypingIndicator
+│   │   ├── (app)/chat        # Main chat interface
+│   │   ├── (app)/dashboard   # Emotion trend dashboard
+│   │   ├── (app)/journey     # Longitudinal journey view
+│   │   └── (app)/weekly-report
+│   ├── components/
+│   │   ├── chat/             # ChatBubble, TypingIndicator, VoiceInput
 │   │   ├── emotion/          # EmotionBadge, ConfidenceBar
 │   │   └── ui/               # Button, Input, GlassCard
-│   └── src/lib/              # api.ts, auth.ts (typed API client)
-├── Dockerfile.backend        # Multi-stage backend image
-├── docker-compose.yml        # Full-stack local dev
-└── frontend/Dockerfile       # Next.js production image
+│   └── lib/
+│       ├── api.ts            # Typed API client (axios, withCredentials=true)
+│       └── auth.ts           # loginUser, signupUser, logoutUser, isAuthenticated
+├── tests/e2e/                # Playwright end-to-end tests
+├── next.config.js            # Proxy rewrite: /api/* → BACKEND_URL/api/*
+├── vercel.json               # Vercel deployment config
+└── playwright.config.ts
+
+Dockerfile.backend            # Multi-stage production image
+docker-compose.yml            # Full-stack local dev (backend + frontend)
+render.yaml                   # Render Blueprint (backend + PostgreSQL)
 ```
 
-### API Endpoints
+---
+
+## 🛠️ API Endpoints
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET`  | `/health` | No | Liveness probe |
-| `POST` | `/api/v1/auth/signup` | No | Register + receive JWT |
-| `POST` | `/api/v1/auth/login` | No | Authenticate + receive JWT |
-| `GET`  | `/api/v1/auth/me` | Bearer | Current user profile |
-| `POST` | `/api/v1/predict` | Optional | Emotion detection |
-| `POST` | `/api/v1/chat` | Bearer | Chat with AI buddy |
-| `GET`  | `/api/v1/chat/history` | Bearer | Retrieve chat history |
+| `POST` | `/api/v1/auth/signup` | No | Register — sets HttpOnly cookie |
+| `POST` | `/api/v1/auth/login` | No | Authenticate — sets HttpOnly cookie |
+| `POST` | `/api/v1/auth/logout` | No | Clear auth cookie |
+| `GET`  | `/api/v1/auth/me` | Cookie | Current user profile |
+| `GET`  | `/api/v1/auth/debug` | No | Cookie presence flags (debugging) |
+| `POST` | `/api/v1/predict` | Optional | Emotion detection (public) |
+| `POST` | `/api/v1/chat` | Cookie | Send message, get AI reply |
+| `GET`  | `/api/v1/chat/history` | Cookie | Retrieve history (ASC order) |
+| `GET`  | `/api/v1/dashboard` | Cookie | Emotion trend + risk alerts |
+| `GET`  | `/api/v1/weekly-report` | Cookie | 7-day wellness summary |
+| `GET`  | `/api/v1/journey` | Cookie | Longitudinal journey + CDI |
+| `GET`  | `/api/v1/insights` | Cookie | Personalization insights |
+| `GET`  | `/api/v1/analytics/research` | Cookie | IEEE-grade research metrics |
+| `POST` | `/api/v1/voice/transcribe` | Cookie | Speech-to-text |
+| `POST` | `/api/v1/voice/tts` | Cookie | Text-to-speech |
+| `POST` | `/api/v1/guardian-alert` | Cookie | Trigger guardian notification |
+| `GET`  | `/api/v1/guardian-alert` | Cookie | List alert history |
+| `GET`  | `/metrics` | No | Prometheus metrics |
 
-### Quick Start (Local)
+> All protected endpoints accept the `wb_access_token` HttpOnly cookie **or** an `Authorization: Bearer <token>` header (for API clients and tests).
+
+---
+
+## ⚡ Quick Start (Local Development)
+
+### Prerequisites
+
+- Python 3.10+
+- Node.js 18+
+- Git
+
+### 1. Backend
 
 ```bash
-# 1. Backend
 cd backend
-cp .env.example .env          # fill in SECRET_KEY
-pip install -r requirements.txt
-uvicorn app.main:app --reload  # http://localhost:8000/docs
+cp .env.example .env
+# ↳ Set SECRET_KEY (required): python -c "import secrets; print(secrets.token_hex(32))"
+# ↳ Leave DATABASE_URL as default for SQLite in local dev
 
-# 2. Frontend
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+# API: http://localhost:8000
+# Docs: http://localhost:8000/docs
+```
+
+### 2. Frontend
+
+```bash
 cd frontend
-cp .env.example .env.local     # set NEXT_PUBLIC_API_URL
+cp .env.example .env.local
+# ↳ .env.example already sets BACKEND_URL=http://localhost:8000
+# ↳ No changes needed for local dev
+
 npm install
-npm run dev                    # http://localhost:3000
+npm run dev
+# App: http://localhost:3000
 ```
 
 ### Docker Compose (Full Stack)
@@ -533,61 +658,161 @@ npm run dev                    # http://localhost:3000
 ```bash
 cp backend/.env.example backend/.env    # set SECRET_KEY
 docker compose up --build
-# Backend: http://localhost:8000
 # Frontend: http://localhost:3000
+# Backend docs: http://localhost:8000/docs
 ```
 
-### Backend Tests
+---
+
+## 🧪 Testing
+
+### Backend (117 tests)
 
 ```bash
 cd backend
-pytest tests/ -v   # 19 tests (unit + integration)
+pytest tests/ -v
+# Covers: auth signup/login/logout, cookie presence, /auth/me via cookie,
+#         chat ordering (created_at ASC), analytics, crisis dispatch,
+#         guardian alerts, DB outage handling
 ```
 
-### Deploy to Render (Backend)
-
-1. Create a **Web Service** on [render.com](https://render.com)
-2. Build command: `pip install -r backend/requirements.txt`
-3. Start command: `cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-4. Add environment variables from `backend/.env.example`
-5. Set `DATABASE_URL` to a Render PostgreSQL connection string
-
-### Deploy to Vercel (Frontend)
+### Frontend E2E (Playwright)
 
 ```bash
 cd frontend
-npx vercel --prod
-# Set NEXT_PUBLIC_API_URL to your Render backend URL
+npx playwright test
+# Covers: login/signup flow, redirect, cookie flag, invalid login toast,
+#         chat message ordering, history from backend, scroll restoration
 ```
 
-### Environment Variables
+---
 
-**Backend (`backend/.env`)**:
+## 🌐 Deployment
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SECRET_KEY` | JWT signing secret (generate with `secrets.token_hex(32)`) | random |
-| `DATABASE_URL` | Async DB connection string | SQLite (`wellness.db`) |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT lifetime | 60 |
-| `ALLOWED_ORIGINS` | CORS origins JSON array | `["http://localhost:3000"]` |
-| `CRISIS_CONFIDENCE_THRESHOLD` | Safety gate trigger level | 0.6 |
-| `LOG_LEVEL` | Logging verbosity | INFO |
+### Backend — Render
 
-**Frontend (`frontend/.env.local`)**:
+The `render.yaml` Blueprint configures a Docker web service + managed PostgreSQL automatically.
 
-| Variable | Description |
-|----------|-------------|
-| `NEXT_PUBLIC_API_URL` | Backend API base URL |
+1. Connect the repository to [render.com](https://render.com) as a **Blueprint**.
+2. Set these secrets in the Render dashboard (never stored in Git):
 
-### Database Schema
+   | Secret | Value |
+   |---|---|
+   | `SECRET_KEY` | `python -c "import secrets; print(secrets.token_hex(32))"` |
+   | `ALLOWED_ORIGINS` | `["https://your-app.vercel.app"]` |
+   | `FRONTEND_URL` | `https://your-app.vercel.app` |
+
+3. `DATABASE_URL` is auto-populated from the Render PostgreSQL add-on.
+
+### Frontend — Vercel
+
+1. Import the repository into [vercel.com](https://vercel.com).
+2. Set **Root Directory** to `frontend`.
+3. Set the environment variable:
+
+   | Variable | Value |
+   |---|---|
+   | `BACKEND_URL` | `https://your-backend.onrender.com` |
+
+4. Deploy. The `next.config.js` rewrite proxies `/api/*` to the Render backend automatically.
+
+> **Important**: `BACKEND_URL` is a **server-side** variable used by Next.js rewrites. It is not `NEXT_PUBLIC_*` and is never exposed to the browser.
+
+---
+
+## 🔧 Environment Variables
+
+### Backend (`backend/.env`)
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `SECRET_KEY` | ✅ | — | JWT signing secret |
+| `DATABASE_URL` | No | `sqlite+aiosqlite:///./wellness.db` | Async DB URL |
+| `ENV` | No | `development` | Set `production` on Render |
+| `ALLOWED_ORIGINS` | No | `["http://localhost:3000"]` | CORS origins (JSON array) |
+| `FRONTEND_URL` | No | `""` | Additional CORS origin |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No | `60` | JWT lifetime |
+| `CRISIS_CONFIDENCE_THRESHOLD` | No | `0.6` | High-risk trigger level |
+| `LOG_LEVEL` | No | `INFO` | `DEBUG` for cookie diagnostics |
+| `RATELIMIT_ENABLED` | No | `true` | Disable in tests |
+| `SMTP_HOST` / `SMTP_*` | No | `""` | Email guardian alerts |
+| `TWILIO_*` | No | `""` | WhatsApp guardian alerts |
+
+### Frontend (`frontend/.env.local`)
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `BACKEND_URL` | No | `http://localhost:8000` | Backend URL for Next.js proxy |
+
+---
+
+## 🗄️ Database Schema
 
 ```sql
 -- users
-id, email (unique), username (unique), hashed_password, is_active, created_at, updated_at
+id · email (unique) · username (unique) · hashed_password · is_active · created_at · updated_at
 
 -- chat_history
-id, user_id (FK), session_id, role (user/assistant), content, emotion, created_at
+id · user_id (FK) · session_id · role ('user'|'assistant') · content · emotion · created_at
 
 -- emotion_logs
-id, user_id (FK), input_text, primary_emotion, confidence, uncertainty, is_high_risk, all_scores (JSON), created_at
+id · user_id (FK) · input_text · primary_emotion · confidence · uncertainty
+   · is_high_risk · all_scores (JSON) · risk_score · personalization_score · created_at
+
+-- user_profiles
+id · user_id (FK) · age · gender · occupation · stress_level · sleep_pattern
+   · triggers (JSON) · personality_type · trauma_history (JSON) · language_preference
+   · enable_guardian_alerts · guardian_email · guardian_whatsapp · …
+
+-- guardian_alerts
+id · user_id (FK) · risk_level · risk_reason · channel · delivery_status
+   · is_test · timestamp
 ```
+
+---
+
+## 🤖 AI/ML Pipeline
+
+```
+User text input
+    │
+    ▼
+EmotionAnalyzer
+    (j-hartmann/emotion-english-distilroberta-base, HuggingFace)
+    → primary_emotion · confidence · uncertainty · all_scores
+    │
+    ▼
+Risk Classifier
+    → is_high_risk · risk_score · escalation_message
+    (threshold: confidence ≥ 0.6 for crisis class)
+    │
+    ▼
+WellnessAgentPipeline
+    → empathetic reply (template + pattern-based)
+    → personalized from UserProfile (triggers, language, tone)
+    │
+    ▼
+Stored in chat_history (ORDER BY created_at ASC)
+Stored in emotion_logs (risk_score, personalization_score)
+```
+
+**Model pre-warming**: Both the EmotionAnalyzer and WellnessAgentPipeline are pre-warmed at server startup, eliminating cold-start latency (~16s) on the first request.
+
+---
+
+## 🗒️ Legacy CLI / Streamlit Application
+
+The original research prototype (CLI + Streamlit UI) is preserved in the repository root:
+
+```bash
+# CLI
+python wellness_buddy.py
+
+# Streamlit web UI
+streamlit run ui_app.py
+
+# Install root-level dependencies
+pip install -r requirements.txt
+```
+
+See `QUICK_START_GUIDE.md`, `UI_GUIDE.md`, and `OPERATION_GUIDE.md` for the legacy system.
