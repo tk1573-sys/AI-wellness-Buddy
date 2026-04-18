@@ -119,7 +119,6 @@ def create_app() -> FastAPI:
 
         # ── Voice pipeline readiness check ───────────────────────────────
         import shutil
-        import sys as _sys
 
         _ffmpeg_found = shutil.which("ffmpeg") is not None
         if _ffmpeg_found:
@@ -131,10 +130,11 @@ def create_app() -> FastAPI:
                 "voice support."
             )
 
-        # Check gTTS / SpeechRecognition availability via VoiceHandler flags
+        # Check gTTS / SpeechRecognition availability via VoiceHandler flags.
+        # The voice router adds the project root to sys.path at module load, so
+        # voice_handler is already importable here without extra path manipulation.
         try:
-            _sys.path.insert(0, str(find_project_root()))
-            from voice_handler import VoiceHandler as _VH, _GTTS_AVAILABLE, _SR_AVAILABLE  # noqa: PLC0415
+            from voice_handler import _GTTS_AVAILABLE, _SR_AVAILABLE  # noqa: PLC0415
             if _GTTS_AVAILABLE:
                 logger.info("TTS ready — gTTS available.")
             else:
