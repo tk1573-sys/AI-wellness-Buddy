@@ -24,16 +24,23 @@ Exposes:
 
 from __future__ import annotations
 
-import logging
+# --- MUST BE FIRST ---
 import os
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+
 import warnings
+warnings.filterwarnings(
+    "ignore",
+    message=".*ScriptRunContext.*",
+)
+
+import logging
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("transformers").setLevel(logging.ERROR)
+logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+# --- END ---
+
 from contextlib import asynccontextmanager
-
-# Suppress Streamlit ScriptRunContext warning (Streamlit used in bare/non-server mode)
-warnings.filterwarnings("ignore", message=".*ScriptRunContext.*")
-
-# Reduce HuggingFace Transformers verbosity before any model imports
-os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -77,11 +84,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
-
-# Suppress noisy third-party library logs
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger("transformers").setLevel(logging.ERROR)
-logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 
 
 # --------------------------------------------------------------------------- #
