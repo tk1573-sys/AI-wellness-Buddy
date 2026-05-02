@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -46,6 +47,23 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     DATABASE_URL: str = "sqlite+aiosqlite:///./wellness.db"
     # For PostgreSQL use: postgresql+asyncpg://user:pass@host:5432/dbname
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def _ensure_async_driver(cls, v: str) -> str:
+        """Rewrite bare postgres(ql):// URLs to use the asyncpg driver.
+
+        Render's ``fromDatabase.connectionString`` property returns
+        ``postgres://...`` (the standard libpq / psycopg2 format).
+        SQLAlchemy's asyncio extension requires an async driver prefix;
+        without it the engine raises:
+          InvalidRequestError: The asyncio extension requires an async driver …
+        """
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if v.startswith("postgresql://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     # ------------------------------------------------------------------ #
     # Safety layer
