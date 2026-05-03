@@ -58,6 +58,7 @@ from app.limiter import limiter
 from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
 from app.routers import analytics, auth, chat, health, insights, predict, profile, dashboard, voice, weekly_report, journey, guardian_alert
+from app.services import emotion_service
 from app.utils import find_project_root
 
 try:
@@ -115,7 +116,6 @@ def create_app() -> FastAPI:
             logger.info("HuggingFace token configured.")
 
         # ── Eagerly pre-load ML models to avoid cold-start on first request ─
-        from app.services import emotion_service  # noqa: PLC0415
         logger.info("Pre-loading ML models at startup…")
         try:
             emotion_service.preload_models()
