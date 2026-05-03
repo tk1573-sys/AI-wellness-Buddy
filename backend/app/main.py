@@ -111,7 +111,7 @@ def create_app() -> FastAPI:
             logger.info("Database tables created / verified.")
         except Exception:
             logger.error(
-                "Database initialisation failed — app will start without DB.",
+                "Database initialization failed — app will start without DB.",
                 exc_info=True,
             )
 
