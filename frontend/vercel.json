@@ -3,9 +3,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "env": {
-    "BACKEND_URL": "https://ai-wellness-backend-ox4q.onrender.com"
-  },
   "headers": [
     {
       "source": "/(.*)",
