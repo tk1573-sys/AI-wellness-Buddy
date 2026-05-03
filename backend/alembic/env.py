@@ -32,6 +32,8 @@ from app.database import Base  # noqa: E402
 import app.models.user  # noqa: E402, F401
 import app.models.emotion  # noqa: E402, F401
 import app.models.chat  # noqa: E402, F401
+import app.models.profile  # noqa: E402, F401
+import app.models.guardian_alert  # noqa: E402, F401
 
 # ── Alembic config object ─────────────────────────────────────────────────────
 config = context.config

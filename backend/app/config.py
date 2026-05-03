@@ -29,6 +29,33 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: list[str] = [
         "http://localhost:3000",
     ]
+
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def _parse_allowed_origins(cls, v: object) -> list[str]:
+        """Accept both a JSON array and a plain comma-separated string.
+
+        Railway (and most PaaS providers) store env vars as plain strings.
+        When ALLOWED_ORIGINS is set to a bare URL like
+        ``https://app.vercel.app`` pydantic-settings would fail to parse it
+        as ``list[str]``.  This validator normalises all of the following
+        forms to a proper list:
+
+        - Already a list: returned as-is.
+        - JSON array string: ``["https://a.com","https://b.com"]``
+        - Comma-separated string: ``https://a.com,https://b.com``
+        - Single URL string: ``https://a.com``
+        """
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            stripped = v.strip()
+            if stripped.startswith("["):
+                import json  # noqa: PLC0415
+                return json.loads(stripped)
+            return [origin.strip() for origin in stripped.split(",") if origin.strip()]
+        return v  # type: ignore[return-value]
+
     # Set this to your Vercel (or other) frontend URL so the browser
     # CORS preflight succeeds.  Example:
     #   FRONTEND_URL=https://ai-wellness-buddy.vercel.app

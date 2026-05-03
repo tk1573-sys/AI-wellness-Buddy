@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
 import sys
@@ -283,7 +284,7 @@ async def handle_chat(
         result = _pipeline_fallback
     else:
         try:
-            result = pipeline.process_turn(req.message, context=context)
+            result = await asyncio.to_thread(pipeline.process_turn, req.message, context=context)
         except Exception:
             logger.exception("Pipeline error for user_id=%d", user_id)
             result = _pipeline_fallback

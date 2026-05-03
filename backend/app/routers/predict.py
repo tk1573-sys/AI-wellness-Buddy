@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
@@ -50,7 +51,7 @@ async def predict(
     """
     t0 = time.perf_counter()
     try:
-        result = emotion_service.predict(req.text)
+        result = await asyncio.to_thread(emotion_service.predict, req.text)
     except Exception as exc:
         logger.exception("Prediction failed: %s", exc)
         raise HTTPException(
