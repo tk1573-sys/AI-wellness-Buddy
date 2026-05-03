@@ -37,10 +37,24 @@ _PERSONALIZATION_THRESHOLD = 0.4
 
 
 def _get_pipeline(user_id: int):
-    """Lazily initialise a WellnessAgentPipeline for the given user."""
+    """Lazily initialise a WellnessAgentPipeline for the given user.
+
+    Returns ``None`` (and logs a warning) if the pipeline cannot be
+    constructed due to insufficient memory or a missing dependency so
+    that callers can use the inline fallback response instead.
+    """
     if user_id not in _pipelines:
-        from agent_pipeline import WellnessAgentPipeline  # noqa: PLC0415
-        _pipelines[user_id] = WellnessAgentPipeline()
+        try:
+            from agent_pipeline import WellnessAgentPipeline  # noqa: PLC0415
+            _pipelines[user_id] = WellnessAgentPipeline()
+        except (ImportError, MemoryError, OSError, RuntimeError):
+            logger.warning(
+                "WellnessAgentPipeline init failed for user_id=%d "
+                "(possible OOM or missing dependency); using inline fallback.",
+                user_id,
+                exc_info=True,
+            )
+            return None
     return _pipelines[user_id]
 
 
@@ -259,15 +273,20 @@ async def handle_chat(
 
     # Run full agent pipeline (emotion → pattern → response)
     t_nlp_start = time.perf_counter()
-    try:
-        result = pipeline.process_turn(req.message, context=context)
-    except Exception:
-        logger.exception("Pipeline error for user_id=%d", user_id)
-        result = {
-            "response": "I'm here for you. Could you tell me more about how you're feeling?",
-            "emotion": {"primary_emotion": "neutral", "confidence_score": 0.5},
-            "patterns": {},
-        }
+    _pipeline_fallback = {
+        "response": "I'm here for you. Could you tell me more about how you're feeling?",
+        "emotion": {"primary_emotion": "neutral", "confidence_score": 0.5},
+        "patterns": {},
+    }
+    if pipeline is None:
+        logger.warning("Pipeline unavailable for user_id=%d; using fallback response.", user_id)
+        result = _pipeline_fallback
+    else:
+        try:
+            result = pipeline.process_turn(req.message, context=context)
+        except Exception:
+            logger.exception("Pipeline error for user_id=%d", user_id)
+            result = _pipeline_fallback
     t_nlp_end = time.perf_counter()
     logger.info("timing nlp=%.3fs user_id=%d", t_nlp_end - t_nlp_start, user_id)
 

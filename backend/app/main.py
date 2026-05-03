@@ -27,6 +27,8 @@ from __future__ import annotations
 # --- MUST BE FIRST ---
 import os
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+# Disable tokenizer parallelism to reduce memory overhead on startup
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -105,34 +107,9 @@ def create_app() -> FastAPI:
         )
         await init_db()
         logger.info("Database tables created / verified.")
-
-        # ── Pre-warm ML models ────────────────────────────────────────────
-        # Load HuggingFace transformer models into the process-level pipeline
-        # cache (models/emotion_transformer.py + emotion_analyzer.py) so that
-        # the first real user request is served in <2 s instead of ~16 s.
-        try:
-            from app.services import emotion_service
-            emotion_service._get_analyzer()
-            logger.info("EmotionAnalyzer pre-warmed successfully.")
-        except Exception:  # noqa: BLE001
-            logger.warning(
-                "EmotionAnalyzer pre-warm failed; first request may experience cold-start delay.",
-                exc_info=True,
-            )
-        # Pre-warm the WellnessAgentPipeline.  The sentinel pipeline (user_id=0)
-        # is discarded after construction, but the underlying HuggingFace models
-        # now live in the module-level _PROCESS_PIPELINE_CACHE dicts so all
-        # subsequent WellnessAgentPipeline() calls reuse them instantly.
-        try:
-            from app.services.chat_service import _get_pipeline, _pipelines
-            _get_pipeline(0)
-            _pipelines.pop(0, None)  # discard sentinel; models stay in cache
-            logger.info("Model preloaded at startup — WellnessAgentPipeline pre-warmed.")
-        except Exception:  # noqa: BLE001
-            logger.warning(
-                "WellnessAgentPipeline pre-warm failed; first request may experience cold-start delay.",
-                exc_info=True,
-            )
+        logger.info(
+            "ML models will be loaded lazily on first request to keep startup memory low."
+        )
 
         # ── Voice pipeline readiness check ───────────────────────────────
         import shutil
