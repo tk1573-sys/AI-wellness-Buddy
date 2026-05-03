@@ -3,7 +3,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 FROM python:3.11-slim AS base
 
-WORKDIR /workspace
+WORKDIR /app
 
 # System deps (needed for bcrypt / psycopg wheel builds + audio processing)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ── Install dependencies ──────────────────────────────────────────────────────
-COPY backend/requirements.txt /workspace/backend/requirements.txt
-RUN pip install --no-cache-dir -r /workspace/backend/requirements.txt
+COPY backend/requirements.txt /app/backend/requirements.txt
+RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 
 # ── Copy application code ─────────────────────────────────────────────────────
 # AI core (project root Python modules)
@@ -26,20 +26,20 @@ COPY emotion_analyzer.py emotion_predictor.py empathetic_responder.py \
      risk_escalation.py prediction_agent.py language_handler.py \
      evaluation_framework.py explainability.py config.py \
      session_manager.py auth_manager.py \
-     /workspace/
+     /app/
 
-COPY models/ /workspace/models/
-COPY datasets/ /workspace/datasets/
-COPY evaluation/ /workspace/evaluation/
+COPY models/ /app/models/
+COPY datasets/ /app/datasets/
+COPY evaluation/ /app/evaluation/
 
 # Backend app
-COPY backend/ /workspace/backend/
+COPY backend/ /app/backend/
 
-WORKDIR /workspace/backend
+WORKDIR /app/backend
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
-EXPOSE 10000
+EXPOSE 8000
 
-ENV PYTHONPATH=/workspace
+ENV PYTHONPATH=/app
 
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1
