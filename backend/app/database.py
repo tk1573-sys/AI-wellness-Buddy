@@ -73,7 +73,20 @@ def _ensure_emotion_log_columns(conn: "sqlalchemy.engine.Connection") -> None:
 
 
 async def init_db() -> None:
-    """Create all tables on startup and ensure the schema is up-to-date."""
+    """Create all tables on startup and ensure the schema is up-to-date.
+
+    Explicitly imports every ORM model so that ``Base.metadata`` is fully
+    populated before ``create_all`` runs.  Without this, any model whose
+    module has not yet been imported would silently be omitted from the
+    created schema.
+    """
+    # Ensure all ORM models are registered with Base.metadata.
+    import app.models.user  # noqa: F401, PLC0415
+    import app.models.chat  # noqa: F401, PLC0415
+    import app.models.emotion  # noqa: F401, PLC0415
+    import app.models.profile  # noqa: F401, PLC0415
+    import app.models.guardian_alert  # noqa: F401, PLC0415
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         # Defensively add any columns that may be missing in pre-existing databases.

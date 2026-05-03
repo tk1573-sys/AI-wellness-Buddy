@@ -29,6 +29,36 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: list[str] = [
         "http://localhost:3000",
     ]
+
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def _parse_allowed_origins(cls, v: object) -> list[str]:
+        """Accept both a JSON array and a plain comma-separated string.
+
+        Railway (and most PaaS providers) store env vars as plain strings.
+        When ALLOWED_ORIGINS is set to a bare URL like
+        ``https://app.vercel.app`` pydantic-settings would fail to parse it
+        as ``list[str]``.  This validator normalises all of the following
+        forms to a proper list:
+
+        - Already a list: returned as-is.
+        - JSON array string: ``["https://a.com","https://b.com"]``
+        - Comma-separated string: ``https://a.com,https://b.com``
+        - Single URL string: ``https://a.com``
+        """
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            stripped = v.strip()
+            if stripped.startswith("["):
+                import json  # noqa: PLC0415
+                return json.loads(stripped)
+            return [origin.strip() for origin in stripped.split(",") if origin.strip()]
+        raise ValueError(
+            f"ALLOWED_ORIGINS must be a list, a JSON array string, or a comma-separated "
+            f"string of URLs; got {type(v).__name__!r}"
+        )
+
     # Set this to your Vercel (or other) frontend URL so the browser
     # CORS preflight succeeds.  Example:
     #   FRONTEND_URL=https://ai-wellness-buddy.vercel.app
@@ -110,6 +140,14 @@ class Settings(BaseSettings):
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_WHATSAPP_FROM: str = ""   # e.g. "+14155238886" (Twilio sandbox)
+
+    # ------------------------------------------------------------------ #
+    # HuggingFace
+    # ------------------------------------------------------------------ #
+    # Set to a HuggingFace access token to pull gated models without rate
+    # limits.  Railway: add HF_TOKEN as an environment variable.
+    # https://huggingface.co/settings/tokens
+    HF_TOKEN: str = ""
 
     # ------------------------------------------------------------------ #
     # Guardian Alert — escalation thresholds
