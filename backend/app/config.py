@@ -54,7 +54,10 @@ class Settings(BaseSettings):
                 import json  # noqa: PLC0415
                 return json.loads(stripped)
             return [origin.strip() for origin in stripped.split(",") if origin.strip()]
-        return v  # type: ignore[return-value]
+        raise ValueError(
+            f"ALLOWED_ORIGINS must be a list, a JSON array string, or a comma-separated "
+            f"string of URLs; got {type(v).__name__!r}"
+        )
 
     # Set this to your Vercel (or other) frontend URL so the browser
     # CORS preflight succeeds.  Example:
