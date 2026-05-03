@@ -112,6 +112,14 @@ class Settings(BaseSettings):
     TWILIO_WHATSAPP_FROM: str = ""   # e.g. "+14155238886" (Twilio sandbox)
 
     # ------------------------------------------------------------------ #
+    # HuggingFace
+    # ------------------------------------------------------------------ #
+    # Set to a HuggingFace access token to pull gated models without rate
+    # limits.  Railway: add HF_TOKEN as an environment variable.
+    # https://huggingface.co/settings/tokens
+    HF_TOKEN: str = ""
+
+    # ------------------------------------------------------------------ #
     # Guardian Alert — escalation thresholds
     # ------------------------------------------------------------------ #
     # Minimum number of consecutive distress sessions before auto-alerting

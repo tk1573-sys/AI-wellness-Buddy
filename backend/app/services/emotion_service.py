@@ -55,6 +55,16 @@ def _get_analyzer():
     return _analyzer
 
 
+def preload_models() -> None:
+    """Eagerly initialise all ML models at startup.
+
+    Calling this during the application lifespan event ensures the first
+    API request does not pay the model-load cost (cold-start delay).
+    The singleton is reused for every subsequent call to :func:`predict`.
+    """
+    _get_analyzer()
+
+
 # --------------------------------------------------------------------------- #
 # Public interface
 # --------------------------------------------------------------------------- #

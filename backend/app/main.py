@@ -107,9 +107,24 @@ def create_app() -> FastAPI:
         )
         await init_db()
         logger.info("Database tables created / verified.")
-        logger.info(
-            "ML models will be loaded lazily on first request to keep startup memory low."
-        )
+
+        # ── HuggingFace token ─────────────────────────────────────────────
+        if settings.HF_TOKEN:
+            os.environ.setdefault("HUGGING_FACE_HUB_TOKEN", settings.HF_TOKEN)
+            os.environ.setdefault("HF_TOKEN", settings.HF_TOKEN)
+            logger.info("HuggingFace token configured.")
+
+        # ── Eagerly pre-load ML models to avoid cold-start on first request ─
+        from app.services import emotion_service  # noqa: PLC0415
+        logger.info("Pre-loading ML models at startup…")
+        try:
+            emotion_service.preload_models()
+            logger.info("ML models loaded successfully.")
+        except Exception:
+            logger.warning(
+                "ML model pre-load failed; will retry on first request.",
+                exc_info=True,
+            )
 
         # ── Voice pipeline readiness check ───────────────────────────────
         import shutil
