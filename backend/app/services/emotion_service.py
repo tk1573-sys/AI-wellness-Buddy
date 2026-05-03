@@ -33,12 +33,25 @@ _analyzer = None  # type: ignore[var-annotated]
 
 
 def _get_analyzer():
-    """Lazily import and initialise EmotionAnalyzer on first use."""
+    """Lazily import and initialise EmotionAnalyzer on first use.
+
+    Returns ``None`` (and logs a warning) if the model cannot be loaded due to
+    insufficient memory or a missing dependency so that callers can fall back to
+    the lightweight keyword-based response instead of raising an exception.
+    """
     global _analyzer
     if _analyzer is None:
         logger.info("Loading EmotionAnalyzer (first request in this worker)…")
-        from emotion_analyzer import EmotionAnalyzer  # noqa: PLC0415
-        _analyzer = EmotionAnalyzer()
+        try:
+            from emotion_analyzer import EmotionAnalyzer  # noqa: PLC0415
+            _analyzer = EmotionAnalyzer()
+        except (ImportError, MemoryError, OSError, RuntimeError):
+            logger.warning(
+                "EmotionAnalyzer failed to load (possible OOM or missing dependency); "
+                "falling back to keyword-based emotion detection.",
+                exc_info=True,
+            )
+            return None
     return _analyzer
 
 
@@ -50,11 +63,14 @@ def predict(text: str) -> PredictResponse:
     """Run the hybrid emotion pipeline and return a structured response."""
     analyzer = _get_analyzer()
 
-    try:
-        result = analyzer.classify_emotion(text)
-    except Exception:
-        logger.exception("EmotionAnalyzer.classify_emotion failed; falling back")
+    if analyzer is None:
         result = _fallback_result(text)
+    else:
+        try:
+            result = analyzer.classify_emotion(text)
+        except Exception:
+            logger.exception("EmotionAnalyzer.classify_emotion failed; falling back")
+            result = _fallback_result(text)
 
     primary = result.get("emotion", "neutral")
     confidence = float(result.get("confidence_score", 0.5))
