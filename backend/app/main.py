@@ -106,8 +106,14 @@ def create_app() -> FastAPI:
             settings.DATABASE_URL.split("://")[0] if "://" in settings.DATABASE_URL else "unknown",   # driver only — no creds
             settings.FRONTEND_URL or "(not set)",
         )
-        await init_db()
-        logger.info("Database tables created / verified.")
+        try:
+            await init_db()
+            logger.info("Database tables created / verified.")
+        except Exception:
+            logger.error(
+                "Database initialization failed — app will start without DB.",
+                exc_info=True,
+            )
 
         # ── HuggingFace token ─────────────────────────────────────────────
         if settings.HF_TOKEN:
