@@ -93,7 +93,7 @@ api.interceptors.response.use(
       const retryCount = config._retryCount ?? 0;
       if (retryCount < MAX_RETRIES) {
         config._retryCount = retryCount + 1;
-        const delay = RETRY_DELAY_BASE_MS * 2 ** retryCount; // 500 ms, 1000 ms
+        const delay = RETRY_DELAY_BASE_MS * 2 ** retryCount; // retry 1: 500 ms, retry 2: 1000 ms
         console.debug(
           `[API] Retrying (${config._retryCount}/${MAX_RETRIES}) in ${delay} ms…`,
         );
@@ -208,7 +208,17 @@ export interface DashboardData {
 function extractDetailMessage(detail: unknown): string | null {
   if (!detail) return null;
   if (Array.isArray(detail)) {
-    return detail.map((d: { msg?: string }) => d.msg ?? String(d)).join("; ");
+    return detail
+      .map((d) => {
+        if (typeof d === "object" && d !== null) {
+          // FastAPI validation errors use { msg, type, loc }
+          if ("msg" in d) return String((d as { msg: unknown }).msg);
+          // Fallback: stringify the object rather than "[object Object]"
+          return JSON.stringify(d);
+        }
+        return String(d);
+      })
+      .join("; ");
   }
   if (typeof detail === "object" && "message" in detail) {
     return String((detail as { message: string }).message);

@@ -43,7 +43,7 @@ async def health_full():
         _logger.warning("Health check DB probe failed: %s", exc)
         db_error = "Database connection failed"
 
-    model_loaded = emotion_service._analyzer is not None
+    model_loaded = emotion_service.is_model_loaded()
 
     return {
         "status": "ok",
