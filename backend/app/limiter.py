@@ -16,7 +16,7 @@ settings = get_settings()
 
 limiter = Limiter(
     key_func=get_remote_address,
-    default_limits=["200/minute"],
+    default_limits=["10/10seconds"],
     enabled=settings.RATELIMIT_ENABLED,
 )
 # Workaround: slowapi's get_app_config omits the cast argument when

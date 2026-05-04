@@ -31,6 +31,15 @@ const RETRY_DELAY_BASE_MS = 500;
 
 function isRetryable(error: unknown): boolean {
   if (!axios.isAxiosError(error)) return false;
+  // Never retry non-idempotent methods — duplicate POST/PUT would create duplicate data.
+  const method = error.config?.method?.toUpperCase();
+  if (
+    method === "POST" ||
+    method === "PUT" ||
+    method === "PATCH" ||
+    method === "DELETE"
+  )
+    return false;
   // Timeouts are not retried — the backend is likely still processing,
   // and a duplicate request could create duplicate data.
   if (error.code === "ECONNABORTED") return false;
@@ -48,8 +57,12 @@ const sleep = (ms: number): Promise<void> =>
 // Global interceptors
 // -------------------------------------------------------------------------- //
 
-// Request interceptor — log outgoing requests in development.
+// Request interceptor — attach X-Request-ID for end-to-end tracing, log in development.
 api.interceptors.request.use((config) => {
+  // Attach a unique request ID so the backend can correlate frontend calls.
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    config.headers["X-Request-ID"] = crypto.randomUUID();
+  }
   if (process.env.NODE_ENV === "development") {
     console.debug(`[API] ${config.method?.toUpperCase()} ${config.url}`);
   }
@@ -238,6 +251,10 @@ export function getErrorMessage(err: unknown): string {
     }
     const { status, data } = err.response;
     const detail = data?.detail;
+    // 429 — rate limited
+    if (status === 429) {
+      return "Too many requests. Please wait a moment before trying again.";
+    }
     // 503 — service/database unavailable
     if (status === 503) {
       return (

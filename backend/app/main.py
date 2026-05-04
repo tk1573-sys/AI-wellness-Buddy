@@ -49,7 +49,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy.exc import DisconnectionError, OperationalError, TimeoutError as SATimeoutError
@@ -59,6 +58,7 @@ from app.database import init_db
 from app.limiter import limiter
 from app.middleware.logging import RequestLoggingMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
+from app.middleware.timeout import TimeoutMiddleware
 from app.routers import analytics, auth, chat, health, insights, predict, profile, dashboard, voice, weekly_report, journey, guardian_alert
 from app.services import emotion_service
 from app.utils import find_project_root
@@ -190,7 +190,15 @@ def create_app() -> FastAPI:
     # Rate limiter state + error handler
     # ------------------------------------------------------------------ #
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    @app.exception_handler(RateLimitExceeded)
+    async def rate_limit_exceeded_handler(request: Request, _exc: RateLimitExceeded) -> JSONResponse:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too many requests"},
+            headers={"Retry-After": "10"},
+        )
+
     app.add_middleware(SlowAPIMiddleware)
 
     # ------------------------------------------------------------------ #
@@ -234,6 +242,11 @@ def create_app() -> FastAPI:
     # Security headers
     # ------------------------------------------------------------------ #
     app.add_middleware(SecurityHeadersMiddleware, env=settings.ENV)
+
+    # ------------------------------------------------------------------ #
+    # Global request timeout (20 s) — returns 504 if backend is too slow
+    # ------------------------------------------------------------------ #
+    app.add_middleware(TimeoutMiddleware)
 
     # ------------------------------------------------------------------ #
     # CORS

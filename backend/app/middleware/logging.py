@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 import uuid
@@ -13,21 +14,31 @@ logger = logging.getLogger("api.access")
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Log every HTTP request with method, path, status, latency, and request_id."""
+    """Log every HTTP request as a structured JSON record.
+
+    Accepts an incoming ``X-Request-ID`` header from the client (e.g. the
+    frontend) and re-uses it as the request identifier so that a single
+    logical operation can be traced end-to-end.  A fresh UUID is generated
+    when the header is absent.
+    """
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        request_id = str(uuid.uuid4())
+        # Prefer caller-supplied ID for end-to-end tracing; fall back to a fresh UUID.
+        request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
         request.state.request_id = request_id
         t0 = time.perf_counter()
         response = await call_next(request)
         latency_ms = round((time.perf_counter() - t0) * 1000, 1)
         logger.info(
-            "%s %s -> %d  (%.1f ms) [req=%s]",
-            request.method,
-            request.url.path,
-            response.status_code,
-            latency_ms,
-            request_id,
+            json.dumps(
+                {
+                    "request_id": request_id,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": response.status_code,
+                    "duration_ms": latency_ms,
+                }
+            )
         )
         response.headers["X-Process-Time-Ms"] = str(latency_ms)
         response.headers["X-Request-ID"] = request_id
