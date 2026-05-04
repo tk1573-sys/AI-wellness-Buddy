@@ -1,5 +1,7 @@
 """Health check router."""
 
+import logging
+
 from fastapi import APIRouter
 from sqlalchemy import text
 
@@ -9,6 +11,7 @@ from app.services import emotion_service
 
 router = APIRouter(tags=["Health"])
 settings = get_settings()
+_logger = logging.getLogger(__name__)
 
 
 @router.get("/health")
@@ -36,7 +39,9 @@ async def health_full():
             await session.execute(text("SELECT 1"))
         db_ok = True
     except Exception as exc:  # noqa: BLE001
-        db_error = str(exc)
+        # Log the real error internally; expose only a safe generic message.
+        _logger.warning("Health check DB probe failed: %s", exc)
+        db_error = "Database connection failed"
 
     model_loaded = emotion_service._analyzer is not None
 

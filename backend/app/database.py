@@ -116,7 +116,8 @@ async def init_db() -> None:
         except Exception as exc:
             if attempt == _max_attempts:
                 raise
-            _wait = 2 ** attempt  # 2 s, 4 s
+            # Back-off: attempt 1→2 waits 2 s, attempt 2→3 waits 4 s.
+            _wait = 2 ** attempt
             _db_logger.warning(
                 "DB init attempt %d/%d failed; retrying in %ds — %s",
                 attempt, _max_attempts, _wait, exc,
