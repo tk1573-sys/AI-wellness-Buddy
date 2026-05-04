@@ -165,11 +165,27 @@ export interface DashboardData {
 
 export function getErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
+    // Network failure (no response from server at all)
+    if (!err.response) {
+      return "Unable to reach the server. Please check your connection and try again.";
+    }
+    const status = err.response.status;
     const detail = err.response?.data?.detail;
+    // 503 — service/database unavailable
+    if (status === 503) {
+      if (detail && typeof detail === "object" && "message" in detail) {
+        return String((detail as { message: string }).message);
+      }
+      return "The service is temporarily unavailable. Please try again in a moment.";
+    }
     if (detail) {
-      return Array.isArray(detail)
-        ? detail.map((d: { msg?: string }) => d.msg ?? String(d)).join("; ")
-        : String(detail);
+      if (Array.isArray(detail)) {
+        return detail.map((d: { msg?: string }) => d.msg ?? String(d)).join("; ");
+      }
+      if (typeof detail === "object" && "message" in detail) {
+        return String((detail as { message: string }).message);
+      }
+      return String(detail);
     }
     return err.message;
   }
