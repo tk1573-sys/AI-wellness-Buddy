@@ -163,31 +163,33 @@ export interface DashboardData {
 // AxiosErrors carry the server's `detail` field; fall back to err.message.
 // -------------------------------------------------------------------------- //
 
+function extractDetailMessage(detail: unknown): string | null {
+  if (!detail) return null;
+  if (Array.isArray(detail)) {
+    return detail.map((d: { msg?: string }) => d.msg ?? String(d)).join("; ");
+  }
+  if (typeof detail === "object" && "message" in detail) {
+    return String((detail as { message: string }).message);
+  }
+  return String(detail);
+}
+
 export function getErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
     // Network failure (no response from server at all)
     if (!err.response) {
       return "Unable to reach the server. Please check your connection and try again.";
     }
-    const status = err.response.status;
-    const detail = err.response?.data?.detail;
+    const { status, data } = err.response;
+    const detail = data?.detail;
     // 503 — service/database unavailable
     if (status === 503) {
-      if (detail && typeof detail === "object" && "message" in detail) {
-        return String((detail as { message: string }).message);
-      }
-      return "The service is temporarily unavailable. Please try again in a moment.";
+      return (
+        extractDetailMessage(detail) ??
+        "The service is temporarily unavailable. Please try again in a moment."
+      );
     }
-    if (detail) {
-      if (Array.isArray(detail)) {
-        return detail.map((d: { msg?: string }) => d.msg ?? String(d)).join("; ");
-      }
-      if (typeof detail === "object" && "message" in detail) {
-        return String((detail as { message: string }).message);
-      }
-      return String(detail);
-    }
-    return err.message;
+    return extractDetailMessage(detail) ?? err.message;
   }
   return err instanceof Error ? err.message : "Something went wrong.";
 }
