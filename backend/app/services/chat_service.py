@@ -284,7 +284,13 @@ async def handle_chat(
         result = _pipeline_fallback
     else:
         try:
-            result = await asyncio.to_thread(pipeline.process_turn, req.message, context=context)
+            result = await asyncio.wait_for(
+                asyncio.to_thread(pipeline.process_turn, req.message, context=context),
+                timeout=15.0,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Pipeline timed out for user_id=%d; using fallback response.", user_id)
+            result = _pipeline_fallback
         except Exception:
             logger.exception("Pipeline error for user_id=%d", user_id)
             result = _pipeline_fallback

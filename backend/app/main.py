@@ -43,6 +43,8 @@ logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 
 from contextlib import asynccontextmanager
 
+import asyncio
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -124,8 +126,15 @@ def create_app() -> FastAPI:
         # ── Eagerly pre-load ML models to avoid cold-start on first request ─
         logger.info("Pre-loading ML models at startup…")
         try:
-            emotion_service.preload_models()
+            await asyncio.wait_for(
+                asyncio.to_thread(emotion_service.preload_models),
+                timeout=60.0,
+            )
             logger.info("ML models loaded successfully.")
+        except asyncio.TimeoutError:
+            logger.warning(
+                "ML model pre-load timed out after 60 s; will load on first request."
+            )
         except Exception:
             logger.warning(
                 "ML model pre-load failed; will retry on first request.",

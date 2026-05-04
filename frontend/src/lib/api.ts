@@ -17,7 +17,32 @@ import axios from "axios";
 const api = axios.create({
   baseURL: "/api",
   withCredentials: true,
+  // Abort requests that take longer than 15 s to prevent the UI from
+  // hanging indefinitely on a slow or unresponsive backend.
+  timeout: 15000,
 });
+
+// -------------------------------------------------------------------------- //
+// Retry helpers
+// -------------------------------------------------------------------------- //
+
+const MAX_RETRIES = 2;
+const RETRY_DELAY_BASE_MS = 500;
+
+function isRetryable(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false;
+  // Timeouts are not retried — the backend is likely still processing,
+  // and a duplicate request could create duplicate data.
+  if (error.code === "ECONNABORTED") return false;
+  // Genuine network failure (DNS, TCP refused, etc.)
+  if (!error.response) return true;
+  // Service temporarily unavailable
+  if (error.response.status === 503) return true;
+  return false;
+}
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 // -------------------------------------------------------------------------- //
 // Global interceptors
@@ -31,7 +56,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Response interceptor — log responses and redirect to /login on 401.
+// Response interceptor — log responses, retry on transient errors, and redirect to /login on 401.
 api.interceptors.response.use(
   (response) => {
     if (process.env.NODE_ENV === "development") {
@@ -41,7 +66,7 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
+  async (error) => {
     if (process.env.NODE_ENV === "development") {
       console.debug(
         `[API] ERROR ${error.response?.status} ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
@@ -60,6 +85,23 @@ api.interceptors.response.use(
       // is not a React component, so Next.js router hooks are not available here.
       window.location.href = "/login";
     }
+
+    // Retry transient failures (network errors, 503) up to MAX_RETRIES times.
+    if (isRetryable(error) && error.config) {
+      type RetryConfig = typeof error.config & { _retryCount?: number };
+      const config = error.config as RetryConfig;
+      const retryCount = config._retryCount ?? 0;
+      if (retryCount < MAX_RETRIES) {
+        config._retryCount = retryCount + 1;
+        const delay = RETRY_DELAY_BASE_MS * 2 ** retryCount; // 500 ms, 1000 ms
+        console.debug(
+          `[API] Retrying (${config._retryCount}/${MAX_RETRIES}) in ${delay} ms…`,
+        );
+        await sleep(delay);
+        return api(config);
+      }
+    }
+
     return Promise.reject(error);
   },
 );
@@ -176,6 +218,10 @@ function extractDetailMessage(detail: unknown): string | null {
 
 export function getErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
+    // Request timed out (ECONNABORTED) — backend is slow or overloaded.
+    if (err.code === "ECONNABORTED") {
+      return "Server is taking too long. Please try again.";
+    }
     // Network failure (no response from server at all)
     if (!err.response) {
       return "Unable to reach the server. Please check your connection and try again.";
