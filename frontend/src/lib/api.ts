@@ -17,21 +17,59 @@ import axios from "axios";
 const api = axios.create({
   baseURL: "/api",
   withCredentials: true,
+  // Abort requests that take longer than 15 s to prevent the UI from
+  // hanging indefinitely on a slow or unresponsive backend.
+  timeout: 15000,
 });
+
+// -------------------------------------------------------------------------- //
+// Retry helpers
+// -------------------------------------------------------------------------- //
+
+const MAX_RETRIES = 2;
+const RETRY_DELAY_BASE_MS = 500;
+
+function isRetryable(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false;
+  // Never retry non-idempotent methods — duplicate POST/PUT would create duplicate data.
+  const method = error.config?.method?.toUpperCase();
+  if (
+    method === "POST" ||
+    method === "PUT" ||
+    method === "PATCH" ||
+    method === "DELETE"
+  )
+    return false;
+  // Timeouts are not retried — the backend is likely still processing,
+  // and a duplicate request could create duplicate data.
+  if (error.code === "ECONNABORTED") return false;
+  // Genuine network failure (DNS, TCP refused, etc.)
+  if (!error.response) return true;
+  // Service temporarily unavailable
+  if (error.response.status === 503) return true;
+  return false;
+}
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 // -------------------------------------------------------------------------- //
 // Global interceptors
 // -------------------------------------------------------------------------- //
 
-// Request interceptor — log outgoing requests in development.
+// Request interceptor — attach X-Request-ID for end-to-end tracing, log in development.
 api.interceptors.request.use((config) => {
+  // Attach a unique request ID so the backend can correlate frontend calls.
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    config.headers["X-Request-ID"] = crypto.randomUUID();
+  }
   if (process.env.NODE_ENV === "development") {
     console.debug(`[API] ${config.method?.toUpperCase()} ${config.url}`);
   }
   return config;
 });
 
-// Response interceptor — log responses and redirect to /login on 401.
+// Response interceptor — log responses, retry on transient errors, and redirect to /login on 401.
 api.interceptors.response.use(
   (response) => {
     if (process.env.NODE_ENV === "development") {
@@ -41,7 +79,7 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
+  async (error) => {
     if (process.env.NODE_ENV === "development") {
       console.debug(
         `[API] ERROR ${error.response?.status} ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
@@ -60,6 +98,23 @@ api.interceptors.response.use(
       // is not a React component, so Next.js router hooks are not available here.
       window.location.href = "/login";
     }
+
+    // Retry transient failures (network errors, 503) up to MAX_RETRIES times.
+    if (isRetryable(error) && error.config) {
+      type RetryConfig = typeof error.config & { _retryCount?: number };
+      const config = error.config as RetryConfig;
+      const retryCount = config._retryCount ?? 0;
+      if (retryCount < MAX_RETRIES) {
+        config._retryCount = retryCount + 1;
+        const delay = RETRY_DELAY_BASE_MS * 2 ** retryCount; // retry 1: 500 ms, retry 2: 1000 ms
+        console.debug(
+          `[API] Retrying (${config._retryCount}/${MAX_RETRIES}) in ${delay} ms…`,
+        );
+        await sleep(delay);
+        return api(config);
+      }
+    }
+
     return Promise.reject(error);
   },
 );
@@ -163,15 +218,51 @@ export interface DashboardData {
 // AxiosErrors carry the server's `detail` field; fall back to err.message.
 // -------------------------------------------------------------------------- //
 
+function extractDetailMessage(detail: unknown): string | null {
+  if (!detail) return null;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d) => {
+        if (typeof d === "object" && d !== null) {
+          // FastAPI validation errors use { msg, type, loc }
+          if ("msg" in d) return String((d as { msg: unknown }).msg);
+          // Fallback: stringify the object rather than "[object Object]"
+          return JSON.stringify(d);
+        }
+        return String(d);
+      })
+      .join("; ");
+  }
+  if (typeof detail === "object" && "message" in detail) {
+    return String((detail as { message: string }).message);
+  }
+  return String(detail);
+}
+
 export function getErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
-    const detail = err.response?.data?.detail;
-    if (detail) {
-      return Array.isArray(detail)
-        ? detail.map((d: { msg?: string }) => d.msg ?? String(d)).join("; ")
-        : String(detail);
+    // Request timed out (ECONNABORTED) — backend is slow or overloaded.
+    if (err.code === "ECONNABORTED") {
+      return "Server is taking too long. Please try again.";
     }
-    return err.message;
+    // Network failure (no response from server at all)
+    if (!err.response) {
+      return "Unable to reach the server. Please check your connection and try again.";
+    }
+    const { status, data } = err.response;
+    const detail = data?.detail;
+    // 429 — rate limited
+    if (status === 429) {
+      return "Too many requests. Please wait a moment before trying again.";
+    }
+    // 503 — service/database unavailable
+    if (status === 503) {
+      return (
+        extractDetailMessage(detail) ??
+        "The service is temporarily unavailable. Please try again in a moment."
+      );
+    }
+    return extractDetailMessage(detail) ?? err.message;
   }
   return err instanceof Error ? err.message : "Something went wrong.";
 }

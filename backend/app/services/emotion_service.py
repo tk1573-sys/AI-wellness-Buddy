@@ -65,6 +65,11 @@ def preload_models() -> None:
     _get_analyzer()
 
 
+def is_model_loaded() -> bool:
+    """Return True if the ML model singleton has been successfully loaded."""
+    return _analyzer is not None
+
+
 # --------------------------------------------------------------------------- #
 # Public interface
 # --------------------------------------------------------------------------- #

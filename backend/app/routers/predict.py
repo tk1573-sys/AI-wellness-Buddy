@@ -51,7 +51,16 @@ async def predict(
     """
     t0 = time.perf_counter()
     try:
-        result = await asyncio.to_thread(emotion_service.predict, req.text)
+        result = await asyncio.wait_for(
+            asyncio.to_thread(emotion_service.predict, req.text),
+            timeout=15.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("Prediction timed out after 15 s for text_len=%d", len(req.text))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The prediction service is taking too long. Please try again.",
+        )
     except Exception as exc:
         logger.exception("Prediction failed: %s", exc)
         raise HTTPException(

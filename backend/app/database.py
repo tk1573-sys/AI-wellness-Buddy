@@ -7,6 +7,7 @@ The DATABASE_URL setting controls which backend is used.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
@@ -19,14 +20,25 @@ from sqlalchemy.orm import DeclarativeBase
 from app.config import get_settings
 
 settings = get_settings()
+_db_logger = logging.getLogger(__name__)
+
+# PostgreSQL needs an explicit connection pool; SQLite uses its default (StaticPool).
+_is_postgres = settings.DATABASE_URL.startswith("postgresql")
+
+_engine_kwargs: dict = {
+    "echo": settings.DEBUG,
+    "future": True,
+}
+if _is_postgres:
+    _engine_kwargs.update(
+        pool_size=5,
+        max_overflow=10,
+        pool_timeout=30,
+    )
 
 # Create the async engine.  echo=True is intentionally gated behind DEBUG so
 # that SQL is logged only in development.
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    future=True,
-)
+engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
 
 AsyncSessionLocal = async_sessionmaker(
     engine,
@@ -79,7 +91,13 @@ async def init_db() -> None:
     populated before ``create_all`` runs.  Without this, any model whose
     module has not yet been imported would silently be omitted from the
     created schema.
+
+    Retries up to 3 times with exponential back-off so that a briefly
+    unavailable database (e.g. the container is still starting) does not
+    prevent the application from eventually connecting.
     """
+    import asyncio  # noqa: PLC0415
+
     # Ensure all ORM models are registered with Base.metadata.
     import app.models.user  # noqa: F401, PLC0415
     import app.models.chat  # noqa: F401, PLC0415
@@ -87,10 +105,24 @@ async def init_db() -> None:
     import app.models.profile  # noqa: F401, PLC0415
     import app.models.guardian_alert  # noqa: F401, PLC0415
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        # Defensively add any columns that may be missing in pre-existing databases.
-        await conn.run_sync(_ensure_emotion_log_columns)
+    _max_attempts = 3
+    for attempt in range(1, _max_attempts + 1):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+                # Defensively add any columns that may be missing in pre-existing databases.
+                await conn.run_sync(_ensure_emotion_log_columns)
+            return
+        except Exception as exc:
+            if attempt == _max_attempts:
+                raise
+            # Back-off: attempt 1→2 waits 2 s, attempt 2→3 waits 4 s.
+            _wait = 2 ** attempt
+            _db_logger.warning(
+                "DB init attempt %d/%d failed; retrying in %ds — %s",
+                attempt, _max_attempts, _wait, exc,
+            )
+            await asyncio.sleep(_wait)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
